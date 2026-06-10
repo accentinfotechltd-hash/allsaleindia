@@ -1,0 +1,48 @@
+{
+  "summary": "Allsale full-stack MVP tested end-to-end. Backend: 24/24 pytest cases pass (health, register/login/me, products, categories, search, cart CRUD+totals+free-shipping, checkout session creation against Stripe, order isolation, webhook bad-signature). Frontend (Expo web preview, mobile 390x844): Welcome → Register → Home (9 products + search filtering 'saree' → 1) → Product detail → Add to cart (becomes 'Added to cart') → Cart (qty +/- works, free-shipping unlocked banner appears when subtotal>=NZD 100, dual-currency NZD/INR) → Checkout form (all fields) → Stripe popup opens with real test session URL → Categories tab (3 categories, taps into category detail with filtered products) → Account (shows name) → My orders → Sign out returns to Welcome. Login with bad creds shows 'Invalid email or password'. No deprecated Expo packages, no red-screen errors, no React Native component issues detected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_health.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_products.py",
+    "/app/backend/tests/test_cart.py",
+    "/app/backend/tests/test_checkout_orders.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional: complete a full Stripe paid flow via webhook simulation in a future iteration to validate cart-clear + order.status='paid' transition (currently only verified via code path; live Stripe paid event not exercised because preview env can't complete card flow)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is a single 700-line module but cohesive for MVP — consider splitting into routers/{auth,products,cart,checkout,orders}.py once it grows further.",
+    "Uses FastAPI on_event('startup'/'shutdown') which is deprecated in favour of lifespan handlers. Functional but worth migrating before FastAPI 1.0.",
+    "JWT_SECRET falls back to secrets.token_urlsafe() if env missing — that would invalidate all tokens on restart. The .env does provide one so it is fine, but the fallback is risky in prod; recommend fail-fast.",
+    "compute_cart_totals applies shipping=0 when subtotal==0 OR subtotal>=100; clear and correct.",
+    "All routes use the /api prefix as required for ingress routing.",
+    "Mongo _id is excluded in every find() via projection — good.",
+    "Frontend uses EXPO_PUBLIC_BACKEND_URL exclusively, testIDs are comprehensive on all interactive elements, all text wrapped in <Text>."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (created)",
+    "/app/backend/tests/test_health.py (created)",
+    "/app/backend/tests/test_auth.py (created)",
+    "/app/backend/tests/test_products.py (created)",
+    "/app/backend/tests/test_cart.py (created)",
+    "/app/backend/tests/test_checkout_orders.py (created)"
+  ],
+  "success_rate": {"backend": "100% (24/24)", "frontend": "100% (all flows verified)"},
+  "seed_data_creation": "Backend auto-seeds 9 products on startup (verified). Created multiple TEST_ users during pytest + UI runs; non-destructive to seed data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Use EXPO_PUBLIC_BACKEND_URL from /app/frontend/.env (https://allsale-shop.preview.emergentagent.com). All backend routes require /api prefix. Auth: register users with unique TEST_<timestamp>@allsale.co.nz to avoid duplicate-email 400. Stripe test key sk_test_emergent returns real test checkout URLs; live payment cannot be completed in preview. The single console 401 on app load is the initial /api/auth/me call before token exists — expected and harmless.",
+  "rca_of_issue": "N/A — no bugs found."
+}
