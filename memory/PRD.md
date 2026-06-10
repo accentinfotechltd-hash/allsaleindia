@@ -34,13 +34,21 @@ with INR reference, shipping to NZ).
 - Orders list + Order detail (with tracking timeline)
 
 ## Not in this MVP (next iterations)
-- Google login (user requested — to add next)
 - Connect to existing allsale.co.nz account/API
 - Wishlist
 - Live currency conversion rate
 - Reviews/ratings input (display only for now)
 - Multi-image gallery / variants (size, colour)
 - Admin panel for product CRUD
+
+## Iteration 2 — Google OAuth (DONE)
+- `POST /api/auth/google-session` exchanges an Emergent `session_id` for our JWT
+- Users upserted by email; `provider` field distinguishes `google` vs `email`
+- `Continue with Google` button on Welcome, Login and Register screens
+- On web, redirects via `window.location.href`; on mobile, uses
+  `expo-web-browser.openAuthSessionAsync` and parses the deep-link result
+- App mount detects `session_id` in URL hash/query before falling back to
+  `/auth/me`, supporting the web post-redirect flow
 
 ## Smart business enhancement
 Free-shipping unlock progress bar on cart — encourages users to add more items
