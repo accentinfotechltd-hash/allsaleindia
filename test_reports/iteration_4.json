@@ -1,0 +1,42 @@
+{
+  "summary": "Retest of iteration 3 fixes. Backend: 44/44 pytest cases pass (was 43; added test_duplicate_gstin_returns_409 which now passes — server.py wraps db.sellers upsert in try/except DuplicateKeyError and returns 409 with detail 'This GSTIN is already registered with another seller'). All prior auth/products/cart/checkout/orders/seller/admin tests remain green. Frontend (Expo web, 390x844): all 3 critical flows from the request now pass end-to-end. (1) /seller/signup — every one of the 13 testIDs (email, password, company_name, gstin, pan, cin, address_line1, address_line2, city, state, pincode, contact_name, contact_phone) is present and fillable; form submits and lands on /seller/dashboard with the seller-verified-badge ('Business auto-verified — you can start selling.') visible. (2) Dashboard → seller-add-listing-btn navigates to /seller/new-listing; submitting a valid listing (image URL, name, description >=10 chars, category Home & Decor, price 49.99) returns to the dashboard with My listings (1) and a listing-row-{id} card, AND the same listing appears in the main /(tabs)/home product feed ('Trending in NZ' now shows 10+1=11 items including the new TEST UI Brass Lamp). (3) Buyer flow: created a buyer via /api/auth/register, logged in via /login, opened the Account tab, tapped account-become-seller-btn → /seller/welcome → seller-welcome-continue-btn → /seller/upgrade; filled all 11 fields with prefix seller-upgrade-* (every testID resolves) and submitted — landed on /seller/dashboard with the verified badge. Bonus: the 409 surface was exercised live (a first GSTIN collision rendered the new backend detail string verbatim under the upgrade form). No deprecated Expo packages detected (no expo-av, expo-barcode-scanner, expo-background-fetch). Minor console-only warnings unchanged from iter 3 (shadow* style props deprecation in some upstream RN components, props.pointerEvents in tab bar) — not introduced by this iteration and do not affect functionality.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seller.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_cart.py",
+    "/app/backend/tests/test_checkout_orders.py",
+    "/app/backend/tests/test_google_auth.py",
+    "/app/backend/tests/test_products.py",
+    "/app/backend/tests/test_health.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "No outstanding blockers from this iteration. Optional: address pre-existing non-blocking warnings — RN 'shadow*' style props (migrate to boxShadow) and props.pointerEvents (move to style.pointerEvents) — both are deprecation warnings from current RN/Expo and do not affect any flow.",
+    "Optional code-organisation item carried over from iter 3: server.py is ~1010 lines; the seller/admin block (~140 lines) is a clean candidate to extract to routers/seller.py + routers/admin.py."
+  ],
+  "critical_code_review_comments": [
+    "BusinessFields.tsx now correctly applies `testID={`${prefix}-${field}`}` to ALL 11 fields (company_name, gstin, pan, cin, address_line1, address_line2, city, state, pincode, contact_name, contact_phone). Same component is reused by signup (prefix='seller-signup') and upgrade (prefix='seller-upgrade'), so both forms are fully automatable.",
+    "server.py _verify_business_and_persist now does `try: db.sellers.update_one(... upsert=True) except DuplicateKeyError: raise HTTPException(409, 'This GSTIN is already registered with another seller')`. Confirmed by new pytest case and observed live in the upgrade UI where the message surfaces under the form via seller-upgrade-error.",
+    "No new code smells introduced; previous unique-index on sellers.gstin and PAN==GSTIN[2:12] cross-check unchanged.",
+    "Listing flow: /seller/products POST persists with seller_id+seller_name and is picked up by the unfiltered /api/products endpoint — confirmed visually on /(tabs)/home and via backend listing-appears-in-catalog test."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_seller.py (added TestSellerRegister.test_duplicate_gstin_returns_409 — passes)"
+  ],
+  "success_rate": {"backend": "100% (44/44 pytest)", "frontend": "100% (3/3 critical flows: signup→dashboard+badge, dashboard→new-listing→catalog, buyer→welcome→upgrade→dashboard+badge)"},
+  "seed_data_creation": "Created several TEST_* buyer and seller users with unique GSTINs (varied state prefix [01-37] + entity char + check char). One TEST UI Brass Lamp listing was published and intentionally left in the catalog to demonstrate the seller→home-feed integration; safe to remove via DELETE /api/seller/products/{id} by its seller token.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both iter-3 blockers are resolved. testID convention in BusinessFields is `${prefix}-${snake_field_name}` (e.g. seller-signup-company_name, seller-upgrade-contact_phone). New listing form testIDs use a different convention: new-listing-image / new-listing-name / new-listing-price / new-listing-description / new-listing-cat-{slug} / new-listing-submit-btn. Duplicate GSTIN at /api/seller/register and /api/seller/upgrade now returns 409 with detail 'This GSTIN is already registered with another seller'. Random-GSTIN helper: vary the first two state digits (01..37) AND the 13th entity char + 15th check char to keep collisions rare across runs.",
+  "rca_of_issue": "N/A — retest pass."
+}

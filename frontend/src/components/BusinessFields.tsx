@@ -54,7 +54,7 @@ export function BusinessFields({
   return (
     <View>
       <Section title="Business identity" />
-      <Field label="Company name" testID={`${prefix}-company`} value={form.company_name} onChangeText={set("company_name")} />
+      <Field label="Company name" testID={`${prefix}-company_name`} value={form.company_name} onChangeText={set("company_name")} />
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Field
@@ -90,8 +90,8 @@ export function BusinessFields({
       />
 
       <Section title="Registered address (India)" />
-      <Field label="Address line 1" testID={`${prefix}-line1`} value={form.address_line1} onChangeText={set("address_line1")} />
-      <Field label="Address line 2 (optional)" testID={`${prefix}-line2`} value={form.address_line2} onChangeText={set("address_line2")} />
+      <Field label="Address line 1" testID={`${prefix}-address_line1`} value={form.address_line1} onChangeText={set("address_line1")} />
+      <Field label="Address line 2 (optional)" testID={`${prefix}-address_line2`} value={form.address_line2} onChangeText={set("address_line2")} />
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Field label="City" testID={`${prefix}-city`} value={form.city} onChangeText={set("city")} />
@@ -110,10 +110,10 @@ export function BusinessFields({
       />
 
       <Section title="Authorized contact" />
-      <Field label="Contact name" testID={`${prefix}-contact-name`} value={form.contact_name} onChangeText={set("contact_name")} />
+      <Field label="Contact name" testID={`${prefix}-contact_name`} value={form.contact_name} onChangeText={set("contact_name")} />
       <Field
         label="Contact phone"
-        testID={`${prefix}-contact-phone`}
+        testID={`${prefix}-contact_phone`}
         value={form.contact_phone}
         onChangeText={set("contact_phone")}
         keyboardType="phone-pad"

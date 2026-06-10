@@ -24,6 +24,8 @@ from jose import JWTError, jwt
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, EmailStr, Field
 
+from pymongo.errors import DuplicateKeyError
+
 from emergentintegrations.payments.stripe.checkout import (
     CheckoutSessionRequest,
     CheckoutStatusResponse,
@@ -684,7 +686,10 @@ async def _verify_business_and_persist(user_id: str, business: SellerBusiness) -
         "verified_at": now_utc(),
         "created_at": now_utc(),
     }
-    await db.sellers.update_one({"user_id": user_id}, {"$set": profile}, upsert=True)
+    try:
+        await db.sellers.update_one({"user_id": user_id}, {"$set": profile}, upsert=True)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail="This GSTIN is already registered with another seller")
     await db.users.update_one(
         {"id": user_id},
         {"$set": {"is_seller": True, "seller_verification_status": verification_status, "company_name": cleaned["company_name"]}},

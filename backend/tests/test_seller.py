@@ -111,6 +111,23 @@ class TestSellerRegister:
         assert r.status_code == 400
         assert "PAN" in r.json()["detail"]
 
+    def test_duplicate_gstin_returns_409(self, api_client):
+        """Registering a 2nd seller with the same GSTIN returns 409, not 500."""
+        biz = _valid_business()
+        # First registration succeeds
+        r1 = api_client.post(
+            f"{BASE_URL}/api/seller/register",
+            json={"email": f"TEST_dup1_{_ts()}@allsale.co.nz", "password": "Test1234!", "business": biz},
+        )
+        assert r1.status_code == 200, r1.text
+        # Second registration with the same GSTIN should be a clean 409
+        r2 = api_client.post(
+            f"{BASE_URL}/api/seller/register",
+            json={"email": f"TEST_dup2_{_ts()}@allsale.co.nz", "password": "Test1234!", "business": biz},
+        )
+        assert r2.status_code == 409, r2.text
+        assert "GSTIN" in r2.json()["detail"]
+
     def test_missing_required_fields_422(self, api_client):
         r = api_client.post(
             f"{BASE_URL}/api/seller/register",
