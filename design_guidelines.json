@@ -1,0 +1,117 @@
+{
+  "project_name": "Allsale App",
+  "domain": "Cross-border E-commerce (India to New Zealand)",
+  "platform": "Expo React Native",
+  "theme": "Light",
+  "archetype": "Archetype 4 (Swiss & High-Contrast)",
+  "vibe": "Trust, Clarity, Discovery, Aspirational Shopping",
+  "typography": {
+    "headings": {
+      "family": "Cabinet Grotesk",
+      "fallback": "sans-serif",
+      "weight": "font-bold",
+      "tracking": "tracking-tight"
+    },
+    "body": {
+      "family": "Manrope",
+      "fallback": "sans-serif",
+      "weight": "font-normal",
+      "tracking": "tracking-normal"
+    },
+    "scale": {
+      "h1": "text-4xl",
+      "h2": "text-2xl",
+      "h3": "text-xl",
+      "body": "text-base",
+      "small": "text-sm",
+      "tiny": "text-xs uppercase tracking-[0.2em]"
+    }
+  },
+  "color_palette": {
+    "background": "#FFFFFF",
+    "surface": "#F9FAFB",
+    "surface_glass": "rgba(255, 255, 255, 0.85)",
+    "text_primary": "#0A0A0A",
+    "text_secondary": "#52525B",
+    "border": "#E5E7EB",
+    "primary": "#FF6200",
+    "primary_hover": "#E65800",
+    "success": "#10B981",
+    "error": "#EF4444",
+    "accent": "#0055FF"
+  },
+  "spacing_and_layout": {
+    "container_padding": "px-4 md:px-6",
+    "grid_gap": "gap-4",
+    "section_gap": "py-8",
+    "border_radius": {
+      "card": "rounded-2xl",
+      "button": "rounded-full",
+      "input": "rounded-xl"
+    },
+    "shadows": {
+      "card": "shadow-sm",
+      "floating_nav": "shadow-[0_-4px_24px_rgba(0,0,0,0.06)]"
+    }
+  },
+  "components": {
+    "product_card": {
+      "layout": "Vertical stack, image 1:1 aspect ratio with rounded corners, title 2 lines max.",
+      "styling": "border border-gray-100 rounded-2xl bg-white overflow-hidden",
+      "image_container": "bg-gray-50",
+      "price_display": "Primary: NZD (Large, Bold, Black). Secondary: INR (Small, Gray, Strikethrough or alongside in brackets). Example: $45.00 NZD (₹2,250)"
+    },
+    "bottom_tab_navigator": {
+      "styling": "bg-white border-t border-gray-100 h-16 pb-safe",
+      "active_tint": "#FF6200",
+      "inactive_tint": "#9CA3AF"
+    },
+    "primary_button": {
+      "styling": "w-full bg-[#FF6200] text-white py-4 rounded-full font-bold text-lg",
+      "alignment": "center"
+    },
+    "dual_currency_tag": {
+      "styling": "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-gray-100 text-xs font-medium text-gray-800"
+    }
+  },
+  "motion_and_interactions": {
+    "button_press": "Scale down slightly (0.98) on press using standard React Native Pressable/TouchableOpacity",
+    "image_load": "Fade in transition or skeleton loader before image is ready"
+  },
+  "accessibility": {
+    "contrast_ratio": "Minimum 4.5:1 for standard text, verified against APCA standards",
+    "touch_targets": "Minimum 44x44px for all interactive elements to ensure mobile accessibility",
+    "testing_attributes": "All interactives must have data-testid attributes (e.g., data-testid=\"add-to-cart-btn\")"
+  },
+  "media": {
+    "image_urls": {
+      "ethnic_wear": [
+        "https://images.unsplash.com/photo-1717585679395-bbe39b5fb6bc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBldGhuaWMlMjB3ZWFyJTIwZmFzaGlvbnxlbnwwfHx8fDE3ODExMzIyNjl8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1503160865267-af4660ce7bf2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBldGhuaWMlMjB3ZWFyJTIwZmFzaGlvbnxlbnwwfHx8fDE3ODExMzIyNjl8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.pexels.com/photos/14928074/pexels-photo-14928074.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+      ],
+      "brass_handicrafts": [
+        "https://images.unsplash.com/photo-1650383044645-5d32141ad1a3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBoYW5kaWNyYWZ0cyUyMGJyYXNzfGVufDB8fHx8MTc4MTEzMjI2OXww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1652960018678-1f19799996c5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBoYW5kaWNyYWZ0cyUyMGJyYXNzfGVufDB8fHx8MTc4MTEzMjI2OXww&ixlib=rb-4.1.0&q=85",
+        "https://images.pexels.com/photos/15755947/pexels-photo-15755947.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+      ],
+      "spices_tea": [
+        "https://images.unsplash.com/photo-1623193893878-656ec0391ea1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1589536677029-c0aa1808fba6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1683533698664-12ee473e8c9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85"
+      ]
+    }
+  },
+  "instructions_to_main_agent": [
+    "Build the UI primarily for mobile screens using React Native (Expo) View, Text, ScrollView, FlatList, and SafeAreaView.",
+    "Implement bottom tab navigation consisting of: Home, Categories, Cart, Account.",
+    "Do NOT use HTML tags (div, span, p) since this is React Native.",
+    "Use Lucide-React-Native for icons.",
+    "For dual currency, display NZD as the main large price, and INR below it in smaller, gray text, eg: '$45.00 NZD (₹2,250)'.",
+    "Use NativeWind classes for styling.",
+    "All components must be .js files, NOT .tsx files as per user constraints.",
+    "Include 'data-testid' on all interactive elements (buttons, inputs, tabs) for testing.",
+    "Use the provided media URLs for mocked product data.",
+    "Ensure touch targets for buttons are at least 44px high (h-11 or p-4)."
+  ]
+}
