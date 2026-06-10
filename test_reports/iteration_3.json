@@ -1,0 +1,52 @@
+{
+  "summary": "Iteration 3 (seller accounts) tested. Backend: 43/43 pytest cases pass (30 regression from iter 1+2 + 13 new for seller flows). Verified POST /api/seller/register auto-verifies on valid Indian docs, returns AuthResponse with user.is_seller=true and seller_verified=true; /seller/me returns the persisted profile with verification_status=auto_verified. Invalid GSTIN→400, invalid PAN→400, PAN-GSTIN mismatch→400, missing required business fields→422. POST /api/seller/upgrade converts a buyer to a verified seller (subsequent /auth/me shows is_seller=true); 401 without token; 400 on double-upgrade. GET /api/seller/me returns 404 for non-sellers. POST /api/seller/products creates a listing that appears in main GET /api/products with seller_id+seller_name; 403 for non-verified sellers; GET /api/seller/products is isolated per seller; DELETE only deletes own listing (other seller’s id → 404). POST /api/admin/sellers/{id}/approve: 403 without/with-wrong X-Admin-Secret, 200 with correct secret, 404 for unknown user. All iter1/iter2 buyer flows (auth, products, cart, checkout, orders) still green. Frontend (Expo web, 390x844) partial pass: welcome screen shows welcome-sell-banner; tapping it opens /seller/welcome which renders the heading 'List your products to NZ shoppers.' and the CTA seller-welcome-continue-btn labelled 'Create seller account' (logged-out state). Tapping the CTA navigates to /seller/signup; the email/password fields and submit button are present. BLOCKER: 5 fields in the seller signup form render visually with labels but are MISSING testID attributes — seller-signup-company_name, seller-signup-address_line1, seller-signup-address_line2, seller-signup-contact_name, seller-signup-contact_phone (the seller-signup-gstin/pan/cin/city/state/pincode testIDs ARE present). Because of this, the automated form submission left those fields blank and backend returned a 422 with Pydantic 'string_too_short' for company_name/address_line1/contact_name/contact_phone, so /seller/dashboard, the verified badge, the 'Add listing' button and the main-catalog appearance of a new listing could NOT be exercised end-to-end via Playwright. The fix is in /app/frontend/src/components/BusinessFields.tsx — the prefix-based testID is only being applied to a subset of inputs; it needs to be applied to all 10 fields. No red-screen, no deprecated Expo packages introduced (expo-av/expo-barcode-scanner/expo-background-fetch all absent). Also note: backend returns 500 (Internal Server Error) when a seller is registered with a GSTIN that collides with an existing sellers.gstin unique index — this should be a 409 (or 400) for a clean API contract.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/seller/register", "issue": "Duplicate GSTIN raises pymongo DuplicateKeyError → 500. Should be caught and returned as 409/400 'GSTIN already registered'."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BusinessFields", "issue": "5 inputs are missing testID props: seller-signup-company_name, seller-signup-address_line1, seller-signup-address_line2, seller-signup-contact_name, seller-signup-contact_phone (same names with seller-upgrade-* prefix likely also missing — same component, same prefix logic). Inputs render visually with correct labels but cannot be automated. Reference: /app/frontend/src/components/BusinessFields.tsx", "testID": "seller-signup-company_name (and 4 others)", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Sell on Allsale → Signup → Dashboard → Add listing → appears on main catalog", "issue": "Blocked at signup form submit because 5 inputs lack testIDs (see ui_bugs). Manual entry would work; programmatic E2E does not.", "affected_testIDs": ["seller-signup-company_name", "seller-signup-address_line1", "seller-signup-contact_name", "seller-signup-contact_phone", "seller-verified-badge", "seller-add-listing-btn"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seller.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_cart.py",
+    "/app/backend/tests/test_checkout_orders.py",
+    "/app/backend/tests/test_google_auth.py",
+    "/app/backend/tests/test_products.py",
+    "/app/backend/tests/test_health.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add testID props to ALL inputs in /app/frontend/src/components/BusinessFields.tsx using the `${prefix}-${field_name}` convention so the form is fully automatable. The 5 currently missing are company_name, address_line1, address_line2, contact_name, contact_phone. The same fix unblocks the /seller/upgrade form too (same component).",
+    "Catch pymongo.errors.DuplicateKeyError in /api/seller/register (and /api/seller/upgrade) and return HTTP 409 with detail 'GSTIN already registered' instead of bubbling a 500.",
+    "After the testID fix, re-run the Playwright flow to confirm: seller-verified-badge renders on /seller/dashboard, seller-add-listing-btn navigates to /seller/new-listing, and a freshly published listing appears in both 'My listings' and the main /(tabs)/home product feed."
+  ],
+  "critical_code_review_comments": [
+    "validate_indian_business uppercases gstin/pan/cin and enforces formats + PAN==GSTIN[2:12] cross-check — matches the spec. Pincode is also enforced to 6 digits.",
+    "_verify_business_and_persist uses update_one+upsert on db.sellers, but the collection has a unique index on gstin → a second seller with the same GSTIN will hit DuplicateKeyError and surface as 500. Worth wrapping in try/except and converting to 409.",
+    "require_verified_seller correctly gates POST /seller/products on seller_verification_status=='auto_verified', and DELETE /seller/products/{id} scopes by seller_id so cross-seller deletion returns 404 — verified by tests.",
+    "Main /api/products router has no filter by seller and naturally lists seller-created products alongside seeded ones; Product model has seller_id/seller_name optional fields populated only for seller-owned listings — clean.",
+    "Admin endpoint uses simple shared secret via X-Admin-Secret header — fine for MVP but should move to a signed admin JWT before production.",
+    "server.py is now ~1010 lines — past the 700-line guideline; the seller block (lines 676-810) is a clean candidate to extract into routers/seller.py + routers/admin.py.",
+    "Frontend BusinessFields.tsx (the source of the missing testIDs) was not viewed in this run but the screenshot proves the inputs render — only the testID prop is missing on 5 of them."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_seller.py (created — 13 new seller/admin tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (43/43)", "frontend": "60% (welcome banner + /seller/welcome + CTA + /seller/signup render confirmed; signup submit and downstream dashboard/new-listing flow blocked by missing testIDs)"},
+  "seed_data_creation": "Created multiple TEST_* buyer and seller users plus a few transient listings (all deleted within the tests). Sellers persist in db.sellers with unique GSTINs derived from random suffixes — harmless.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: EXPO_PUBLIC_BACKEND_URL=https://allsale-shop.preview.emergentagent.com. To exercise the seller flow E2E, the BusinessFields component needs testID props on company_name/address_line1/address_line2/contact_name/contact_phone (prefix is passed via the `prefix` prop — 'seller-signup' or 'seller-upgrade'). Helper for unique GSTIN: keep PAN='ABCDE1234F' and vary the entity char (pos 12, [1-9A-Z]) and checksum char (pos 14, [0-9A-Z]) to satisfy the regex without colliding with existing sellers. Admin secret header is 'X-Admin-Secret: allsale-admin-dev-secret'.",
+  "rca_of_issue": "Frontend E2E blocker RCA: BusinessFields.tsx renders 11 inputs but only attaches `testID={`${prefix}-gstin`}` (and similarly for pan/cin/city/state/pincode) — the 5 plain-text inputs (company_name, address_line1, address_line2, contact_name, contact_phone) are missing the testID attribute, so Playwright can’t locate them. Backend 500 RCA: db.sellers has `gstin` unique index (server.py startup); the seller endpoints don’t handle pymongo.errors.DuplicateKeyError → FastAPI returns generic 500. Mitigation: add testIDs in BusinessFields.tsx and a try/except around update_one in _verify_business_and_persist returning 409."
+}

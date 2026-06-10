@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { SellOnAllsaleBanner } from "@/src/components/SellOnAllsaleBanner";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 const HERO_IMG =
@@ -73,6 +74,8 @@ export default function Welcome() {
             Already shopping with us? <Text style={styles.secondaryLink}>Sign in</Text>
           </Text>
         </Pressable>
+
+        <SellOnAllsaleBanner testID="welcome-sell-banner" />
       </View>
     </SafeAreaView>
   );

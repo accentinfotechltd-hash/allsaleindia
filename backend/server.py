@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -41,6 +42,12 @@ JWT_SECRET = os.environ.get("JWT_SECRET") or secrets.token_urlsafe(48)
 JWT_ALG = "HS256"
 JWT_EXPIRE_DAYS = 30
 STRIPE_API_KEY = os.environ.get("STRIPE_API_KEY", "sk_test_emergent")
+ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "allsale-admin-dev-secret")
+
+# Indian business document formats (uppercase, no spaces).
+GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
+PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
+CIN_RE = re.compile(r"^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$")
 
 # 1 NZD ≈ 51 INR (display only). Hardcoded for MVP.
 INR_PER_NZD = 51.0
@@ -79,6 +86,8 @@ class UserPublic(BaseModel):
     full_name: str
     picture: Optional[str] = None
     provider: str = "email"
+    is_seller: bool = False
+    seller_verified: bool = False
 
 
 class AuthResponse(BaseModel):
@@ -89,6 +98,58 @@ class AuthResponse(BaseModel):
 
 class GoogleSessionRequest(BaseModel):
     session_id: str
+
+
+class SellerBusiness(BaseModel):
+    company_name: str = Field(..., min_length=2)
+    gstin: str = Field(..., min_length=15, max_length=15)
+    pan: str = Field(..., min_length=10, max_length=10)
+    cin: Optional[str] = Field(default=None)
+    address_line1: str = Field(..., min_length=2)
+    address_line2: Optional[str] = ""
+    city: str = Field(..., min_length=2)
+    state: str = Field(..., min_length=2)
+    pincode: str = Field(..., min_length=6, max_length=6)
+    contact_name: str = Field(..., min_length=2)
+    contact_phone: str = Field(..., min_length=6)
+
+
+class SellerRegister(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    business: SellerBusiness
+
+
+class SellerUpgrade(BaseModel):
+    business: SellerBusiness
+
+
+class SellerProfile(BaseModel):
+    user_id: str
+    company_name: str
+    gstin: str
+    pan: str
+    cin: Optional[str] = None
+    address_line1: str
+    address_line2: Optional[str] = ""
+    city: str
+    state: str
+    pincode: str
+    contact_name: str
+    contact_phone: str
+    verification_status: str  # auto_verified | pending_review | rejected
+    verified_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class ListingCreate(BaseModel):
+    name: str = Field(..., min_length=2)
+    description: str = Field(..., min_length=10)
+    category: str = Field(..., min_length=2)
+    price_nzd: float = Field(..., gt=0)
+    image: str = Field(..., min_length=8)
+    shipping_days_min: int = 7
+    shipping_days_max: int = 14
 
 
 class Product(BaseModel):
@@ -106,6 +167,8 @@ class Product(BaseModel):
     shipping_days_min: int = 7
     shipping_days_max: int = 14
     origin: str = "India"
+    seller_id: Optional[str] = None
+    seller_name: Optional[str] = None
 
 
 class CartItem(BaseModel):
@@ -200,6 +263,50 @@ def estimate_delivery_window(days_min: int = 7, days_max: int = 14) -> str:
     start = now_utc() + timedelta(days=days_min)
     end = now_utc() + timedelta(days=days_max)
     return f"{start.strftime('%d %b')} – {end.strftime('%d %b %Y')}"
+
+
+def public_user(doc: dict) -> "UserPublic":
+    return UserPublic(
+        id=doc["id"],
+        email=doc["email"],
+        full_name=doc["full_name"],
+        picture=doc.get("picture"),
+        provider=doc.get("provider", "email"),
+        is_seller=bool(doc.get("is_seller")),
+        seller_verified=doc.get("seller_verification_status") == "auto_verified",
+    )
+
+
+def validate_indian_business(b: SellerBusiness) -> dict:
+    """Return cleaned/uppercased dict; raise HTTPException on invalid formats."""
+    gstin = b.gstin.strip().upper()
+    pan = b.pan.strip().upper()
+    cin = b.cin.strip().upper() if b.cin else None
+    pincode = b.pincode.strip()
+    if not GSTIN_RE.match(gstin):
+        raise HTTPException(status_code=400, detail="Invalid GSTIN format (15 chars)")
+    if not PAN_RE.match(pan):
+        raise HTTPException(status_code=400, detail="Invalid PAN format (10 chars)")
+    if cin and not CIN_RE.match(cin):
+        raise HTTPException(status_code=400, detail="Invalid CIN format (21 chars)")
+    if not pincode.isdigit() or len(pincode) != 6:
+        raise HTTPException(status_code=400, detail="Pincode must be 6 digits")
+    # Light cross-check: GSTIN positions 3..7 are the company PAN.
+    if pan != gstin[2:12]:
+        raise HTTPException(status_code=400, detail="PAN must match the PAN inside the GSTIN")
+    return {
+        "company_name": b.company_name.strip(),
+        "gstin": gstin,
+        "pan": pan,
+        "cin": cin,
+        "address_line1": b.address_line1.strip(),
+        "address_line2": (b.address_line2 or "").strip(),
+        "city": b.city.strip(),
+        "state": b.state.strip(),
+        "pincode": pincode,
+        "contact_name": b.contact_name.strip(),
+        "contact_phone": b.contact_phone.strip(),
+    }
 
 
 async def get_current_user(authorization: Annotated[Optional[str], Header()] = None) -> dict:
@@ -373,10 +480,7 @@ async def register(body: UserCreate):
     }
     await db.users.insert_one(user_doc)
     token = create_token(uid)
-    return AuthResponse(
-        user=UserPublic(id=uid, email=email, full_name=user_doc["full_name"], provider="email"),
-        access_token=token,
-    )
+    return AuthResponse(user=public_user(user_doc), access_token=token)
 
 
 @api.post("/auth/login", response_model=AuthResponse)
@@ -386,16 +490,7 @@ async def login(body: UserLogin):
     if not user or not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = create_token(user["id"])
-    return AuthResponse(
-        user=UserPublic(
-            id=user["id"],
-            email=user["email"],
-            full_name=user["full_name"],
-            picture=user.get("picture"),
-            provider=user.get("provider", "email"),
-        ),
-        access_token=token,
-    )
+    return AuthResponse(user=public_user(user), access_token=token)
 
 
 @api.post("/auth/google-session", response_model=AuthResponse)
@@ -451,27 +546,12 @@ async def google_session(body: GoogleSessionRequest):
         )
     token = create_token(uid)
     user = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
-    return AuthResponse(
-        user=UserPublic(
-            id=user["id"],
-            email=user["email"],
-            full_name=user["full_name"],
-            picture=user.get("picture"),
-            provider=user.get("provider", "email"),
-        ),
-        access_token=token,
-    )
+    return AuthResponse(user=public_user(user), access_token=token)
 
 
 @api.get("/auth/me", response_model=UserPublic)
 async def me(current=Depends(get_current_user)):
-    return UserPublic(
-        id=current["id"],
-        email=current["email"],
-        full_name=current["full_name"],
-        picture=current.get("picture"),
-        provider=current.get("provider", "email"),
-    )
+    return public_user(current)
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +668,147 @@ async def remove_cart_item(product_id: str, current=Depends(get_current_user)):
         {"$pull": {"items": {"product_id": product_id}}},
     )
     return await hydrate_cart(current["id"])
+
+
+# ---------------------------------------------------------------------------
+# Seller (business onboarding + listings)
+# ---------------------------------------------------------------------------
+async def _verify_business_and_persist(user_id: str, business: SellerBusiness) -> dict:
+    cleaned = validate_indian_business(business)
+    # Auto-verify on valid Indian formats; otherwise pending_review (admin can flip).
+    verification_status = "auto_verified"
+    profile = {
+        "user_id": user_id,
+        **cleaned,
+        "verification_status": verification_status,
+        "verified_at": now_utc(),
+        "created_at": now_utc(),
+    }
+    await db.sellers.update_one({"user_id": user_id}, {"$set": profile}, upsert=True)
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_seller": True, "seller_verification_status": verification_status, "company_name": cleaned["company_name"]}},
+    )
+    return profile
+
+
+@api.post("/seller/register", response_model=AuthResponse)
+async def seller_register(body: SellerRegister):
+    """Full seller signup: creates account + business profile + auto-verifies."""
+    email = body.email.lower()
+    existing = await db.users.find_one({"email": email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    uid = f"user_{uuid.uuid4().hex[:12]}"
+    user_doc = {
+        "id": uid,
+        "email": email,
+        "full_name": body.business.contact_name.strip(),
+        "password_hash": hash_password(body.password),
+        "provider": "email",
+        "picture": None,
+        "is_seller": True,
+        "created_at": now_utc(),
+    }
+    await db.users.insert_one(user_doc)
+    await _verify_business_and_persist(uid, body.business)
+    fresh = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    token = create_token(uid)
+    return AuthResponse(user=public_user(fresh), access_token=token)
+
+
+@api.post("/seller/upgrade", response_model=UserPublic)
+async def seller_upgrade(body: SellerUpgrade, current=Depends(get_current_user)):
+    """Upgrade an existing user account to a seller account."""
+    if current.get("is_seller"):
+        raise HTTPException(status_code=400, detail="Already a seller")
+    await _verify_business_and_persist(current["id"], body.business)
+    fresh = await db.users.find_one({"id": current["id"]}, {"_id": 0, "password_hash": 0})
+    return public_user(fresh)
+
+
+@api.get("/seller/me", response_model=SellerProfile)
+async def seller_me(current=Depends(get_current_user)):
+    if not current.get("is_seller"):
+        raise HTTPException(status_code=404, detail="Not a seller")
+    profile = await db.sellers.find_one({"user_id": current["id"]}, {"_id": 0})
+    if not profile:
+        raise HTTPException(status_code=404, detail="Seller profile not found")
+    return SellerProfile(**profile)
+
+
+async def require_verified_seller(current=Depends(get_current_user)) -> dict:
+    if not current.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    if current.get("seller_verification_status") != "auto_verified":
+        raise HTTPException(status_code=403, detail="Seller verification pending")
+    return current
+
+
+@api.post("/seller/products", response_model=Product)
+async def create_listing(body: ListingCreate, seller=Depends(require_verified_seller)):
+    pid = str(uuid.uuid4())
+    profile = await db.sellers.find_one({"user_id": seller["id"]}, {"_id": 0})
+    company = (profile or {}).get("company_name", seller.get("full_name"))
+    doc = {
+        "id": pid,
+        "name": body.name.strip(),
+        "description": body.description.strip(),
+        "category": body.category.strip(),
+        "price_nzd": float(body.price_nzd),
+        "price_inr": round(body.price_nzd * INR_PER_NZD, 0),
+        "image": body.image.strip(),
+        "images": [body.image.strip()],
+        "rating": 0.0,
+        "reviews_count": 0,
+        "in_stock": True,
+        "shipping_days_min": int(body.shipping_days_min),
+        "shipping_days_max": int(body.shipping_days_max),
+        "origin": "India",
+        "seller_id": seller["id"],
+        "seller_name": company,
+        "created_at": now_utc(),
+    }
+    await db.products.insert_one(doc)
+    return Product(**{k: v for k, v in doc.items() if k != "created_at"})
+
+
+@api.get("/seller/products", response_model=List[Product])
+async def list_my_listings(current=Depends(get_current_user)):
+    if not current.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    cursor = db.products.find({"seller_id": current["id"]}, {"_id": 0}).sort("created_at", -1)
+    return [Product(**{k: v for k, v in p.items() if k != "created_at"}) async for p in cursor]
+
+
+@api.delete("/seller/products/{product_id}")
+async def delete_listing(product_id: str, seller=Depends(require_verified_seller)):
+    res = await db.products.delete_one({"id": product_id, "seller_id": seller["id"]})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Listing not found")
+    return {"deleted": True}
+
+
+@api.post("/admin/sellers/{user_id}/approve")
+async def admin_approve_seller(
+    user_id: str,
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    if x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    res1 = await db.users.update_one(
+        {"id": user_id, "is_seller": True},
+        {"$set": {"seller_verification_status": "auto_verified"}},
+    )
+    if res1.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    await db.sellers.update_one(
+        {"user_id": user_id},
+        {"$set": {"verification_status": "auto_verified", "verified_at": now_utc()}},
+    )
+    return {"approved": True}
+
+
 
 
 # ---------------------------------------------------------------------------
@@ -780,6 +1001,9 @@ async def on_startup():
     await db.orders.create_index("id", unique=True)
     await db.orders.create_index("user_id")
     await db.payment_transactions.create_index("session_id", unique=True)
+    await db.sellers.create_index("user_id", unique=True)
+    await db.sellers.create_index("gstin", unique=True)
+    await db.products.create_index("seller_id")
     await seed_products()
 
 

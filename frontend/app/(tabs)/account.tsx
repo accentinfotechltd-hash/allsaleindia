@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronRight, Globe2, LogOut, MapPin, Package, Settings, ShieldCheck } from "lucide-react-native";
+import { ChevronRight, Globe2, LogOut, MapPin, Package, Settings, ShieldCheck, Store } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -45,6 +45,23 @@ export default function Account() {
             onPress={() => router.push("/orders")}
             testID="account-orders-btn"
           />
+          {user?.is_seller ? (
+            <Row
+              icon={<Store size={18} color={colors.primary} />}
+              label="Seller dashboard"
+              subtitle={user.seller_verified ? "Verified · manage listings" : "Verification pending"}
+              onPress={() => router.push("/seller/dashboard")}
+              testID="account-seller-dashboard-btn"
+            />
+          ) : (
+            <Row
+              icon={<Store size={18} color={colors.primary} />}
+              label="Become a seller"
+              subtitle="List your India-registered business on Allsale"
+              onPress={() => router.push("/seller/welcome")}
+              testID="account-become-seller-btn"
+            />
+          )}
           <Row
             icon={<MapPin size={18} color={colors.text} />}
             label="Shipping addresses"
