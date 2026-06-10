@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 2 (Emergent Google OAuth) tested both backend and frontend. Backend: 30/30 pytest cases pass (24 from iter1 regression + 6 new for Google auth). New endpoint POST /api/auth/google-session returns 401 'Invalid or expired Google session' on bogus session_id, 422 on missing field, 401 on empty string (provider responds with 404 which our handler maps to 401 — verified via backend logs). /api/auth/register, /api/auth/login and /api/auth/me now return provider='email' and picture=null for email users (verified). All iter1 endpoints (products, cart, checkout/session, orders, webhook) still pass. Frontend (Expo web, 390x844): Welcome screen renders 'Get started with email' primary CTA, an 'or' divider, and 'Continue with Google' button (testID welcome-google-btn) with Google glyph. Clicking welcome-google-btn navigates to https://auth.emergentagent.com/?redirect=https%3A%2F%2Fallsale-shop.preview.emergentagent.com%2F (captured via Playwright expect_navigation). Login screen has login-google-btn labelled 'Continue with Google'. Register screen has register-google-btn labelled 'Sign up with Google'. Regression flows green: bad creds show 'Invalid email or password'; register lands on /home; account tab shows email; account-logout-btn returns to /welcome; subsequent login with same creds lands on /home. No red-screen, no deprecated Expo packages (still no expo-av/expo-barcode-scanner/expo-background-fetch). Only minor non-blocking console warnings unrelated to this iteration: 'shadow*' style props deprecated and 'props.pointerEvents is deprecated' — these come from react-native-web internals and lucide-react-native; not caused by the new Google auth code.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_google_auth.py",
+    "/app/backend/tests/test_auth.py",
+    "/app/backend/tests/test_cart.py",
+    "/app/backend/tests/test_checkout_orders.py",
+    "/app/backend/tests/test_products.py",
+    "/app/backend/tests/test_health.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "None blocking. Optional polish: silence the react-native-web 'shadow*' / 'pointerEvents' deprecation console warnings by migrating affected StyleSheet entries to boxShadow / style.pointerEvents — these are framework-level warnings, not iteration-2 regressions."
+  ],
+  "critical_code_review_comments": [
+    "POST /api/auth/google-session correctly upserts user by email, sets provider='google', stores picture, password_hash=null. Existing email-password users with that email get picture/last_login_at updated — full_name is preserved via 'existing.get(full_name) or name' which is correct.",
+    "Non-200 from Emergent session-data endpoint is mapped to 401 'Invalid or expired Google session' — matches the spec. Network/timeout errors return 502.",
+    "AuthContext correctly handles both web (window.location.href redirect to auth.emergentagent.com) and mobile (expo-web-browser openAuthSessionAsync) paths. processedSessionRef prevents double-exchange of the same session_id on re-renders.",
+    "On web bootstrap, AuthProvider scans window.location.hash then search for session_id before falling back to /auth/me, then strips it via history.replaceState — clean.",
+    "GoogleSignInButton uses Pressable + react-native-svg glyph wrapped in <Text> — RN-safe, testID propagated, 52px height (>44 touch target).",
+    "Server.py is now ~790 lines — still cohesive but past the 700-line guideline; splitting into routers/{auth,products,cart,checkout,orders}.py would be cleaner."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_google_auth.py (created — 6 new tests)"
+  ],
+  "success_rate": {"backend": "100% (30/30)", "frontend": "100% (all flows verified)"},
+  "seed_data_creation": "Created 2 transient TEST_iter2 users via register endpoint and 1 register-via-UI user; harmless. Product seed unchanged.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend URL: EXPO_PUBLIC_BACKEND_URL=https://allsale-shop.preview.emergentagent.com. Test creds pattern: register a unique TEST_<timestamp>@allsale.co.nz with password Test1234!. Google OAuth cannot be completed in Playwright (no Google account); verify only the click navigates to auth.emergentagent.com — already covered by test_google_auth.py and the UI step using page.expect_navigation. The signout testID on the account tab is 'account-logout-btn' (not 'signout-btn').",
+  "rca_of_issue": "N/A — no bugs found."
+}

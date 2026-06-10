@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Login() {
@@ -104,6 +105,18 @@ export default function Login() {
             <Text style={styles.ctaText}>{busy ? "Signing in…" : "Sign in"}</Text>
           </Pressable>
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <GoogleSignInButton
+            testID="login-google-btn"
+            label="Continue with Google"
+            redirectTo="/(tabs)/home"
+          />
+
           <View style={styles.footer}>
             <Text style={styles.footerText}>New to Allsale? </Text>
             <Link href="/(auth)/register" asChild>
@@ -163,6 +176,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   ctaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: spacing.xl },
   footerText: { color: colors.textMuted, fontSize: 14 },
   footerLink: { color: colors.primary, fontSize: 14, fontWeight: "700" },

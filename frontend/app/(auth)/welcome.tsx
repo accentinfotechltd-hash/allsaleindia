@@ -4,6 +4,7 @@ import { ArrowRight, Globe2, ShieldCheck, Truck } from "lucide-react-native";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 const HERO_IMG =
@@ -47,9 +48,21 @@ export default function Welcome() {
           onPress={() => router.push("/(auth)/register")}
           style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }]}
         >
-          <Text style={styles.ctaText}>Get started</Text>
+          <Text style={styles.ctaText}>Get started with email</Text>
           <ArrowRight size={20} color="#fff" />
         </Pressable>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <GoogleSignInButton
+          testID="welcome-google-btn"
+          label="Continue with Google"
+          redirectTo="/(tabs)/home"
+        />
 
         <Pressable
           testID="welcome-signin-btn"
@@ -116,6 +129,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   ctaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: spacing.md,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   secondaryCta: { alignItems: "center", paddingVertical: spacing.lg, marginBottom: spacing.sm },
   secondaryText: { color: colors.textMuted, fontSize: 14 },
   secondaryLink: { color: colors.primary, fontWeight: "700" },

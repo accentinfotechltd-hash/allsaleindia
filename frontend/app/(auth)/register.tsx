@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Register() {
@@ -121,6 +122,18 @@ export default function Register() {
             <Text style={styles.ctaText}>{busy ? "Creating account…" : "Create account"}</Text>
           </Pressable>
 
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <GoogleSignInButton
+            testID="register-google-btn"
+            label="Sign up with Google"
+            redirectTo="/(tabs)/home"
+          />
+
           <Text style={styles.terms}>
             By continuing, you agree to Allsale&apos;s Terms of Service and Privacy Policy.
           </Text>
@@ -184,6 +197,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   ctaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: spacing.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   terms: { color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: spacing.lg, lineHeight: 18 },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: spacing.xl },
   footerText: { color: colors.textMuted, fontSize: 14 },
