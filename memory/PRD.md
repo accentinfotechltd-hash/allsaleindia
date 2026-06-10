@@ -50,6 +50,29 @@ with INR reference, shipping to NZ).
 - App mount detects `session_id` in URL hash/query before falling back to
   `/auth/me`, supporting the web post-redirect flow
 
+## Iteration 3 — Seller accounts (DONE)
+- Two seller-onboarding entry points:
+  - `Sell on Allsale` banner on Welcome → full seller signup with business form
+  - `Become a seller` row in Account tab → upgrade an existing buyer to seller
+- Indian-business verification at submission time:
+  - GSTIN 15-char format + state-prefix regex
+  - PAN 10-char format; cross-checked against GSTIN positions 3–12
+  - CIN 21-char format (optional)
+  - 6-digit Indian pincode
+  - Auto-verified on format match; admin endpoint
+    `POST /api/admin/sellers/{user_id}/approve` (X-Admin-Secret header) for
+    manual approval
+- Sellers CRUD listings: `POST/GET/DELETE /api/seller/products` (verified
+  sellers only). Listings appear in main `/api/products` catalog with
+  `seller_id` + `seller_name` so buyers see who they're buying from.
+- Duplicate GSTIN returns 409 (not 500) — `pymongo.DuplicateKeyError` wrapped
+  cleanly.
+
+### Test data shortcuts
+- Valid sample docs: GSTIN `27ABCDE1234F1Z5`, PAN `ABCDE1234F`,
+  CIN `U74999MH2020PTC123456`, pincode `400001`.
+- Admin secret: `ADMIN_SECRET=allsale-admin-dev-secret` (in backend `.env`).
+
 ## Smart business enhancement
 Free-shipping unlock progress bar on cart — encourages users to add more items
 to reach NZD 100 threshold, increasing average order value.
