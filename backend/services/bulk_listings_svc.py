@@ -84,6 +84,39 @@ def _split_multi(value: Any, sep: str = "|") -> list[str]:
     return [t.strip() for t in s.split(sep) if t and t.strip()]
 
 
+def substitute_images_with_zip_map(
+    raw_image_value: Any,
+    zip_map: dict[str, str] | None,
+) -> str:
+    """Replace ZIP-relative filenames in an image_urls cell with hosted URLs.
+
+    Tokens that already look like a URL or data URI are kept as-is. The
+    map is consulted by full path AND by basename — matching the dual
+    keying done by the /images-zip endpoint.
+    """
+    if not zip_map:
+        return str(raw_image_value or "")
+    tokens = _split_multi(raw_image_value)
+    out: list[str] = []
+    for t in tokens:
+        if t.startswith("http://") or t.startswith("https://") or t.startswith("data:"):
+            out.append(t)
+            continue
+        # Try exact path, basename, and case-insensitive basename match.
+        url = zip_map.get(t)
+        if not url:
+            base = t.rsplit("/", 1)[-1]
+            url = zip_map.get(base)
+        if not url:
+            lower = t.lower()
+            for k, v in zip_map.items():
+                if k.lower() == lower or k.rsplit("/", 1)[-1].lower() == lower:
+                    url = v
+                    break
+        out.append(url or t)  # leave unresolved tokens — validator will flag
+    return " | ".join(out)
+
+
 def _coerce_float(value: Any) -> float | None:
     if value is None or value == "":
         return None

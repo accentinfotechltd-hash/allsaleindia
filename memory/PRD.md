@@ -342,3 +342,43 @@ cross-seller product_id rejection, XLSX upload.
 `image_urls` (separated by `|`). URLs go straight into `images[]` on the
 product doc. We can optionally re-host via Cloudinary later — the field
 accepts any `http(s)` URL or `data:` URI.
+
+## Bulk Listing Upload v2 — Image ZIP support (June 2026)
+
+Sellers can now skip hosting their own images. The new optional **Step 2**
+in `/seller/bulk-upload` lets them upload a ZIP of product images; the
+backend pushes each image to Cloudinary and returns a
+`{filename → hosted_url}` mapping. When the seller subsequently uploads
+their CSV / XLSX, they can paste **just the filename** (e.g.
+`sku-1_front.jpg`) into the `image_urls` column and the backend
+substitutes hosted URLs in-place before validating each row.
+
+**Backend additions**
+- `POST /api/seller/bulk/images-zip` — multipart ZIP upload. Returns
+  `BulkImagesZipResponse { mapping, uploaded, skipped, provider }`.
+  Map is keyed by both full archive path AND bare basename.
+- `POST /api/seller/bulk/preview` now accepts an optional `images_map`
+  form field (JSON). When present, the parser rewrites the
+  `image_urls` column of every row using the map BEFORE validating.
+- `services/bulk_listings_svc.substitute_images_with_zip_map()` — pure
+  helper that swaps filename references for hosted URLs while leaving
+  existing `http(s)://` / `data:` tokens untouched.
+
+**Limits**
+- 60 MB total ZIP, 500 files max, 6 MB per image
+- Allowed image types: `.jpg .jpeg .png .webp .heic .heif`
+- `__MACOSX/` and dotfiles are silently skipped
+- Falls back to base64 `data:` URIs if Cloudinary isn't configured
+
+**Frontend additions**
+- New "Step 2 · Upload Images ZIP (optional)" tile (`Archive` icon, dashed
+  border) above the CSV upload CTA. On success the tile turns green and
+  shows `✓ N images uploaded`.
+- `imagesMap` lives in component state and is sent as the `images_map`
+  form field alongside the CSV file when calling /preview.
+- Cleared automatically by the "upload another" reset flow.
+
+**Tests** — `tests/test_bulk_zip_images.py` (5/5 passing):
+ZIP→mapping happy path, non-ZIP rejection, empty upload, end-to-end
+filename substitution at preview, and inverse case where missing map
+correctly fails URL validation.

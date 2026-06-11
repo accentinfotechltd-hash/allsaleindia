@@ -4,6 +4,7 @@ import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
 import {
   AlertTriangle,
+  Archive,
   CheckCircle2,
   ChevronLeft,
   CloudUpload,
@@ -75,12 +76,22 @@ export default function BulkUploadScreen() {
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [zipUploading, setZipUploading] = useState(false);
+  const [imagesMap, setImagesMap] = useState<Record<string, string> | null>(null);
+  const [imagesZipSummary, setImagesZipSummary] = useState<{
+    uploaded: number;
+    skipped: number;
+    provider: string;
+    name: string;
+  } | null>(null);
 
   const reset = useCallback(() => {
     setFileName(null);
     setPreview(null);
     setResult(null);
     setShowAll(false);
+    setImagesMap(null);
+    setImagesZipSummary(null);
   }, []);
 
   const downloadFile = useCallback(
@@ -129,6 +140,63 @@ export default function BulkUploadScreen() {
     [],
   );
 
+  const pickAndUploadZip = useCallback(async () => {
+    setZipUploading(true);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ["application/zip", "application/x-zip-compressed", "*/*"],
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (res.canceled || !res.assets?.length) return;
+      const asset = res.assets[0];
+      const token = await getAuthToken();
+      const form = new FormData();
+      if (Platform.OS === "web") {
+        const blob =
+          (asset as any).file ||
+          (await (await fetch(asset.uri)).blob());
+        form.append("file", blob, asset.name);
+      } else {
+        form.append("file", {
+          uri: asset.uri,
+          name: asset.name,
+          type: asset.mimeType || "application/zip",
+        } as any);
+      }
+      const r = await fetch(`${ORIGIN_URL}/api/seller/bulk/images-zip`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const text = await r.text();
+      let data: any = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = text;
+      }
+      if (!r.ok) {
+        const detail =
+          (data && data.detail) || r.statusText || "Upload failed";
+        throw new Error(
+          typeof detail === "string" ? detail : JSON.stringify(detail),
+        );
+      }
+      setImagesMap(data.mapping || {});
+      setImagesZipSummary({
+        uploaded: data.uploaded || 0,
+        skipped: (data.skipped || []).length,
+        provider: data.provider || "passthrough",
+        name: asset.name,
+      });
+    } catch (e: any) {
+      Alert.alert("ZIP upload failed", e?.message || "Please check your ZIP.");
+    } finally {
+      setZipUploading(false);
+    }
+  }, []);
+
   const pickAndPreview = useCallback(async () => {
     setPicking(true);
     try {
@@ -165,6 +233,9 @@ export default function BulkUploadScreen() {
           type: asset.mimeType || "text/csv",
         } as any);
       }
+      if (imagesMap && Object.keys(imagesMap).length > 0) {
+        form.append("images_map", JSON.stringify(imagesMap));
+      }
       const r = await fetch(`${ORIGIN_URL}/api/seller/bulk/preview`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -192,7 +263,7 @@ export default function BulkUploadScreen() {
       setUploading(false);
       setPicking(false);
     }
-  }, []);
+  }, [imagesMap]);
 
   const commitImport = useCallback(async () => {
     if (!preview) return;
@@ -346,7 +417,68 @@ export default function BulkUploadScreen() {
             </View>
 
             <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>
-              STEP 2 · UPLOAD YOUR FILE
+              STEP 2 · UPLOAD IMAGES ZIP (OPTIONAL)
+            </Text>
+            <Pressable
+              testID="bulk-pick-zip"
+              onPress={pickAndUploadZip}
+              disabled={zipUploading}
+              style={({ pressed }) => [
+                styles.zipPickCard,
+                imagesZipSummary && styles.zipPickCardDone,
+                pressed && { opacity: 0.85 },
+                zipUploading && { opacity: 0.7 },
+              ]}
+            >
+              <View style={styles.zipIcon}>
+                {zipUploading ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <Archive
+                    size={20}
+                    color={imagesZipSummary ? colors.success : colors.primary}
+                  />
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                {imagesZipSummary ? (
+                  <>
+                    <Text style={styles.zipTitleDone}>
+                      ✓ {imagesZipSummary.uploaded} images uploaded
+                    </Text>
+                    <Text style={styles.zipSubtitle} numberOfLines={1}>
+                      {imagesZipSummary.name}
+                      {imagesZipSummary.skipped > 0
+                        ? ` · ${imagesZipSummary.skipped} skipped`
+                        : ""}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.zipTitle}>Upload images (.zip)</Text>
+                    <Text style={styles.zipSubtitle}>
+                      Reference filenames in your sheet — we&apos;ll swap them for real URLs.
+                    </Text>
+                  </>
+                )}
+              </View>
+              {imagesZipSummary ? (
+                <Pressable
+                  testID="bulk-clear-zip"
+                  onPress={() => {
+                    setImagesMap(null);
+                    setImagesZipSummary(null);
+                  }}
+                  hitSlop={10}
+                  style={styles.zipClearBtn}
+                >
+                  <RotateCcw size={16} color={colors.textMuted} />
+                </Pressable>
+              ) : null}
+            </Pressable>
+
+            <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>
+              STEP 3 · UPLOAD YOUR FILE
             </Text>
             <Pressable
               testID="bulk-pick-file"
@@ -643,6 +775,43 @@ const styles = StyleSheet.create({
   },
   uploadCtaText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   hint: { textAlign: "center", marginTop: spacing.sm, fontSize: 12, color: colors.textMuted },
+  zipPickCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    backgroundColor: colors.surface,
+  },
+  zipPickCardDone: {
+    borderStyle: "solid",
+    backgroundColor: colors.successSoft,
+    borderColor: "#A7F3D0",
+  },
+  zipIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  zipTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  zipTitleDone: { fontSize: 14, fontWeight: "800", color: colors.success },
+  zipSubtitle: { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginTop: 2 },
+  zipClearBtn: {
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 999,
+    backgroundColor: "#fff",
+  },
   summaryHeader: {
     flexDirection: "row",
     alignItems: "center",

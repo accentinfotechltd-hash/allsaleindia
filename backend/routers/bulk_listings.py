@@ -3,29 +3,44 @@
 Flow:
   1. Seller downloads a CSV/XLSX template OR exports their current
      listings (with `product_id`) for round-trip editing.
-  2. Seller fills the sheet and uploads it to /seller/bulk/preview.
+  2. (Optional) Seller uploads a ZIP of images at /seller/bulk/images-zip.
+     The endpoint extracts each image, hosts it on Cloudinary (or returns
+     a passthrough data URI), and returns `{filename: hosted_url}`.
+  3. Seller fills the sheet and uploads it to /seller/bulk/preview.
      The backend validates each row and returns a per-row report
      (valid rows + errors) without writing anything to the DB.
-  3. Seller calls /seller/bulk/import with the validated rows to
+  4. Seller calls /seller/bulk/import with the validated rows to
      actually create/update products.
 
 Up to 1000 rows per upload (configurable).
 """
 from __future__ import annotations
 
+import asyncio
+import base64
+import io
+import logging
 import uuid
+import zipfile
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 from config import INR_PER_NZD, TAXONOMY
 from db import db
 from deps import get_current_user
-from models import BulkImportPreviewResponse, BulkImportRequest, BulkImportResult
+from models import (
+    BulkImagesZipResponse,
+    BulkImportPreviewResponse,
+    BulkImportRequest,
+    BulkImportResult,
+)
+from services import cloudinary_svc
 from services.bulk_listings_svc import (
     TEMPLATE_COLUMNS,
     parse_upload,
+    substitute_images_with_zip_map,
     template_rows_example,
     validate_row,
     write_csv,
@@ -33,10 +48,15 @@ from services.bulk_listings_svc import (
 )
 from utils import now_utc
 
+logger = logging.getLogger("allsale")
 router = APIRouter(prefix="/seller/bulk", tags=["seller-bulk"])
 
 MAX_ROWS = 1000
 MAX_FILE_BYTES = 8 * 1024 * 1024  # 8 MB
+MAX_ZIP_BYTES = 60 * 1024 * 1024  # 60 MB
+MAX_ZIP_FILES = 500
+MAX_IMG_BYTES = 6 * 1024 * 1024  # per-image cap
+ALLOWED_IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 
 
 async def _require_verified_seller(current=Depends(get_current_user)) -> dict:
@@ -140,6 +160,7 @@ async def export_listings_xlsx(seller=Depends(_require_verified_seller)):
 @router.post("/preview", response_model=BulkImportPreviewResponse)
 async def preview_upload(
     file: UploadFile = File(...),
+    images_map: str | None = Form(default=None),
     seller=Depends(_require_verified_seller),
 ):
     blob = await file.read()
@@ -151,6 +172,27 @@ async def preview_upload(
         raw_rows = parse_upload(file.filename or "", blob)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not read file: {e}")
+
+    # Parse the optional images_map sent by the client (filename → hosted URL).
+    zip_map: dict[str, str] | None = None
+    if images_map:
+        try:
+            import json as _json
+
+            parsed = _json.loads(images_map)
+            if isinstance(parsed, dict):
+                zip_map = {str(k): str(v) for k, v in parsed.items()}
+        except Exception:
+            zip_map = None
+
+    # If a map is present, rewrite each row's image_urls in-place BEFORE
+    # validation so filename references resolve to real URLs.
+    if zip_map:
+        for r in raw_rows:
+            if "image_urls" in r:
+                r["image_urls"] = substitute_images_with_zip_map(
+                    r.get("image_urls"), zip_map
+                )
 
     if not raw_rows:
         raise HTTPException(status_code=400, detail="No data rows found in the file")
@@ -358,3 +400,132 @@ async def template_columns(seller=Depends(_require_verified_seller)):
         "categories": [t["name"] for t in TAXONOMY],
         "max_rows_per_upload": MAX_ROWS,
     }
+
+
+# ---------------------------------------------------------------------------
+# Bulk image ZIP upload (optional helper for sellers who don't host their
+# own images). Each entry in the ZIP gets uploaded to Cloudinary; we return
+# a {filename: hosted_url} map the client can substitute into the CSV's
+# `image_urls` column before calling /preview.
+# ---------------------------------------------------------------------------
+def _ext(name: str) -> str:
+    idx = name.rfind(".")
+    return name[idx:].lower() if idx >= 0 else ""
+
+
+def _content_type_for_ext(ext: str) -> str:
+    return {
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".webp": "image/webp",
+        ".heic": "image/heic",
+        ".heif": "image/heif",
+    }.get(ext, "application/octet-stream")
+
+
+async def _upload_image_bytes(
+    seller_id: str,
+    filename: str,
+    blob: bytes,
+) -> str | None:
+    """Push one image to Cloudinary; fall back to a data URI if it isn't ready."""
+    ext = _ext(filename)
+    if cloudinary_svc.is_ready():
+        public_id_seed = f"{seller_id}/{uuid.uuid4().hex[:12]}"
+        try:
+            result = await asyncio.to_thread(
+                cloudinary_svc.cloudinary.uploader.upload,
+                blob,
+                folder="allsale/products",
+                public_id=public_id_seed,
+                resource_type="image",
+                overwrite=False,
+                unique_filename=False,
+                use_filename=False,
+                transformation=[{"quality": "auto:good", "fetch_format": "auto"}],
+            )
+            return result.get("secure_url") or result.get("url")
+        except Exception as e:
+            logger.warning("ZIP image upload failed for %s: %s", filename, e)
+            return None
+    # Passthrough — encode as a data URI so the catalog still works.
+    mime = _content_type_for_ext(ext)
+    b64 = base64.b64encode(blob).decode("ascii")
+    return f"data:{mime};base64,{b64}"
+
+
+@router.post("/images-zip", response_model=BulkImagesZipResponse)
+async def upload_images_zip(
+    file: UploadFile = File(...),
+    seller=Depends(_require_verified_seller),
+):
+    """Accept a ZIP of product images and upload each to Cloudinary.
+
+    Returns a `mapping` of `{filename → hosted_url}` keyed BOTH by the
+    full path inside the ZIP and by the bare basename — so the seller's
+    CSV can reference `images/sku-12.jpg` OR just `sku-12.jpg`.
+    """
+    blob = await file.read()
+    if not blob:
+        raise HTTPException(status_code=400, detail="Empty file")
+    if len(blob) > MAX_ZIP_BYTES:
+        raise HTTPException(
+            status_code=413, detail="ZIP too large (max 60 MB)"
+        )
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(blob))
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail="Not a valid ZIP file")
+
+    members = [
+        m
+        for m in zf.namelist()
+        if not m.endswith("/")
+        and not m.startswith("__MACOSX/")
+        and "/." not in m  # ignore hidden files
+        and not m.lstrip().startswith(".")
+    ]
+    if len(members) == 0:
+        raise HTTPException(status_code=400, detail="ZIP has no image files")
+    if len(members) > MAX_ZIP_FILES:
+        raise HTTPException(
+            status_code=413, detail=f"ZIP has too many files (max {MAX_ZIP_FILES})"
+        )
+
+    mapping: dict[str, str] = {}
+    skipped: list[str] = []
+    uploaded = 0
+    for name in members:
+        ext = _ext(name)
+        if ext not in ALLOWED_IMG_EXT:
+            skipped.append(f"{name} (unsupported file type)")
+            continue
+        try:
+            data = zf.read(name)
+        except Exception as e:
+            skipped.append(f"{name} (read failed: {e})")
+            continue
+        if len(data) > MAX_IMG_BYTES:
+            skipped.append(f"{name} (image too large)")
+            continue
+        if len(data) == 0:
+            skipped.append(f"{name} (empty)")
+            continue
+        url = await _upload_image_bytes(seller["id"], name, data)
+        if not url:
+            skipped.append(f"{name} (upload failed)")
+            continue
+        # Key by both the full archive path AND the bare basename for
+        # convenience.
+        base = name.rsplit("/", 1)[-1]
+        mapping[name] = url
+        mapping[base] = url
+        uploaded += 1
+
+    return BulkImagesZipResponse(
+        mapping=mapping,
+        uploaded=uploaded,
+        skipped=skipped,
+        provider="cloudinary" if cloudinary_svc.is_ready() else "passthrough",
+    )

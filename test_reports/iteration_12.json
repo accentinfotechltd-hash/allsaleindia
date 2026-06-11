@@ -1,0 +1,47 @@
+{
+  "summary": "Iteration 12 backend testing for the optional ZIP-image upload flow on /api/seller/bulk/images-zip + the images_map form param on /preview. Ran 47 backend tests across the bulk listing suite: 46 passed (97.9%). The 5 pre-shipped ZIP tests all pass, the 32 prior bulk-listing tests still pass (no regression), and 9 of 10 newly added edge tests pass. One real backend bug surfaced: data: URIs are corrupted by the row parser before validation because _split_multi() in bulk_listings_svc.py treats ',' and ';' as separator characters — both of which appear inside every 'data:image/png;base64,...' URI. This directly breaks one explicit acceptance criterion ('existing tokens that are already URLs / data: URIs are preserved'). All other requirements verified end-to-end: ZIP size cap 60MB→413, file count cap 500→413, per-image 6MB→skipped, unsupported extensions→skipped (200), __MACOSX/ and dot-prefixed entries silently filtered, missing token→401, buyer→403, images_map JSON form param correctly rewrites filename references on /preview, and absent map leaves filename rows failing validation. Cloudinary was live during testing — uploaded images returned https://res.cloudinary.com/... URLs (provider=cloudinary).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/seller/bulk/preview",
+        "issue": "data: URIs in the image_urls cell are split into multiple tokens because services/bulk_listings_svc.py::_split_multi() (lines 81-84) replaces ';' and ',' with the '|' separator before splitting. A cell containing exactly 'data:image/png;base64,iVBORw0KGgo=' comes out as ['data:image/png', 'base64', 'iVBORw0KGgo='] and then the URL validator rejects the 'base64' fragment as 'not a valid URL'. The review acceptance criterion 'Existing tokens that are already URLs / data: URIs are preserved' therefore fails for the data:URI case (http(s):// URLs survive fine — they don't contain ';' or ','). Suggested fix: in _split_multi(), if the cell contains 'data:' tokens, only split on '|' (and maybe newline), not on ',' / ';'. Or escape data: URIs before splitting and restore after. Affects both the new ZIP flow (because passthrough provider returns data: URIs) AND the original bulk-listing flow."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bulk_zip_images.py (pre-existing, 5 tests, all pass)",
+    "/app/backend/tests/test_bulk_zip_images_edges.py (new, 10 tests, 9 pass, 1 fail documenting the data: URI bug)",
+    "/app/backend/tests/test_bulk_listings.py (regression — 9 pass)",
+    "/app/backend/tests/test_bulk_listings_edges.py (regression — 23 pass)",
+    "/app/test_reports/pytest/iter12_zip_results.xml",
+    "/app/test_reports/pytest/iter12_zip_edges.xml",
+    "/app/test_reports/pytest/iter12_bulk_existing.xml",
+    "/app/test_reports/pytest/iter12_full_bulk.xml"
+  ],
+  "action_items": [
+    "Fix _split_multi() in /app/backend/services/bulk_listings_svc.py so it does not split data: URIs on ',' and ';'. Simplest patch: only split on '|' (the documented separator) when any token in the cell starts with 'data:'; or pre-extract data: tokens, split the remainder, then re-insert. After the fix, test test_existing_data_uri_token_is_preserved should pass.",
+    "Optional follow-up: if treating ',' and ';' as multi-separators is by design for human-friendly editing, document the limitation that data: URIs must be the ONLY token in the cell (and even then they break)."
+  ],
+  "critical_code_review_comments": [
+    "routers/bulk_listings.py is 532 lines — close to the 700-line budget but still acceptable.",
+    "routers/bulk_listings.py:486-488 — `'/.' not in m and not m.lstrip().startswith('.')` correctly filters hidden entries; verified by tests.",
+    "Per-image MAX_IMG_BYTES is 6MB but MAX_ZIP_BYTES is 60MB; with 500 files that's an avg cap of 120KB/img — fine for product thumbnails but worth surfacing in the seller UI if main agent builds it.",
+    "Cloudinary fallback (passthrough → base64 data URI) currently runs into the same _split_multi bug if those URIs end up in image_urls cells (today they only do so via the new images_map flow, where they go straight into the row dict, not through CSV; so the bug only triggers when a seller types a data: URI directly into the spreadsheet)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bulk_zip_images_edges.py (NEW — 10 edge-case tests covering oversize, count, per-image limits, hidden-file filtering, auth gating, URL & data:URI preservation)"
+  ],
+  "success_rate": {"backend": "97.9% (46/47)", "frontend": "n/a — backend-only testing requested"},
+  "seed_data_creation": "Two test accounts created per module run: a verified seller (TEST_zipedge_seller_*) and a buyer (TEST_zipedge_buyer_*). Real Cloudinary uploads occurred under folder 'allsale/products' (cleanup not performed — small 1×1 PNGs only).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The data: URI splitting bug is the only outstanding failure on the bulk listing suite. After main agent fixes _split_multi(), simply rerun `pytest backend/tests/test_bulk_zip_images_edges.py::TestPreviewPreserveExistingUrls::test_existing_data_uri_token_is_preserved` — it should flip to PASS without any other test regressing. Known flaky pre-existing tests (test_seed_counters.py::test_reseed_carries_over_view_counters and test_seller_payouts.py::test_payouts_created_per_seller_idempotent) were NOT run in this iteration since they are out of scope.",
+  "rca_of_issue": "Bug: data: URI tokens corrupted on bulk preview. Repro: POST /api/seller/bulk/preview with a CSV row whose image_urls cell is exactly 'data:image/png;base64,iVBORw0KGgo=' (no images_map needed). Expected: row['data']['images'] == ['data:image/png;base64,iVBORw0KGgo=']; row passes URL validation. Actual: row['data']['images'] == ['data:image/png', 'base64', 'iVBORw0KGgo='] and row['errors'] contains 'image_url base64… is not a valid URL'. Root cause: services/bulk_listings_svc.py::_split_multi() lines 81-84 unconditionally replaces ';' and ',' with the '|' separator to be lenient about user input, but data: URIs use exactly those characters as their internal syntax. Mitigation suggestions: (a) skip the ';'/',' substitution when the cell starts with or contains 'data:'; (b) tokenise data: URIs out before splitting and re-insert; (c) parse with a small state machine that tracks whether we're inside a data: URI."
+}

@@ -478,3 +478,16 @@ class BulkImportResult(BaseModel):
     updated: int
     errors: List[BulkImportErrorEntry] = Field(default_factory=list)
     total_attempted: int
+
+
+class BulkImagesZipResponse(BaseModel):
+    """Result of extracting a ZIP of images and hosting them on Cloudinary.
+
+    `mapping` is keyed by the original filename inside the ZIP (e.g.
+    "sku-123_front.jpg") AND by the bare base-name (no path) so sellers
+    can reference either form in their CSV/XLSX `image_urls` column.
+    """
+    mapping: dict
+    uploaded: int
+    skipped: List[str] = Field(default_factory=list)
+    provider: str  # "cloudinary" | "passthrough"
