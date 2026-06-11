@@ -262,6 +262,7 @@ export default function ProductDetail() {
           </View>
           <Pressable
             testID="product-add-to-cart-btn"
+            accessibilityState={{ disabled: adding || outOfStock }}
             disabled={adding || outOfStock}
             onPress={onAdd}
             style={({ pressed }) => [
