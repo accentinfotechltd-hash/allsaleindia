@@ -72,16 +72,41 @@ def _normalize_header(h: Any) -> str:
 
 
 def _split_multi(value: Any, sep: str = "|") -> list[str]:
-    """Split a multi-value field. Accepts `|` (preferred), `,` or `;`."""
+    """Split a multi-value field. Accepts `|` (preferred), `,` or `;`.
+
+    `data:` URIs contain both `,` and `;` so we extract them first as
+    opaque placeholders, do the comma/semicolon substitution on the
+    remaining text, then restore the URIs verbatim.
+    """
     if value is None:
         return []
     s = str(value).strip()
     if not s:
         return []
-    # If user used commas/semicolons, treat those as separators too.
+    placeholders: list[str] = []
+    if "data:" in s:
+        import re as _re
+
+        def _stash(match: "_re.Match[str]") -> str:
+            placeholders.append(match.group(0))
+            return f"\x00DURI{len(placeholders) - 1}\x00"
+
+        # A data URI is `data:` … then anything that isn't a separator we
+        # treat as separator (whitespace, `|`, or end-of-string). Newlines
+        # are unusual but we stop at them too.
+        s = _re.sub(r"data:[^\s|]+", _stash, s)
+    # `,` and `;` are also accepted as separators (but only outside data: URIs)
     for ch in (";", ","):
         s = s.replace(ch, sep)
-    return [t.strip() for t in s.split(sep) if t and t.strip()]
+    tokens = [t.strip() for t in s.split(sep) if t and t.strip()]
+    if placeholders:
+        restored: list[str] = []
+        for t in tokens:
+            for i, uri in enumerate(placeholders):
+                t = t.replace(f"\x00DURI{i}\x00", uri)
+            restored.append(t)
+        return restored
+    return tokens
 
 
 def substitute_images_with_zip_map(
@@ -136,17 +161,29 @@ def _coerce_int(value: Any, default: int | None = None) -> int | None:
 
 
 def parse_csv_bytes(blob: bytes) -> list[dict[str, Any]]:
-    """Parse a CSV blob into a list of dicts keyed by normalized headers."""
+    """Parse a CSV blob into a list of dicts keyed by normalized headers.
+
+    If a row has MORE cells than headers (common when a seller pastes an
+    unquoted `data:image/png;base64,…` URI into the last column — Python's
+    CSV reader will split on the URI's internal comma), the extras are
+    rejoined onto the last header value with `,` so the data URI survives.
+    """
     text = blob.decode("utf-8-sig", errors="replace")
     reader = csv.reader(io.StringIO(text))
     rows = list(reader)
     if not rows:
         return []
     headers = [_normalize_header(h) for h in rows[0]]
+    n = len(headers)
     out: list[dict[str, Any]] = []
     for raw in rows[1:]:
         if not any((str(c).strip() if c is not None else "") for c in raw):
             continue  # skip blank lines
+        # Recover from "trailing unquoted commas inside the last cell".
+        if len(raw) > n > 0:
+            head = raw[: n - 1]
+            tail = ",".join(str(c) for c in raw[n - 1 :])
+            raw = head + [tail]
         d: dict[str, Any] = {}
         for i, key in enumerate(headers):
             d[key] = raw[i] if i < len(raw) else ""

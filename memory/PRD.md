@@ -382,3 +382,18 @@ substitutes hosted URLs in-place before validating each row.
 ZIP→mapping happy path, non-ZIP rejection, empty upload, end-to-end
 filename substitution at preview, and inverse case where missing map
 correctly fails URL validation.
+
+## Iter-12 follow-up fix: data: URIs in CSV cells
+Testing agent flagged that `_split_multi()` was mangling `data:image/png;base64,…` URIs because both `,` and `;` were treated as separators. Two fixes shipped:
+
+1. `services/bulk_listings_svc._split_multi()` now extracts every
+   `data:[^\s|]+` occurrence into a placeholder before applying the
+   comma/semicolon → pipe substitution and restores them verbatim
+   afterwards.
+2. `parse_csv_bytes()` now recovers from "trailing unquoted commas
+   inside the last cell" by re-joining any extra fields back onto the
+   final header value with `,`. This lets sellers paste an unquoted
+   `data:image/png;base64,iVBOR…` URI directly into their `image_urls`
+   column without breaking parsing.
+
+24/24 bulk tests pass (9 baseline + 5 ZIP + 10 new edge cases).
