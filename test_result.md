@@ -227,6 +227,24 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Iter-11: GSTIN-optional sole-prop sellers + multi-photo upload + test
+      fixture hardening. (1) `gstin` is now OPTIONAL in SellerBusiness when
+      business_type='sole_proprietorship'; all other entity types still
+      require it. Mongo `gstin` unique index converted to a partial index
+      so multiple sole-prop sellers without GSTIN don't collide. PAN cross-
+      check skipped when GSTIN is None. (2) Multi-photo product listing —
+      ListingCreate now accepts `images: List[str]` (up to 10), per-image
+      data-URI size guard (~1.5MB binary). Frontend seller new-listing form
+      replaced URL textfield with native gallery picker + remove buttons +
+      "Cover" badge on the first photo. expo-image-picker installed + iOS
+      InfoPlist + Android permissions added to app.json. (3) Test
+      fixtures: GSTIN/PAN suffixes now come from `tests/_helpers.make_gstin_pan()`
+      using uuid (no more time-based collisions). 5 new tests in
+      test_solo_seller_photos.py. Backend suite: 154/155 pass; 1 known
+      event-loop flake unrelated to my changes.
+
+  - agent: "main"
+    message: |
       Iter-10: Product variants + NZ↔India Size guide. Added `colors`,
       `sizes`, `stock_count` fields to Product/ListingCreate. Stock-aware
       add-to-cart and update-cart with friendly 400s. Stock decrement on

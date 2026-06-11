@@ -54,23 +54,31 @@ def _register_seller(api_client, base_url, headers, user_id):
             {"id": user_id},
             {"$set": {"is_seller": True, "seller_verification_status": "auto_verified"}},
         )
-        # GSTIN is unique-indexed → mint a fresh one per user_id
+        # Generate a guaranteed-unique (GSTIN, PAN) pair via uuid.
+        from _helpers import make_gstin_pan
+
+        gstin, pan = make_gstin_pan()
         unique_suffix = user_id[-6:].upper()
-        await db.sellers.insert_one(
+        await db.sellers.update_one(
+            {"user_id": user_id},
             {
-                "user_id": user_id,
-                "business_type": "private_limited",
-                "company_name": f"Return Seller {unique_suffix}",
-                "gstin": f"07AAA{unique_suffix[:3]}1234A1Z5"[:15].ljust(15, "X"),
-                "pan": f"AAA{unique_suffix[:3]}1234A"[:10],
-                "address_line1": "10 Test Rd",
-                "city": "Mumbai",
-                "state": "Maharashtra",
-                "pincode": "400001",
-                "contact_name": "Tester",
-                "contact_phone": "+919811112222",
-                "verification_status": "auto_verified",
-            }
+                "$set": {
+                    "user_id": user_id,
+                    "business_type": "private_limited",
+                    "company_name": f"Return Seller {unique_suffix}",
+                    "gstin": gstin,
+                    "pan": pan,
+                    "address_line1": "10 Test Rd",
+                    "city": "Mumbai",
+                    "state": "Maharashtra",
+                    "pincode": "400001",
+                    "contact_name": "Tester",
+                    "contact_phone": "+919811112222",
+                    "verification_status": "auto_verified",
+                    "created_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
         )
         cli.close()
 

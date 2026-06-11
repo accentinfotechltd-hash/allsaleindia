@@ -1,8 +1,10 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, Plus, X } from "lucide-react-native";
+import * as ImagePicker from "expo-image-picker";
+import { Camera, ChevronLeft, Image as ImageIcon, Plus, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
+const MAX_PHOTOS = 10;
 const DEFAULT_CATEGORIES = ["Ethnic Wear", "Home & Decor", "Spices & Tea", "Jewelry", "Beauty", "Electronics"];
 
 export default function NewListing() {
@@ -26,10 +29,11 @@ export default function NewListing() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [priceNzd, setPriceNzd] = useState("");
-  const [image, setImage] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [picking, setPicking] = useState(false);
 
   // New: colors, sizes, stock
   const [colorsList, setColorsList] = useState<string[]>([]);
@@ -37,6 +41,77 @@ export default function NewListing() {
   const [sizesList, setSizesList] = useState<string[]>([]);
   const [sizeDraft, setSizeDraft] = useState("");
   const [stockCount, setStockCount] = useState("25");
+
+  const pickPhotos = async () => {
+    if (photos.length >= MAX_PHOTOS) {
+      Alert.alert("Photo limit reached", `You can add up to ${MAX_PHOTOS} photos per listing.`);
+      return;
+    }
+    setPicking(true);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        if (!perm.canAskAgain) {
+          Alert.alert(
+            "Photos permission needed",
+            "Open Settings to allow photo access so you can upload product images.",
+            [{ text: "Cancel", style: "cancel" }],
+          );
+        }
+        return;
+      }
+      const remaining = MAX_PHOTOS - photos.length;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        selectionLimit: remaining,
+        quality: 0.7,
+        base64: true,
+      });
+      if (result.canceled) return;
+      const newPhotos: string[] = [];
+      for (const a of result.assets) {
+        // expo-image-picker returns base64 (without prefix). Combine with mime.
+        if (a.base64) {
+          const mime = a.mimeType || "image/jpeg";
+          newPhotos.push(`data:${mime};base64,${a.base64}`);
+        } else if (a.uri) {
+          newPhotos.push(a.uri);
+        }
+      }
+      setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
+    } catch (e: any) {
+      Alert.alert("Couldn't open photos", e?.message || "Try again.");
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  const takePhoto = async () => {
+    if (photos.length >= MAX_PHOTOS) return;
+    setPicking(true);
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return;
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.7,
+        base64: true,
+      });
+      if (result.canceled) return;
+      const a = result.assets[0];
+      if (a?.base64) {
+        const mime = a.mimeType || "image/jpeg";
+        setPhotos((prev) => [...prev, `data:${mime};base64,${a.base64}`].slice(0, MAX_PHOTOS));
+      }
+    } catch (e: any) {
+      Alert.alert("Couldn't open camera", e?.message || "Try again.");
+    } finally {
+      setPicking(false);
+    }
+  };
+
+  const removePhoto = (idx: number) => setPhotos(photos.filter((_, i) => i !== idx));
 
   const addColor = () => {
     const v = colorDraft.trim();
@@ -79,12 +154,16 @@ export default function NewListing() {
   const submit = async () => {
     setErr("");
     const price = parseFloat(priceNzd);
-    if (!name.trim() || description.trim().length < 10 || !image.trim()) {
-      setErr("Name, description (10+ chars) and image URL are required");
+    if (!name.trim() || description.trim().length < 10) {
+      setErr("Name and description (10+ chars) are required");
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
       setErr("Enter a valid price in NZD");
+      return;
+    }
+    if (photos.length === 0) {
+      setErr("Please add at least one product photo.");
       return;
     }
     setBusy(true);
@@ -97,7 +176,8 @@ export default function NewListing() {
           description: description.trim(),
           category,
           price_nzd: price,
-          image: image.trim(),
+          images: photos,
+          image: photos[0],
           colors: colorsList,
           sizes: sizesList,
           stock_count: stock,
@@ -123,20 +203,67 @@ export default function NewListing() {
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          {image.trim() ? (
-            <View style={styles.preview}>
-              <Image source={{ uri: image.trim() }} style={styles.previewImg} />
-            </View>
-          ) : null}
+          <Text style={styles.label}>Product photos ({photos.length}/{MAX_PHOTOS})</Text>
+          <Text style={styles.photoHint}>
+            First photo is the cover. Add up to {MAX_PHOTOS} photos.
+          </Text>
+          <View style={styles.photoGrid}>
+            {photos.map((uri, idx) => (
+              <View key={`${idx}-${uri.slice(0, 16)}`} style={styles.photoTile} testID={`new-listing-photo-${idx}`}>
+                <Image source={{ uri }} style={styles.photoTileImg} />
+                {idx === 0 ? (
+                  <View style={styles.coverBadge}>
+                    <Text style={styles.coverBadgeText}>Cover</Text>
+                  </View>
+                ) : null}
+                <Pressable
+                  testID={`new-listing-photo-remove-${idx}`}
+                  onPress={() => removePhoto(idx)}
+                  style={styles.photoRemove}
+                  hitSlop={6}
+                >
+                  <X size={12} color="#fff" />
+                </Pressable>
+              </View>
+            ))}
+            {photos.length < MAX_PHOTOS ? (
+              <Pressable
+                testID="new-listing-photo-add"
+                onPress={pickPhotos}
+                disabled={picking}
+                style={({ pressed }) => [
+                  styles.photoTile,
+                  styles.photoAddTile,
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                {picking ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <>
+                    <ImageIcon size={22} color={colors.primary} />
+                    <Text style={styles.photoAddText}>Gallery</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : null}
+            {photos.length < MAX_PHOTOS && Platform.OS !== "web" ? (
+              <Pressable
+                testID="new-listing-photo-camera"
+                onPress={takePhoto}
+                disabled={picking}
+                style={({ pressed }) => [
+                  styles.photoTile,
+                  styles.photoAddTile,
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <Camera size={22} color={colors.primary} />
+                <Text style={styles.photoAddText}>Camera</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
-          <Field
-            label="Image URL"
-            testID="new-listing-image"
-            value={image}
-            onChangeText={setImage}
-            placeholder="https://..."
-            autoCapitalize="none"
-          />
           <Field label="Product name" testID="new-listing-name" value={name} onChangeText={setName} placeholder="e.g. Handmade Brass Lamp" />
 
           <Text style={styles.label}>Category</Text>
@@ -390,6 +517,47 @@ const styles = StyleSheet.create({
   },
   tokenChipText: { fontSize: 12, color: colors.text, fontWeight: "700" },
   stockHint: { fontSize: 11, color: colors.textFaint, marginTop: -spacing.sm, marginBottom: spacing.md },
+  photoHint: { fontSize: 11, color: colors.textFaint, marginTop: -spacing.sm, marginBottom: spacing.sm },
+  photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: spacing.md },
+  photoTile: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
+    position: "relative",
+  },
+  photoTileImg: { width: "100%", height: "100%" },
+  photoAddTile: {
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  photoAddText: { fontSize: 11, fontWeight: "700", color: colors.primary },
+  photoRemove: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  coverBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.7)",
+  },
+  coverBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800", letterSpacing: 0.5 },
   error: { color: colors.error, fontSize: 13, marginTop: spacing.sm },
   cta: {
     backgroundColor: colors.primary,

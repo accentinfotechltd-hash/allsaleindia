@@ -36,6 +36,9 @@ def _promote_seller(user_id: str):
         cli = AsyncIOMotorClient(MONGO_URL)
         db = cli[DB_NAME]
         suffix = user_id[-6:].upper()
+        from _helpers import make_gstin_pan
+
+        _gstin_pan = make_gstin_pan()
         await db.users.update_one(
             {"id": user_id},
             {"$set": {"is_seller": True, "seller_verification_status": "auto_verified"}},
@@ -47,8 +50,8 @@ def _promote_seller(user_id: str):
                     "user_id": user_id,
                     "business_type": "private_limited",
                     "company_name": f"Stock Seller {suffix}",
-                    "gstin": f"07AAA{suffix[:3]}1234A1Z5"[:15].ljust(15, "X"),
-                    "pan": f"AAA{suffix[:3]}1234A"[:10],
+                    "gstin": _gstin_pan[0],
+                    "pan": _gstin_pan[1],
                     "address_line1": "10 Test Rd",
                     "city": "Mumbai",
                     "state": "Maharashtra",

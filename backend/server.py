@@ -198,7 +198,9 @@ class GoogleSessionRequest(BaseModel):
 class SellerBusiness(BaseModel):
     business_type: str = Field(..., min_length=2)
     company_name: str = Field(..., min_length=2)
-    gstin: str = Field(..., min_length=15, max_length=15)
+    # GSTIN is OPTIONAL — only mandatory for entity types other than
+    # sole_proprietorship (validated in the registration handler).
+    gstin: Optional[str] = Field(default=None)
     pan: str = Field(..., min_length=10, max_length=10)
     cin: Optional[str] = Field(default=None)
     llpin: Optional[str] = Field(default=None)
@@ -225,7 +227,7 @@ class SellerProfile(BaseModel):
     user_id: str
     business_type: str
     company_name: str
-    gstin: str
+    gstin: Optional[str] = None
     pan: str
     cin: Optional[str] = None
     llpin: Optional[str] = None
@@ -246,7 +248,8 @@ class ListingCreate(BaseModel):
     description: str = Field(..., min_length=10)
     category: str = Field(..., min_length=2)
     price_nzd: float = Field(..., gt=0)
-    image: str = Field(..., min_length=8)
+    image: Optional[str] = Field(default=None, description="Primary image URL or base64 data URI")
+    images: List[str] = Field(default_factory=list, description="Up to 10 image URLs or data URIs")
     shipping_days_min: int = 7
     shipping_days_max: int = 14
     colors: List[str] = Field(default_factory=list, description="Available colors (max 10)")
@@ -624,19 +627,31 @@ def validate_indian_business(b: SellerBusiness) -> dict:
     btype = b.business_type.strip().lower()
     if btype not in VALID_BUSINESS_TYPES:
         raise HTTPException(status_code=400, detail="Invalid business type")
-    gstin = b.gstin.strip().upper()
+    raw_gstin = (b.gstin or "").strip().upper() or None
     pan = b.pan.strip().upper()
     cin = b.cin.strip().upper() if b.cin else None
     llpin = b.llpin.strip().upper() if b.llpin else None
     pincode = b.pincode.strip()
-    if not GSTIN_RE.match(gstin):
-        raise HTTPException(status_code=400, detail="Invalid GSTIN format (15 chars)")
+
+    # GSTIN is OPTIONAL for sole proprietors (turnover < ₹40L threshold in
+    # India) — for every other entity type we still enforce it strictly.
+    gstin: Optional[str]
+    if btype == "sole_proprietorship":
+        gstin = raw_gstin  # may be None
+        if gstin and not GSTIN_RE.match(gstin):
+            raise HTTPException(status_code=400, detail="Invalid GSTIN format (15 chars)")
+    else:
+        if not raw_gstin:
+            raise HTTPException(status_code=400, detail="GSTIN is required for this business type")
+        if not GSTIN_RE.match(raw_gstin):
+            raise HTTPException(status_code=400, detail="Invalid GSTIN format (15 chars)")
+        gstin = raw_gstin
     if not PAN_RE.match(pan):
         raise HTTPException(status_code=400, detail="Invalid PAN format (10 chars)")
     if not pincode.isdigit() or len(pincode) != 6:
         raise HTTPException(status_code=400, detail="Pincode must be 6 digits")
     # Light cross-check: GSTIN positions 3..7 are the company PAN.
-    if pan != gstin[2:12]:
+    if gstin and pan != gstin[2:12]:
         raise HTTPException(status_code=400, detail="PAN must match the PAN inside the GSTIN")
 
     # Branch by business type to enforce the right MCA identifier.
@@ -1171,6 +1186,18 @@ async def remove_cart_item(product_id: str, current=Depends(get_current_user)):
 # ---------------------------------------------------------------------------
 async def _verify_business_and_persist(user_id: str, business: SellerBusiness) -> dict:
     cleaned = validate_indian_business(business)
+    # Pre-flight uniqueness check on GSTIN (only if a GSTIN is being set —
+    # the sparse index lets us have many sole-prop sellers with no GSTIN).
+    if cleaned.get("gstin"):
+        existing = await db.sellers.find_one(
+            {"gstin": cleaned["gstin"], "user_id": {"$ne": user_id}},
+            {"_id": 1},
+        )
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail="This GSTIN is already registered with another seller",
+            )
     # Auto-verify on valid Indian formats; otherwise pending_review (admin can flip).
     verification_status = "auto_verified"
     profile = {
@@ -1270,6 +1297,26 @@ async def create_listing(body: ListingCreate, seller=Depends(require_verified_se
     colors = _clean(body.colors, 10)
     sizes = _clean(body.sizes, 12)
 
+    # Photos: accept either `image` (legacy single URL) or `images` (new list).
+    raw_images: list[str] = []
+    if body.images:
+        raw_images.extend(body.images)
+    if body.image and body.image not in raw_images:
+        raw_images.insert(0, body.image)
+    images = [s.strip() for s in raw_images if s and s.strip()][:10]
+    if not images:
+        raise HTTPException(status_code=400, detail="At least one product photo is required")
+    # Soft per-image size guard for base64-encoded uploads (~2MB encoded ≈
+    # 1.5MB binary). Browser-side compression handles most of this; this is a
+    # belt-and-braces server check to keep Mongo docs reasonable.
+    for s in images:
+        if s.startswith("data:") and len(s) > 2_400_000:
+            raise HTTPException(
+                status_code=413,
+                detail="One of the photos is too large (please use images under ~1.5 MB).",
+            )
+    primary = images[0]
+
     doc = {
         "id": pid,
         "name": body.name.strip(),
@@ -1277,8 +1324,8 @@ async def create_listing(body: ListingCreate, seller=Depends(require_verified_se
         "category": body.category.strip(),
         "price_nzd": float(body.price_nzd),
         "price_inr": round(body.price_nzd * INR_PER_NZD, 0),
-        "image": body.image.strip(),
-        "images": [body.image.strip()],
+        "image": primary,
+        "images": images,
         "rating": 0.0,
         "reviews_count": 0,
         "in_stock": int(body.stock_count) > 0,
@@ -2477,7 +2524,17 @@ async def on_startup():
     await db.orders.create_index("user_id")
     await db.payment_transactions.create_index("session_id", unique=True)
     await db.sellers.create_index("user_id", unique=True)
-    await db.sellers.create_index("gstin", unique=True)
+    # GSTIN is OPTIONAL for sole proprietors → keep uniqueness but
+    # only on docs that actually have a GSTIN (partial index).
+    try:
+        await db.sellers.drop_index("gstin_1")
+    except Exception:
+        pass
+    await db.sellers.create_index(
+        "gstin",
+        unique=True,
+        partialFilterExpression={"gstin": {"$type": "string"}},
+    )
     await db.products.create_index("seller_id")
     await db.payouts.create_index("id", unique=True)
     await db.payouts.create_index([("seller_id", 1), ("status", 1)])

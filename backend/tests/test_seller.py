@@ -8,10 +8,17 @@ import pytest
 
 
 def _gstin():
-    """Unique GSTIN that still satisfies the regex AND PAN==GSTIN[2:12]=ABCDE1234F."""
-    entity = random.choice(string.ascii_uppercase + "123456789")
-    check = random.choice(string.ascii_uppercase + string.digits)
-    return f"27ABCDE1234F{entity}Z{check}"
+    """Unique GSTIN that satisfies the regex AND PAN==GSTIN[2:12]."""
+    from _helpers import make_gstin_pan
+
+    gstin, _ = make_gstin_pan()
+    return gstin
+
+
+def _gstin_pan():
+    from _helpers import make_gstin_pan
+
+    return make_gstin_pan()
 
 BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "").rstrip("/")
 if not BASE_URL:
@@ -29,11 +36,12 @@ def _ts():
 
 
 def _valid_business(overrides=None):
+    g, p = _gstin_pan()
     b = {
         "business_type": "private_limited",
         "company_name": "TEST Allsale Crafts Pvt Ltd",
-        "gstin": _gstin(),
-        "pan": "ABCDE1234F",
+        "gstin": g,
+        "pan": p,
         "cin": "U74999MH2020PTC123456",
         "address_line1": "12 Test Lane",
         "address_line2": "Andheri East",
@@ -72,7 +80,7 @@ class TestSellerRegister:
         prof = me.json()
         assert prof["verification_status"] == "auto_verified"
         assert prof["gstin"] == biz["gstin"]
-        assert prof["pan"] == "ABCDE1234F"
+        assert prof["pan"] == biz["pan"]
         assert prof["company_name"] == "TEST Allsale Crafts Pvt Ltd"
 
     def test_invalid_gstin_400(self, api_client):
@@ -260,10 +268,11 @@ class TestListings:
     def test_list_my_listings_isolated(self, api_client, seller_token):
         # Create second seller and verify isolation
         email = f"TEST_seller_b_{_ts()}@allsale.co.nz"
+        g, p = _gstin_pan()
         r = api_client.post(
             f"{BASE_URL}/api/seller/register",
             json={"email": email, "password": "Test1234!",
-                  "business": _valid_business({"gstin": "29ABCDE1234F" + random.choice(string.ascii_uppercase + "123456789") + "Z" + random.choice(string.ascii_uppercase + string.digits)})},
+                  "business": _valid_business({"gstin": g, "pan": p})},
         )
         assert r.status_code == 200
         b_token = r.json()["access_token"]
@@ -303,10 +312,11 @@ class TestAdminApprove:
     def test_admin_forbidden_without_header(self, api_client):
         # Create a seller first to have a target id
         email = f"TEST_admin_target_{_ts()}@allsale.co.nz"
+        g, p = _gstin_pan()
         r = api_client.post(
             f"{BASE_URL}/api/seller/register",
             json={"email": email, "password": "Test1234!",
-                  "business": _valid_business({"gstin": "07ABCDE1234F" + random.choice(string.ascii_uppercase + "123456789") + "Z" + random.choice(string.ascii_uppercase + string.digits)})},
+                  "business": _valid_business({"gstin": g, "pan": p})},
         )
         assert r.status_code == 200
         uid = r.json()["user"]["id"]

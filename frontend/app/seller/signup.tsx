@@ -44,6 +44,7 @@ export default function SellerSignup() {
           password,
           business: {
             ...form,
+            gstin: form.gstin.trim() || null,
             cin: form.cin.trim() || null,
             llpin: form.llpin.trim() || null,
           },

@@ -23,18 +23,31 @@ def _ts():
 
 
 def _gstin(state_prefix=None):
-    state = state_prefix or random.choice(["07", "27", "29", "33", "06"])
-    entity = random.choice(string.ascii_uppercase + "123456789")
-    check = random.choice(string.ascii_uppercase + string.digits)
-    return f"{state}ABCDE1234F{entity}Z{check}"
+    """Return a uuid-derived GSTIN with matching PAN to avoid collisions."""
+    from _helpers import make_gstin_pan
+
+    gstin, _pan = make_gstin_pan()
+    if state_prefix:
+        gstin = f"{state_prefix}{gstin[2:]}"
+    return gstin
+
+
+def _gstin_pan(state_prefix=None):
+    from _helpers import make_gstin_pan
+
+    gstin, pan = make_gstin_pan()
+    if state_prefix:
+        gstin = f"{state_prefix}{gstin[2:]}"
+    return gstin, pan
 
 
 def _valid_business(overrides=None):
+    g, p = _gstin_pan()
     b = {
         "business_type": "private_limited",
         "company_name": "TEST Payouts Co",
-        "gstin": _gstin(),
-        "pan": "ABCDE1234F",
+        "gstin": g,
+        "pan": p,
         "cin": "U74999MH2020PTC123456",
         "address_line1": "1 Payout St",
         "address_line2": "",

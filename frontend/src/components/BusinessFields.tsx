@@ -25,7 +25,7 @@ export const BUSINESS_TYPES: {
     short: "Sole Prop",
     full: "Sole Proprietorship",
     mca: "none",
-    hint: "Not registered on MCA. GSTIN & PAN required.",
+    hint: "Not registered on MCA. GSTIN is OPTIONAL (only required if your annual turnover crosses ₹40 lakh). PAN is required.",
   },
   {
     key: "partnership_firm",
@@ -157,11 +157,19 @@ export function BusinessFields({
       <View style={styles.row}>
         <View style={{ flex: 1 }}>
           <Field
-            label="GSTIN (15 chars)"
+            label={
+              form.business_type === "sole_proprietorship"
+                ? "GSTIN (optional)"
+                : "GSTIN (15 chars)"
+            }
             testID={`${prefix}-gstin`}
             value={form.gstin}
             onChangeText={set("gstin")}
-            placeholder="27ABCDE1234F1Z5"
+            placeholder={
+              form.business_type === "sole_proprietorship"
+                ? "Leave blank if not registered"
+                : "27ABCDE1234F1Z5"
+            }
             autoCapitalize="characters"
             maxLength={15}
           />
