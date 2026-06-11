@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
-import { Check, ChevronLeft, RefreshCcw, X } from "lucide-react-native";
+import { Check, ChevronLeft, Film, Play, RefreshCcw, X } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -42,6 +42,7 @@ type Return = {
   restocking_fee_nzd: number;
   buyer_pays_shipping: boolean;
   created_at: string;
+  videos?: string[];
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -159,11 +160,11 @@ export default function SellerReturnsScreen() {
                   ))}
                 </View>
 
-                {item.photos && item.photos.length > 0 ? (
+                {(item.photos && item.photos.length > 0) || (item.videos && item.videos.length > 0) ? (
                   <View style={styles.proofWrap}>
-                    <Text style={styles.proofLabel}>Buyer's proof photos</Text>
+                    <Text style={styles.proofLabel}>Buyer&apos;s proof</Text>
                     <View style={styles.proofRow}>
-                      {item.photos.map((url, idx) => (
+                      {(item.photos || []).map((url, idx) => (
                         <Pressable
                           key={url + idx}
                           testID={`seller-rtn-proof-${item.id}-${idx}`}
@@ -171,6 +172,19 @@ export default function SellerReturnsScreen() {
                           style={styles.proofTile}
                         >
                           <Image source={{ uri: url }} style={styles.proofImg} />
+                        </Pressable>
+                      ))}
+                      {(item.videos || []).map((url, idx) => (
+                        <Pressable
+                          key={"v" + url + idx}
+                          testID={`seller-rtn-video-${item.id}-${idx}`}
+                          onPress={() => Linking.openURL(url)}
+                          style={[styles.proofTile, styles.proofTileVideo]}
+                        >
+                          <Film size={18} color="#fff" />
+                          <View style={styles.playBadge}>
+                            <Play size={10} color="#fff" />
+                          </View>
                         </Pressable>
                       ))}
                     </View>
@@ -405,6 +419,8 @@ const styles = StyleSheet.create({
   proofRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   proofTile: { width: 64, height: 64, borderRadius: radius.sm, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   proofImg: { width: "100%", height: "100%" },
+  proofTileVideo: { backgroundColor: "#111827", alignItems: "center", justifyContent: "center" },
+  playBadge: { position: "absolute", width: 22, height: 22, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.3)", alignItems: "center", justifyContent: "center" },
   actions: { flexDirection: "row", gap: 10, marginTop: 8 },
   btnSecondary: {
     flex: 1,

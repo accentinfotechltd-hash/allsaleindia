@@ -415,3 +415,41 @@ def test_seller_sees_proof_photos(api_client, base_url, buyer_with_delivered_ord
     assert r.status_code == 200
     match = [rt for rt in r.json() if rt["order_id"] == buyer_with_delivered_order["order_id"]]
     assert match and len(match[0]["photos"]) == 2
+
+
+def test_max_one_video_enforced(api_client, base_url, buyer_with_delivered_order):
+    """API rejects > 1 video with 400."""
+    r = api_client.post(
+        f"{base_url}/api/returns/request",
+        headers=buyer_with_delivered_order["headers"],
+        json={
+            "order_id": buyer_with_delivered_order["order_id"],
+            "reason": "defective",
+            "photos": [PROOF_PHOTO],
+            "videos": [
+                "https://res.cloudinary.com/x/video/upload/v1/a.mp4",
+                "https://res.cloudinary.com/x/video/upload/v1/b.mp4",
+            ],
+        },
+    )
+    assert r.status_code == 400
+    assert "video" in r.json()["detail"].lower()
+
+
+def test_video_optional_and_visible_to_seller(api_client, base_url, buyer_with_delivered_order, seller_for_order):
+    """A single video URL is persisted and visible on seller-side."""
+    video_url = "https://res.cloudinary.com/demo/video/upload/v1/dog.mp4"
+    submit = api_client.post(
+        f"{base_url}/api/returns/request",
+        headers=buyer_with_delivered_order["headers"],
+        json={
+            "order_id": buyer_with_delivered_order["order_id"],
+            "reason": "defective",
+            "photos": [PROOF_PHOTO],
+            "videos": [video_url],
+        },
+    )
+    assert submit.status_code == 200, submit.text
+    r = api_client.get(f"{base_url}/api/seller/returns", headers=seller_for_order["headers"])
+    match = [rt for rt in r.json() if rt["order_id"] == buyer_with_delivered_order["order_id"]]
+    assert match and match[0]["videos"] == [video_url]

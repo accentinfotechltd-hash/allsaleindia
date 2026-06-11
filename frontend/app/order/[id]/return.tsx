@@ -4,8 +4,10 @@ import {
   AlertCircle,
   Check,
   ChevronLeft,
+  Film,
   ImagePlus,
   PackageX,
+  Play,
   Sparkles,
   ThumbsDown,
   X,
@@ -87,8 +89,11 @@ export default function ReturnRequestScreen() {
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<string[]>([]); // Cloudinary URLs
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   const MAX_PHOTOS = 4;
+  const MAX_VIDEO_SECONDS = 30;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -163,6 +168,61 @@ export default function ReturnRequestScreen() {
   const removePhoto = (idx: number) =>
     setPhotos((prev) => prev.filter((_, i) => i !== idx));
 
+  const pickVideo = useCallback(async () => {
+    if (videoUrl) {
+      Alert.alert("Only one video allowed", "Remove the current video to add a new one.");
+      return;
+    }
+    const perm = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!perm.granted && perm.canAskAgain) {
+      const ask = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!ask.granted) {
+        Alert.alert(
+          "Photos access needed",
+          "Please allow photo library access in Settings to attach a proof video.",
+        );
+        return;
+      }
+    } else if (!perm.granted) {
+      Alert.alert(
+        "Photos access needed",
+        "Please allow photo library access in Settings to attach a proof video.",
+      );
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      quality: 0.6,
+      base64: true,
+      videoMaxDuration: MAX_VIDEO_SECONDS,
+      allowsMultipleSelection: false,
+    });
+    if (res.canceled || !res.assets?.length) return;
+    const asset = res.assets[0];
+    if (asset.duration && asset.duration / 1000 > MAX_VIDEO_SECONDS + 2) {
+      Alert.alert(
+        "Video too long",
+        `Please keep proof clips under ${MAX_VIDEO_SECONDS} seconds.`,
+      );
+      return;
+    }
+    const dataUri = asset.base64
+      ? `data:${asset.mimeType || "video/mp4"};base64,${asset.base64}`
+      : asset.uri;
+    setUploadingVideo(true);
+    try {
+      const uploaded = await api<{ url: string }>("/uploads/video", {
+        method: "POST",
+        body: { data: dataUri, folder: "allsale/returns" },
+      });
+      setVideoUrl(uploaded.url);
+    } catch (e: any) {
+      Alert.alert("Couldn't upload video", e?.message || "Please try again.");
+    } finally {
+      setUploadingVideo(false);
+    }
+  }, [videoUrl]);
+
   const submit = useCallback(async () => {
     if (!order || !reason) return;
     if (selectedIds.length === 0) {
@@ -188,6 +248,7 @@ export default function ReturnRequestScreen() {
           product_ids: selectedIds,
           note: note.trim() || undefined,
           photos,
+          videos: videoUrl ? [videoUrl] : [],
         },
       });
       Alert.alert(
@@ -200,7 +261,7 @@ export default function ReturnRequestScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [order, reason, selectedIds, note, photos, router]);
+  }, [order, reason, selectedIds, note, photos, videoUrl, router]);
 
   const chosenReason = REASONS.find((r) => r.value === reason);
 
@@ -369,6 +430,47 @@ export default function ReturnRequestScreen() {
                 )}
               </Pressable>
             ) : null}
+
+            {/* Video tile (optional, max 1, 30s) */}
+            {videoUrl ? (
+              <View style={styles.photoTile} testID="rtn-video-tile">
+                <View style={styles.videoPlaceholder}>
+                  <Film size={20} color="#fff" />
+                  <View style={styles.videoPlayBadge}>
+                    <Play size={12} color="#fff" />
+                  </View>
+                </View>
+                <Pressable
+                  testID="rtn-video-remove"
+                  onPress={() => setVideoUrl(null)}
+                  style={styles.photoRemove}
+                  hitSlop={8}
+                >
+                  <X size={12} color="#fff" />
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                testID="rtn-video-add"
+                onPress={pickVideo}
+                disabled={uploadingVideo}
+                style={({ pressed }) => [
+                  styles.photoAdd,
+                  pressed && { opacity: 0.85 },
+                  uploadingVideo && { opacity: 0.5 },
+                ]}
+              >
+                {uploadingVideo ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <>
+                    <Film size={20} color={colors.primary} />
+                    <Text style={styles.photoAddText}>Add video</Text>
+                    <Text style={styles.videoLimit}>≤ 30 sec</Text>
+                  </>
+                )}
+              </Pressable>
+            )}
           </View>
 
           <Text style={styles.section}>Notes for the seller (optional)</Text>
@@ -560,6 +662,23 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   photoAddText: { fontSize: 10, color: colors.primary, fontWeight: "700" },
+  videoPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#111827",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoPlayBadge: {
+    position: "absolute",
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoLimit: { fontSize: 9, color: colors.textMuted, fontWeight: "600" },
   summaryCard: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.lg },
   summaryGood: { backgroundColor: colors.successSoft },
   summaryWarn: { backgroundColor: "#FEF3C7" },

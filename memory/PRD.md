@@ -191,3 +191,16 @@ Made returns option discoverable from anywhere a buyer might look:
 - `/app/frontend/app/orders.tsx`: inline `× Cancel order · 11h left` link below the row footer whenever an order is still within the 12-hour cancellation window. Includes a confirmation dialog before issuing the cancellation.
 
 Test suite: 162 backend tests pass (up from 158).
+
+## Short video proof on returns (June 2026)
+
+**Backend**
+- New `POST /api/uploads/video` endpoint — Cloudinary `resource_type=video`, 20 MB / ~30 s cap; rejects clips >35s via server-side cleanup.
+- `ReturnRequestCreate` / `ReturnRequest` models gain `videos: List[str]` (max 1).
+- `/api/returns/request` validates `len(videos) <= 1`. Videos remain optional even for seller-paid reasons.
+- Backend tests: `test_max_one_video_enforced`, `test_video_optional_and_visible_to_seller`.
+
+**Frontend**
+- Return request screen: new "Add video" tile in the proof grid (uses `expo-image-picker` with `MediaTypeOptions.Videos` and `videoMaxDuration: 30`). Shows duration limit hint, upload spinner, and a remove button. Uploads via the new `/api/uploads/video` endpoint and stores Cloudinary URL.
+- Seller-side returns view: video proof renders as a dark tile with film + play badge; tap opens the Cloudinary URL.
+- 164 backend tests pass (up from 162).

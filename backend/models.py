@@ -337,6 +337,7 @@ class ReturnRequestCreate(BaseModel):
     product_ids: List[str] = Field(default_factory=list)
     note: Optional[str] = Field(None, max_length=600)
     photos: List[str] = Field(default_factory=list, description="base64-encoded images, optional, max 4")
+    videos: List[str] = Field(default_factory=list, description="short proof videos (Cloudinary URLs), max 1")
 
 
 class ReturnRequest(BaseModel):
@@ -348,6 +349,7 @@ class ReturnRequest(BaseModel):
     reason: str
     note: Optional[str] = None
     photos: List[str] = Field(default_factory=list)
+    videos: List[str] = Field(default_factory=list)
     status: str  # pending_seller | approved | rejected | refunded | cancelled
     buyer_pays_shipping: bool
     restocking_fee_nzd: float

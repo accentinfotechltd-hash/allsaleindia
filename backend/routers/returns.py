@@ -58,6 +58,8 @@ async def create_return_requests(
         )
     if len(body.photos) > 4:
         raise HTTPException(status_code=400, detail="Maximum 4 photos")
+    if len(body.videos) > 1:
+        raise HTTPException(status_code=400, detail="Maximum 1 video")
 
     order = await db.orders.find_one(
         {"id": body.order_id, "user_id": current["id"]}, {"_id": 0}
@@ -126,6 +128,7 @@ async def create_return_requests(
             "reason": body.reason,
             "note": (body.note or "").strip()[:600] or None,
             "photos": body.photos[:4],
+            "videos": body.videos[:1],
             "status": "pending_seller",
             "buyer_pays_shipping": buyer_pays,
             "restocking_fee_nzd": fee,
