@@ -227,6 +227,21 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Iter-13: 🎉 LIVE Cloudinary uploads. New POST /api/uploads/image
+      endpoint signs uploads server-side using CLOUDINARY_CLOUD_NAME +
+      _API_KEY + _API_SECRET from /app/backend/.env. Accepts base64 data
+      URIs OR remote URLs, returns the secure_url (e.g.
+      https://res.cloudinary.com/dfk7mtpk9/image/upload/v.../allsale/products/
+      user_xxx/yyy.png). Auto-applied transformations: quality=auto:good,
+      fetch_format=auto. Cloud name: dfk7mtpk9. Seller new-listing form
+      now uploads each picked photo to /api/uploads/image and stores the
+      CDN URL on the product — base64 stops bloating Mongo. Graceful
+      fallback to local data URI on upload error so the form is never
+      dead-ended. 5 new pytest cases including a real live upload.
+      Backend total: 166/167 pass (1 unrelated asyncio flake).
+
+  - agent: "main"
+    message: |
       Iter-12: Edit listings + swipeable multi-image gallery. (1) New
       PATCH /api/seller/products/{id} for partial-edit of a listing the
       authenticated seller owns. Supports name/description/category/price/

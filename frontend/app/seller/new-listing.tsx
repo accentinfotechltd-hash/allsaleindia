@@ -69,17 +69,25 @@ export default function NewListing() {
         base64: true,
       });
       if (result.canceled) return;
-      const newPhotos: string[] = [];
+      // Upload each picked image to Cloudinary via our backend, then
+      // store the returned secure URL. We show the data URI immediately
+      // for snappy UI feedback, then swap it for the CDN URL on success.
       for (const a of result.assets) {
-        // expo-image-picker returns base64 (without prefix). Combine with mime.
-        if (a.base64) {
-          const mime = a.mimeType || "image/jpeg";
-          newPhotos.push(`data:${mime};base64,${a.base64}`);
-        } else if (a.uri) {
-          newPhotos.push(a.uri);
+        if (!a.base64) continue;
+        const mime = a.mimeType || "image/jpeg";
+        const dataUri = `data:${mime};base64,${a.base64}`;
+        try {
+          const res = await api<{ url: string; provider: string }>("/uploads/image", {
+            method: "POST",
+            body: { data: dataUri },
+          });
+          setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
+        } catch (e: any) {
+          // Fall back to local data URI so the form is not dead-ended.
+          setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
+          Alert.alert("Upload warning", e?.message || "Upload failed; using local copy.");
         }
       }
-      setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
     } catch (e: any) {
       Alert.alert("Couldn't open photos", e?.message || "Try again.");
     } finally {
@@ -100,9 +108,18 @@ export default function NewListing() {
       });
       if (result.canceled) return;
       const a = result.assets[0];
-      if (a?.base64) {
-        const mime = a.mimeType || "image/jpeg";
-        setPhotos((prev) => [...prev, `data:${mime};base64,${a.base64}`].slice(0, MAX_PHOTOS));
+      if (!a?.base64) return;
+      const mime = a.mimeType || "image/jpeg";
+      const dataUri = `data:${mime};base64,${a.base64}`;
+      try {
+        const res = await api<{ url: string; provider: string }>("/uploads/image", {
+          method: "POST",
+          body: { data: dataUri },
+        });
+        setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
+      } catch (e: any) {
+        setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
+        Alert.alert("Upload warning", e?.message || "Upload failed; using local copy.");
       }
     } catch (e: any) {
       Alert.alert("Couldn't open camera", e?.message || "Try again.");

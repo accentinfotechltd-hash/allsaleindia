@@ -5,12 +5,14 @@ Payments: Stripe Checkout via emergentintegrations (test key).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
 import secrets
 import uuid
-import json
+import base64
+import binascii
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, List, Optional
@@ -2115,6 +2117,98 @@ async def admin_list_notifications(
         raise HTTPException(status_code=403, detail="Forbidden")
     cursor = db.notifications.find({"user_id": "admin"}, {"_id": 0}).sort("created_at", -1).limit(200)
     return [Notification(**n) async for n in cursor]
+
+
+# ---------------------------------------------------------------------------
+# Cloudinary uploads (server-side signed)
+# ---------------------------------------------------------------------------
+_CLOUDINARY_READY = False
+try:
+    import cloudinary
+    import cloudinary.uploader
+
+    if os.environ.get("CLOUDINARY_CLOUD_NAME") and os.environ.get("CLOUDINARY_API_KEY") and os.environ.get("CLOUDINARY_API_SECRET"):
+        cloudinary.config(
+            cloud_name=os.environ["CLOUDINARY_CLOUD_NAME"],
+            api_key=os.environ["CLOUDINARY_API_KEY"],
+            api_secret=os.environ["CLOUDINARY_API_SECRET"],
+            secure=True,
+        )
+        _CLOUDINARY_READY = True
+        logger.info("Cloudinary configured for cloud=%s", os.environ["CLOUDINARY_CLOUD_NAME"])
+except Exception as _e:
+    logger.warning("Cloudinary import/config failed: %s", _e)
+
+
+class UploadImageRequest(BaseModel):
+    data: str = Field(..., description="Base64 data URI (e.g. data:image/jpeg;base64,...) OR a remote URL")
+    folder: Optional[str] = Field("allsale/products", description="Cloudinary folder")
+
+
+class UploadImageResponse(BaseModel):
+    url: str  # final HTTPS URL to store on the product
+    public_id: Optional[str] = None
+    provider: str  # "cloudinary" | "passthrough"
+    bytes: Optional[int] = None
+
+
+@api.post("/uploads/image", response_model=UploadImageResponse)
+async def upload_image(body: UploadImageRequest, current=Depends(get_current_user)):
+    """Upload a single image (base64 data-URI or remote URL) to Cloudinary.
+
+    Returns the secure CDN URL the client should persist on the product
+    instead of the raw base64. If Cloudinary is not configured, falls back
+    to a passthrough (returns the URL as-is, or stores base64 inline) so
+    the front-end keeps working end-to-end.
+    """
+    src = (body.data or "").strip()
+    if not src:
+        raise HTTPException(status_code=400, detail="Empty image data")
+
+    # Quick size guard for base64 data URIs.
+    if src.startswith("data:"):
+        if len(src) > 8_000_000:  # ~6MB binary
+            raise HTTPException(status_code=413, detail="Image too large (max ~6 MB)")
+        # Validate base64 parses to bytes
+        try:
+            _, _, b64 = src.partition(",")
+            base64.b64decode(b64, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=400, detail="Invalid base64 image payload")
+
+    if not _CLOUDINARY_READY:
+        # Passthrough — store as-is (useful in tests / when no creds).
+        return UploadImageResponse(url=src, provider="passthrough", bytes=len(src))
+
+    folder = (body.folder or "allsale/products").strip().strip("/")
+    # Namespace by user_id so each seller's photos are easy to find / purge.
+    public_id_seed = f"{current['id']}/{uuid.uuid4().hex[:12]}"
+    try:
+        # Synchronous SDK call — Cloudinary's python SDK is sync. Wrap to
+        # avoid blocking the event loop on big payloads.
+        import asyncio as _asyncio
+
+        result = await _asyncio.to_thread(
+            cloudinary.uploader.upload,
+            src,
+            folder=folder,
+            public_id=public_id_seed,
+            resource_type="image",
+            overwrite=False,
+            unique_filename=False,
+            use_filename=False,
+            transformation=[{"quality": "auto:good", "fetch_format": "auto"}],
+        )
+    except Exception as e:
+        logger.warning("Cloudinary upload failed: %s", e)
+        raise HTTPException(status_code=502, detail="Image upload failed. Please try again.")
+
+    return UploadImageResponse(
+        url=result.get("secure_url") or result.get("url"),
+        public_id=result.get("public_id"),
+        provider="cloudinary",
+        bytes=int(result.get("bytes") or 0),
+    )
 
 
 # ---------------------------------------------------------------------------
