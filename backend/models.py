@@ -302,6 +302,10 @@ class Order(BaseModel):
     cancel_reason: Optional[str] = None
     refund_id: Optional[str] = None
     refund_amount_nzd: Optional[float] = None
+    # Multi-region: what the buyer was actually charged in their currency.
+    buyer_country: Optional[str] = None
+    buyer_currency: Optional[str] = None
+    charge_amount: Optional[float] = None
 
 
 class CancelOrderRequest(BaseModel):

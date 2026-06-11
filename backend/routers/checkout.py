@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from db import db
 from deps import get_current_user
 from models import CheckoutRequest, OrderItem
+from services import fx
 from services.cart import hydrate_cart
 from services.notifications import notify_order_placed
 from services.payouts import create_payouts_for_order
@@ -54,16 +55,34 @@ async def create_checkout_session(
     )
     cancel_url = f"{body.origin_url.rstrip('/')}/checkout/cancel"
 
+    # Resolve the buyer's currency from the user's profile (defaults to NZD).
+    from config import SUPPORTED_COUNTRIES
+
+    country = (current.get("country") or "NZ").upper()
+    info = next(
+        (c for c in SUPPORTED_COUNTRIES if c["code"] == country),
+        SUPPORTED_COUNTRIES[0],
+    )
+    currency = info["currency"].lower()
+    if currency == "nzd":
+        charge_amount = float(cart.total_nzd)
+    else:
+        rates = await fx.get_rates()
+        charge_amount = fx.convert(cart.total_nzd, info["currency"], rates)
+
     stripe = get_stripe(body.origin_url)
     session_req = CheckoutSessionRequest(
-        amount=float(cart.total_nzd),
-        currency="nzd",
+        amount=float(charge_amount),
+        currency=currency,
         success_url=success_url,
         cancel_url=cancel_url,
         metadata={
             "order_id": order_id,
             "user_id": current["id"],
             "items_count": str(sum(it["quantity"] for it in cart.items)),
+            "buyer_country": country,
+            "buyer_currency": currency.upper(),
+            "amount_nzd": f"{cart.total_nzd:.2f}",
         },
     )
     session = await stripe.create_checkout_session(session_req)
@@ -79,6 +98,9 @@ async def create_checkout_session(
         "status": "pending",
         "payment_status": "initiated",
         "session_id": session.session_id,
+        "buyer_country": country,
+        "buyer_currency": currency.upper(),
+        "charge_amount": charge_amount,
         "created_at": now_utc(),
         "estimated_delivery": estimate_delivery_window(),
     }

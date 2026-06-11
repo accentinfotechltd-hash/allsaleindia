@@ -8,6 +8,7 @@ import SizeGuideModal from "@/src/components/SizeGuideModal";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
 import { chartsForCategory } from "@/src/lib/sizeCharts";
+import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Product = {
@@ -34,6 +35,7 @@ type Product = {
 };
 
 export default function ProductDetail() {
+  const { formatPrice } = useRegion();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { add } = useCart();
@@ -183,7 +185,7 @@ export default function ProductDetail() {
 
           <View style={styles.priceCard}>
             <View>
-              <Text style={styles.priceNzd}>{formatNZD(product.price_nzd)} NZD</Text>
+              <Text style={styles.priceNzd}>{formatPrice(product.price_nzd, { showNzd: true })}</Text>
               <Text style={styles.priceInr}>Inclusive of seller pricing</Text>
             </View>
             <View style={styles.discountTag}>
@@ -308,7 +310,7 @@ export default function ProductDetail() {
         <View style={styles.bottomInner}>
           <View>
             <Text style={styles.bottomLabel}>Total</Text>
-            <Text style={styles.bottomPrice}>{formatNZD(product.price_nzd)}</Text>
+            <Text style={styles.bottomPrice}>{formatPrice(product.price_nzd)}</Text>
           </View>
           <Pressable
             testID="product-add-to-cart-btn"

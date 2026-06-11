@@ -14,9 +14,9 @@ from fastapi import APIRouter, Request
 from config import (
     COUNTRY_CODES,
     DEFAULT_COUNTRY,
-    FX_RATES_FROM_NZD,
     SUPPORTED_COUNTRIES,
 )
+from services import fx
 
 router = APIRouter(tags=["geo"])
 
@@ -48,9 +48,18 @@ async def detect_country(request: Request):
 
 @router.get("/currency/rates")
 async def currency_rates():
-    """Return the supported countries and hardcoded NZD→target FX rates."""
+    """Return the supported countries and live NZD→target FX rates.
+
+    Rates are fetched from Frankfurter (ECB) once an hour and silently fall
+    back to the hardcoded `FX_RATES_FROM_NZD` table when the API is
+    unreachable. `last_refresh` is null on cold-start (before first fetch).
+    """
+    live_rates = await fx.get_rates()
+    last = fx.get_last_refresh()
     return {
         "base": "NZD",
-        "rates": FX_RATES_FROM_NZD,
+        "rates": live_rates,
         "countries": SUPPORTED_COUNTRIES,
+        "source": "frankfurter" if last else "fallback",
+        "last_refresh": last.isoformat() if last else None,
     }

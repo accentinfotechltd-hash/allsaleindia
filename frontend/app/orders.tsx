@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Order = {
@@ -36,6 +37,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 };
 
 export default function Orders() {
+  const { formatPrice } = useRegion();
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ export default function Orders() {
                 </View>
                 <View style={styles.rowFoot}>
                   <Text style={styles.deliveryText}>Est. delivery: {item.estimated_delivery}</Text>
-                  <Text style={styles.totalText}>{formatNZD(item.total_nzd)}</Text>
+                  <Text style={styles.totalText}>{formatPrice(item.total_nzd)}</Text>
                 </View>
 
                 {item.status === "delivered" ? (

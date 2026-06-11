@@ -12,9 +12,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export default function Cart() {
+  const { formatPrice, info } = useRegion();
   const router = useRouter();
   const { cart, loading, update, remove } = useCart();
 
@@ -75,7 +77,7 @@ export default function Cart() {
                 {item.name}
               </Text>
               <View style={styles.priceRow}>
-                <Text style={styles.priceNzd}>{formatNZD(item.price_nzd)}</Text>
+                <Text style={styles.priceNzd}>{formatPrice(item.price_nzd)}</Text>
                 <Text style={styles.priceLabel}>NZD</Text>
               </View>
               <View style={styles.qtyRow}>
@@ -114,33 +116,36 @@ export default function Cart() {
           <Truck size={14} color={colors.success} />
           <Text style={styles.shippingText}>
             {cart.shipping_nzd === 0
-              ? "Free shipping to NZ unlocked!"
-              : `Add ${formatNZD(100 - cart.subtotal_nzd)} more for free shipping`}
+              ? "Free shipping unlocked!"
+              : `Add ${formatPrice(100 - cart.subtotal_nzd)} more for free shipping`}
           </Text>
         </View>
-        <SummaryRow label="Subtotal" value={formatNZD(cart.subtotal_nzd)} />
+        <SummaryRow label="Subtotal" value={formatPrice(cart.subtotal_nzd)} />
         <SummaryRow
-          label="Shipping to NZ"
-          value={cart.shipping_nzd === 0 ? "FREE" : formatNZD(cart.shipping_nzd)}
+          label="Shipping"
+          value={cart.shipping_nzd === 0 ? "FREE" : formatPrice(cart.shipping_nzd)}
           highlight={cart.shipping_nzd === 0}
         />
         <SummaryRow
           label={cart.subtotal_nzd > 1000 ? "NZ GST 15% + 10% duty (est.)" : "NZ GST 15% (est.)"}
-          value={formatNZD(
+          value={formatPrice(
             cart.subtotal_nzd > 1000
               ? (cart.subtotal_nzd + cart.shipping_nzd) * 0.15 + cart.subtotal_nzd * 0.1
               : (cart.subtotal_nzd + cart.shipping_nzd) * 0.15,
           )}
         />
         <View style={styles.divider} />
-        <SummaryRow label="Total (NZD)" value={formatNZD(cart.total_nzd)} bold />
+        <SummaryRow label={`Total (${info.currency})`} value={formatPrice(cart.total_nzd)} bold />
+        {info.currency !== "NZD" ? (
+          <SummaryRow label="In NZD" value={formatNZD(cart.total_nzd)} />
+        ) : null}
 
         <Pressable
           testID="cart-checkout-btn"
           onPress={() => router.push("/checkout")}
           style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }]}
         >
-          <Text style={styles.ctaText}>Checkout · {formatNZD(cart.total_nzd)}</Text>
+          <Text style={styles.ctaText}>Checkout · {formatPrice(cart.total_nzd)}</Text>
         </Pressable>
       </View>
     </SafeAreaView>

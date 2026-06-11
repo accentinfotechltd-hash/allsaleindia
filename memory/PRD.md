@@ -269,3 +269,20 @@ Allow buyers from 5 countries (NZ / AU / US / GB / CA) to use one Allsale mobile
 - Surface localized prices on product detail, cart, and order screens (currently NZD shown there).
 - Hook checkout to charge in the buyer's currency via Stripe `currency` param.
 - Backfill `country=NZ` on existing users (handled implicitly by `public_user()` defaulting; can add an explicit migration if needed).
+
+## Multi-region Phase 2 (June 2026)
+
+**Live FX rates (Frankfurter)**
+- New `services/fx.py` fetches NZD-base rates from the free Frankfurter API (`api.frankfurter.dev/v1/latest`) once an hour and caches them in-process. Falls back silently to the hardcoded `FX_RATES_FROM_NZD` table when the network call fails.
+- `GET /api/currency/rates` now returns `source: "frankfurter" | "fallback"` and `last_refresh` timestamp so the UI can show a freshness indicator if desired.
+- First successful refresh observed: `{NZD: 1.00, AUD: 0.827, CAD: 0.809, GBP: 0.433, USD: 0.579}`.
+
+**Stripe — charge in buyer's currency**
+- `/api/checkout/session` now reads the buyer's `country` from their profile, picks the matching currency, converts the NZD cart total using the live FX rate, and creates the Stripe Checkout session with `currency=buyer_currency`.
+- Order doc persists `buyer_country`, `buyer_currency`, and `charge_amount` so the receipt page can show "Paid £24.16" not just NZD.
+- Stripe metadata also carries the original `amount_nzd` so finance reconciliation remains straightforward.
+
+**Localized prices throughout the UI**
+- ProductCard, product detail, cart, and orders list now use `RegionContext.formatPrice()` to show the local currency. ProductCard shows `NZ$xx.xx` reference underneath when not NZD.
+- Cart summary line now says "Total (AUD/USD/GBP/CAD/NZD)" and shows "In NZD" reference when the buyer's currency isn't NZD.
+- Refund / restocking-fee text on order detail intentionally stays in NZD (refunds still settle in NZD — to be revisited if buyer refunds need to be currency-aware later).
