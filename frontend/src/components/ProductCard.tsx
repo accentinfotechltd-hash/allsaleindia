@@ -11,6 +11,8 @@ export type ProductLite = {
   category: string;
   rating?: number;
   reviews_count?: number;
+  seller_name?: string | null;
+  seller_city?: string | null;
 };
 
 export function ProductCard({
@@ -38,6 +40,12 @@ export function ProductCard({
         <Text style={styles.name} numberOfLines={2}>
           {product.name}
         </Text>
+        {product.seller_name || product.seller_city ? (
+          <Text style={styles.seller} numberOfLines={1}>
+            by {product.seller_name || "Seller"}
+            {product.seller_city ? ` · ${product.seller_city}` : ""}
+          </Text>
+        ) : null}
         <View style={styles.priceRow}>
           <Text style={styles.priceNzd}>{formatNZD(product.price_nzd)}</Text>
           <Text style={styles.priceLabel}>NZD</Text>
@@ -60,6 +68,7 @@ const styles = StyleSheet.create({
   body: { padding: spacing.md, gap: 4 },
   category: { fontSize: 10, fontWeight: "700", color: colors.primary, letterSpacing: 1 },
   name: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 18, minHeight: 36 },
+  seller: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 4 },
   priceNzd: { fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
   priceLabel: { fontSize: 10, color: colors.textFaint, fontWeight: "700", letterSpacing: 0.5 },

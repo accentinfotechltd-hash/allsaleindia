@@ -1,0 +1,270 @@
+"""Returns flow: buyer creates, sellers approve/reject, partial refunds."""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from config import (
+    NON_RETURNABLE_CATEGORIES,
+    RESTOCKING_FEE_PCT,
+    RETURN_REASONS,
+    RETURN_WINDOW_DAYS,
+    SELLER_PAID_REASONS,
+)
+from db import db
+from deps import get_current_user
+from models import (
+    ReturnDecision,
+    ReturnRequest,
+    ReturnRequestCreate,
+)
+from services.notifications import create_notification, notify_admins
+from services.stripe_svc import issue_partial_refund
+from utils import now_utc
+
+router = APIRouter(tags=["returns"])
+
+
+def _is_within_return_window(order: dict) -> bool:
+    if order.get("status") != "delivered":
+        return False
+    deadline = order.get("return_window_until") or (
+        (order.get("delivered_at") or now_utc()) + timedelta(days=RETURN_WINDOW_DAYS)
+    )
+    if isinstance(deadline, datetime) and deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return now_utc() <= deadline
+
+
+def _compute_refund(items: List[dict], reason: str) -> tuple[float, float, bool]:
+    """Return (refund_amount_nzd, restocking_fee_nzd, buyer_pays_shipping)."""
+    gross = round(sum(it["price_nzd"] * it["quantity"] for it in items), 2)
+    if reason in SELLER_PAID_REASONS:
+        return gross, 0.0, False
+    fee = round(gross * RESTOCKING_FEE_PCT, 2)
+    return max(0.0, round(gross - fee, 2)), fee, True
+
+
+@router.post("/returns/request", response_model=List[ReturnRequest])
+async def create_return_requests(
+    body: ReturnRequestCreate, current=Depends(get_current_user)
+):
+    if body.reason not in RETURN_REASONS:
+        raise HTTPException(
+            status_code=400, detail=f"reason must be one of {RETURN_REASONS}"
+        )
+    if len(body.photos) > 4:
+        raise HTTPException(status_code=400, detail="Maximum 4 photos")
+
+    order = await db.orders.find_one(
+        {"id": body.order_id, "user_id": current["id"]}, {"_id": 0}
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not _is_within_return_window(order):
+        raise HTTPException(
+            status_code=400,
+            detail="This order is not eligible for return (must be delivered within the last 7 days).",
+        )
+
+    all_items = order.get("items", [])
+    chosen_ids = (
+        set(body.product_ids)
+        if body.product_ids
+        else {it["product_id"] for it in all_items}
+    )
+    chosen_items = [it for it in all_items if it["product_id"] in chosen_ids]
+    if not chosen_items:
+        raise HTTPException(status_code=400, detail="No matching items in this order")
+
+    product_ids = [it["product_id"] for it in chosen_items]
+    products_cur = db.products.find({"id": {"$in": product_ids}}, {"_id": 0})
+    async for p in products_cur:
+        if p.get("category") in NON_RETURNABLE_CATEGORIES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"\"{p['name']}\" is in a non-returnable category ({p['category']}).",
+            )
+
+    by_seller: dict[str, list[dict]] = {}
+    for it in chosen_items:
+        sid = it.get("seller_id") or "unknown"
+        by_seller.setdefault(sid, []).append(it)
+
+    short_order = body.order_id.replace("order_", "")[:8].upper()
+    created: list[ReturnRequest] = []
+    for sid, sitems in by_seller.items():
+        refund_amount, fee, buyer_pays = _compute_refund(sitems, body.reason)
+        doc = {
+            "id": f"rtn_{uuid.uuid4().hex[:12]}",
+            "order_id": body.order_id,
+            "user_id": current["id"],
+            "seller_id": sid,
+            "items": [
+                {
+                    "product_id": it["product_id"],
+                    "name": it["name"],
+                    "image": it["image"],
+                    "price_nzd": it["price_nzd"],
+                    "quantity": it["quantity"],
+                }
+                for it in sitems
+            ],
+            "reason": body.reason,
+            "note": (body.note or "").strip()[:600] or None,
+            "photos": body.photos[:4],
+            "status": "pending_seller",
+            "buyer_pays_shipping": buyer_pays,
+            "restocking_fee_nzd": fee,
+            "refund_amount_nzd": refund_amount,
+            "created_at": now_utc(),
+        }
+        await db.returns.insert_one(doc)
+        created.append(ReturnRequest(**doc))
+
+        await create_notification(
+            user_id=sid,
+            role="seller",
+            n_type="return_requested",
+            title=f"Return request for #{short_order}",
+            body=f"Buyer requested a return ({body.reason.replace('_', ' ')}). Please review within 48h.",
+            order_id=body.order_id,
+        )
+        await notify_admins(
+            n_type="return_requested",
+            title=f"Return request #{doc['id']}",
+            body=f"Order #{short_order} · ${refund_amount:.2f} NZD · {body.reason}",
+            order_id=body.order_id,
+        )
+
+    await create_notification(
+        user_id=current["id"],
+        role="buyer",
+        n_type="return_requested",
+        title=f"Return submitted for #{short_order}",
+        body="The seller has been notified and will review within 48 hours.",
+        order_id=body.order_id,
+    )
+    await db.orders.update_one(
+        {"id": body.order_id}, {"$set": {"return_requested_at": now_utc()}}
+    )
+    return created
+
+
+@router.get("/returns/me", response_model=List[ReturnRequest])
+async def my_returns(current=Depends(get_current_user)):
+    cursor = db.returns.find({"user_id": current["id"]}, {"_id": 0}).sort("created_at", -1)
+    return [ReturnRequest(**r) async for r in cursor]
+
+
+@router.get("/returns/order/{order_id}", response_model=List[ReturnRequest])
+async def returns_for_order(order_id: str, current=Depends(get_current_user)):
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    is_buyer = order.get("user_id") == current["id"]
+    is_seller_on_order = any(
+        it.get("seller_id") == current["id"] for it in order.get("items", [])
+    )
+    if not (is_buyer or is_seller_on_order):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    query: dict = {"order_id": order_id}
+    if is_seller_on_order and not is_buyer:
+        query["seller_id"] = current["id"]
+    cursor = db.returns.find(query, {"_id": 0}).sort("created_at", -1)
+    return [ReturnRequest(**r) async for r in cursor]
+
+
+@router.get("/seller/returns", response_model=List[ReturnRequest])
+async def list_seller_returns(seller=Depends(get_current_user)):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    cursor = db.returns.find({"seller_id": seller["id"]}, {"_id": 0}).sort("created_at", -1)
+    return [ReturnRequest(**r) async for r in cursor]
+
+
+async def _decide_return(
+    return_id: str, seller_id: str, approve: bool, note: Optional[str]
+) -> ReturnRequest:
+    rtn = await db.returns.find_one({"id": return_id, "seller_id": seller_id}, {"_id": 0})
+    if not rtn:
+        raise HTTPException(status_code=404, detail="Return not found")
+    if rtn["status"] != "pending_seller":
+        raise HTTPException(
+            status_code=400, detail=f"Return is already {rtn['status']}"
+        )
+
+    order = await db.orders.find_one({"id": rtn["order_id"]}, {"_id": 0})
+    refund_id: Optional[str] = None
+    new_status = "approved" if approve else "rejected"
+
+    if approve and order:
+        amount_cents = int(round(float(rtn["refund_amount_nzd"]) * 100))
+        refund_id = await issue_partial_refund(order.get("session_id"), amount_cents)
+        new_status = "refunded" if refund_id else "approved"
+
+    updated = await db.returns.find_one_and_update(
+        {"id": return_id},
+        {
+            "$set": {
+                "status": new_status,
+                "decided_at": now_utc(),
+                "decision_note": (note or "").strip()[:300] or None,
+                "refund_id": refund_id,
+            }
+        },
+        return_document=True,
+    )
+    updated.pop("_id", None)
+
+    short = rtn["order_id"].replace("order_", "")[:8].upper()
+    if approve:
+        await create_notification(
+            user_id=rtn["user_id"],
+            role="buyer",
+            n_type="return_approved",
+            title=f"Return for #{short} approved",
+            body=(
+                f"Your refund of ${rtn['refund_amount_nzd']:.2f} NZD is on the way "
+                "and will appear within 5–10 business days."
+            ),
+            order_id=rtn["order_id"],
+        )
+    else:
+        await create_notification(
+            user_id=rtn["user_id"],
+            role="buyer",
+            n_type="return_rejected",
+            title=f"Return for #{short} declined",
+            body=(note or "The seller couldn't accept this return.")[:200],
+            order_id=rtn["order_id"],
+        )
+
+    await notify_admins(
+        n_type=f"return_{new_status}",
+        title=f"Return {new_status} #{return_id}",
+        body=f"Order #{short} · ${rtn['refund_amount_nzd']:.2f} NZD",
+        order_id=rtn["order_id"],
+    )
+    return ReturnRequest(**updated)
+
+
+@router.post("/returns/{return_id}/approve", response_model=ReturnRequest)
+async def approve_return(
+    return_id: str, body: ReturnDecision, seller=Depends(get_current_user)
+):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    return await _decide_return(return_id, seller["id"], approve=True, note=body.note)
+
+
+@router.post("/returns/{return_id}/reject", response_model=ReturnRequest)
+async def reject_return(
+    return_id: str, body: ReturnDecision, seller=Depends(get_current_user)
+):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    return await _decide_return(return_id, seller["id"], approve=False, note=body.note)

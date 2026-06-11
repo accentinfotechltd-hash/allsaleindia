@@ -29,6 +29,8 @@ type Product = {
   sizes: string[];
   stock_count: number;
   in_stock: boolean;
+  seller_name?: string | null;
+  seller_city?: string | null;
 };
 
 export default function ProductDetail() {
@@ -162,6 +164,12 @@ export default function ProductDetail() {
         <View style={styles.body}>
           <Text style={styles.category}>{product.category.toUpperCase()}</Text>
           <Text style={styles.name}>{product.name}</Text>
+          {product.seller_name || product.seller_city ? (
+            <Text style={styles.sellerLine} testID="product-seller-line">
+              by {product.seller_name || "Seller"}
+              {product.seller_city ? ` · ${product.seller_city}, India` : " · India"}
+            </Text>
+          ) : null}
 
           <View style={styles.ratingRow}>
             <Star size={14} color="#F59E0B" fill="#F59E0B" />
@@ -397,6 +405,7 @@ const styles = StyleSheet.create({
   body: { padding: spacing.lg },
   category: { fontSize: 11, color: colors.primary, fontWeight: "800", letterSpacing: 1.5 },
   name: { fontSize: 24, fontWeight: "800", color: colors.text, marginTop: 6, letterSpacing: -0.6, lineHeight: 30 },
+  sellerLine: { fontSize: 13, color: colors.textMuted, fontWeight: "600", marginTop: 4 },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm },
   ratingText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   ratingCount: { color: colors.textMuted, fontWeight: "500" },

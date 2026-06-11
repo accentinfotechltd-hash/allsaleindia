@@ -1,0 +1,391 @@
+"""Pydantic request / response models for Allsale."""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, EmailStr, Field
+
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    full_name: str = Field(..., min_length=1)
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserPublic(BaseModel):
+    id: str
+    email: EmailStr
+    full_name: str
+    picture: Optional[str] = None
+    provider: str = "email"
+    is_seller: bool = False
+    seller_verified: bool = False
+
+
+class AuthResponse(BaseModel):
+    user: UserPublic
+    access_token: str
+    token_type: str = "bearer"
+
+
+class GoogleSessionRequest(BaseModel):
+    session_id: str
+
+
+# ---------------------------------------------------------------------------
+# Seller / business
+# ---------------------------------------------------------------------------
+class SellerBusiness(BaseModel):
+    business_type: str = Field(..., min_length=2)
+    company_name: str = Field(..., min_length=2)
+    # GSTIN is OPTIONAL — only mandatory for entity types other than
+    # sole_proprietorship (validated in the registration handler).
+    gstin: Optional[str] = Field(default=None)
+    pan: str = Field(..., min_length=10, max_length=10)
+    cin: Optional[str] = Field(default=None)
+    llpin: Optional[str] = Field(default=None)
+    address_line1: str = Field(..., min_length=2)
+    address_line2: Optional[str] = ""
+    city: str = Field(..., min_length=2)
+    state: str = Field(..., min_length=2)
+    pincode: str = Field(..., min_length=6, max_length=6)
+    contact_name: str = Field(..., min_length=2)
+    contact_phone: str = Field(..., min_length=6)
+
+
+class SellerRegister(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    business: SellerBusiness
+
+
+class SellerUpgrade(BaseModel):
+    business: SellerBusiness
+
+
+class SellerProfile(BaseModel):
+    user_id: str
+    business_type: str
+    company_name: str
+    gstin: Optional[str] = None
+    pan: str
+    cin: Optional[str] = None
+    llpin: Optional[str] = None
+    address_line1: str
+    address_line2: Optional[str] = ""
+    city: str
+    state: str
+    pincode: str
+    contact_name: str
+    contact_phone: str
+    verification_status: str  # auto_verified | pending_review | rejected
+    verified_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Products & catalog
+# ---------------------------------------------------------------------------
+class ListingCreate(BaseModel):
+    name: str = Field(..., min_length=2)
+    description: str = Field(..., min_length=10)
+    category: str = Field(..., min_length=2)
+    price_nzd: float = Field(..., gt=0)
+    image: Optional[str] = Field(default=None, description="Primary image URL or base64 data URI")
+    images: List[str] = Field(default_factory=list, description="Up to 10 image URLs or data URIs")
+    shipping_days_min: int = 7
+    shipping_days_max: int = 14
+    colors: List[str] = Field(default_factory=list, description="Available colors (max 10)")
+    stock_count: int = Field(99, ge=0, description="Total stock on hand")
+    sizes: List[str] = Field(default_factory=list, description="Available sizes, e.g. ['S','M','L']")
+
+
+class ListingUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    price_nzd: Optional[float] = Field(default=None, gt=0)
+    images: Optional[List[str]] = None
+    colors: Optional[List[str]] = None
+    sizes: Optional[List[str]] = None
+    stock_count: Optional[int] = Field(default=None, ge=0)
+
+
+class Product(BaseModel):
+    id: str
+    name: str
+    description: str
+    category: str
+    subcategory: Optional[str] = None
+    price_nzd: float
+    price_inr: float
+    image: str
+    images: List[str] = []
+    rating: float = 4.5
+    reviews_count: int = 0
+    in_stock: bool = True
+    stock_count: int = 0
+    colors: List[str] = []
+    sizes: List[str] = []
+    shipping_days_min: int = 7
+    shipping_days_max: int = 12
+    origin: str = "India"
+    seller_id: Optional[str] = None
+    seller_name: Optional[str] = None
+    seller_city: Optional[str] = None
+
+
+class TaxonomyNode(BaseModel):
+    key: str
+    name: str
+    blurb: str
+    subcategories: List[str]
+
+
+# ---------------------------------------------------------------------------
+# NZ duty / prohibited checks
+# ---------------------------------------------------------------------------
+class DutyItem(BaseModel):
+    price_nzd: float
+    quantity: int = 1
+
+
+class DutyEstimateRequest(BaseModel):
+    items: List[DutyItem]
+    shipping_nzd: float = 0.0
+
+
+class DutyEstimateResponse(BaseModel):
+    goods_nzd: float
+    shipping_nzd: float
+    gst_nzd: float
+    duty_nzd: float
+    customs_total_nzd: float  # gst + duty
+    grand_total_nzd: float    # goods + shipping + gst + duty
+    threshold_nzd: float
+    over_threshold: bool
+
+
+class ProhibitedCheckRequest(BaseModel):
+    text: str
+
+
+class ProhibitedCheckResponse(BaseModel):
+    allowed: bool
+    matched_term: Optional[str] = None
+    reason: Optional[str] = None
+    advice: str
+
+
+# ---------------------------------------------------------------------------
+# Cart
+# ---------------------------------------------------------------------------
+class CartItem(BaseModel):
+    product_id: str
+    quantity: int
+
+
+class CartAddRequest(BaseModel):
+    product_id: str
+    quantity: int = 1
+
+
+class CartUpdateRequest(BaseModel):
+    quantity: int
+
+
+class CartView(BaseModel):
+    items: List[dict]  # product details + quantity
+    subtotal_nzd: float
+    shipping_nzd: float
+    total_nzd: float
+    subtotal_inr: float
+
+
+# ---------------------------------------------------------------------------
+# Checkout / orders
+# ---------------------------------------------------------------------------
+class Address(BaseModel):
+    full_name: str
+    phone: str
+    line1: str
+    line2: Optional[str] = ""
+    city: str
+    region: str
+    postcode: str
+    country: str = "New Zealand"
+
+
+class CheckoutRequest(BaseModel):
+    address: Address
+    origin_url: str  # e.g. https://allsale-shop.preview.emergentagent.com
+
+
+class OrderItem(BaseModel):
+    product_id: str
+    name: str
+    image: str
+    price_nzd: float
+    quantity: int
+    seller_id: Optional[str] = None
+    seller_name: Optional[str] = None
+
+
+class Payout(BaseModel):
+    id: str
+    order_id: str
+    seller_id: str
+    company_name: str
+    items_count: int
+    gross_nzd: float
+    commission_nzd: float
+    net_payable_nzd: float
+    status: str  # pending | paid_out
+    created_at: datetime
+    paid_out_at: Optional[datetime] = None
+
+
+class SellerOrderItem(BaseModel):
+    product_id: str
+    name: str
+    image: str
+    price_nzd: float
+    quantity: int
+
+
+class SellerOrder(BaseModel):
+    order_id: str
+    buyer_name: str
+    buyer_city: str
+    buyer_region: str
+    items: List[SellerOrderItem]
+    seller_subtotal_nzd: float
+    status: str
+    created_at: datetime
+    estimated_delivery: str
+
+
+class SellerPayoutSummary(BaseModel):
+    payouts: List[Payout]
+    lifetime_earnings_nzd: float
+    pending_nzd: float
+    paid_out_nzd: float
+
+
+class Order(BaseModel):
+    id: str
+    user_id: str
+    items: List[OrderItem]
+    subtotal_nzd: float
+    shipping_nzd: float
+    total_nzd: float
+    address: Address
+    status: str
+    payment_status: str
+    session_id: Optional[str] = None
+    created_at: datetime
+    estimated_delivery: str
+    cancellable_until: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    cancel_reason: Optional[str] = None
+    refund_id: Optional[str] = None
+    refund_amount_nzd: Optional[float] = None
+
+
+class CancelOrderRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=300)
+
+
+# ---------------------------------------------------------------------------
+# Notifications
+# ---------------------------------------------------------------------------
+class Notification(BaseModel):
+    id: str
+    user_id: str  # recipient user id, or "admin" for admin notifications
+    role: str  # buyer | seller | admin
+    type: str
+    title: str
+    body: str
+    order_id: Optional[str] = None
+    read: bool = False
+    created_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Returns
+# ---------------------------------------------------------------------------
+class ReturnRequestItem(BaseModel):
+    product_id: str
+    name: str
+    image: str
+    price_nzd: float
+    quantity: int
+
+
+class ReturnRequestCreate(BaseModel):
+    order_id: str
+    reason: str = Field(..., description="One of RETURN_REASONS")
+    product_ids: List[str] = Field(default_factory=list)
+    note: Optional[str] = Field(None, max_length=600)
+    photos: List[str] = Field(default_factory=list, description="base64-encoded images, optional, max 4")
+
+
+class ReturnRequest(BaseModel):
+    id: str
+    order_id: str
+    user_id: str
+    seller_id: str
+    items: List[ReturnRequestItem]
+    reason: str
+    note: Optional[str] = None
+    photos: List[str] = Field(default_factory=list)
+    status: str  # pending_seller | approved | rejected | refunded | cancelled
+    buyer_pays_shipping: bool
+    restocking_fee_nzd: float
+    refund_amount_nzd: float
+    created_at: datetime
+    decided_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+    refund_id: Optional[str] = None
+
+
+class ReturnDecision(BaseModel):
+    note: Optional[str] = Field(None, max_length=300)
+
+
+# ---------------------------------------------------------------------------
+# Shipments
+# ---------------------------------------------------------------------------
+class Shipment(BaseModel):
+    id: str
+    order_id: str
+    carrier: str
+    awb_code: str
+    tracking_url: str
+    status: str
+    estimated_delivery: str
+    is_mocked: bool
+
+
+# ---------------------------------------------------------------------------
+# Uploads
+# ---------------------------------------------------------------------------
+class UploadImageRequest(BaseModel):
+    data: str = Field(..., description="Base64 data URI (e.g. data:image/jpeg;base64,...) OR a remote URL")
+    folder: Optional[str] = Field("allsale/products", description="Cloudinary folder")
+
+
+class UploadImageResponse(BaseModel):
+    url: str
+    public_id: Optional[str] = None
+    provider: str  # "cloudinary" | "passthrough"
+    bytes: Optional[int] = None

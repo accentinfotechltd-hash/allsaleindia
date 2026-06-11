@@ -120,3 +120,29 @@ all.
 ## Smart business enhancement
 Free-shipping unlock progress bar on cart — encourages users to add more items
 to reach NZD 100 threshold, increasing average order value.
+
+## Backend refactor (June 2026)
+Monolithic `server.py` (2,737 lines) split into modular packages:
+
+```
+backend/
+  server.py        (92 lines) — thin FastAPI app factory; mounts routers under /api
+  config.py        — env vars, taxonomy, regexes, NZ rules, return reasons
+  db.py            — Mongo client + ensure_indexes()
+  models.py        — All Pydantic request/response schemas
+  utils.py         — Pure helpers (hashing, JWT, validate_indian_business, cart math)
+  deps.py          — FastAPI auth dependencies
+  services/        — DB-aware business logic
+    notifications.py, stock.py, payouts.py,
+    shiprocket.py, stripe_svc.py, cart.py,
+    cloudinary_svc.py, seed.py
+  routers/         — Route handlers grouped by domain
+    auth, products, cart, seller, orders, checkout,
+    returns, shiprocket, uploads, notifications, admin, health
+```
+
+Backward compatibility preserved: `server.py` re-exports
+`decrement_stock_for_order`, `restock_for_order`, `create_payouts_for_order`,
+and `db` so existing tests still work unchanged. All 158 backend tests pass
+(plus the 10 `test_seller_payouts` in isolation; same pre-existing async
+teardown flake when run together).
