@@ -13,8 +13,10 @@ from config import (
     BUSINESS_TYPES_NEEDS_LLPIN,
     CANCELLATION_WINDOW_HOURS,
     CIN_RE,
+    DEFAULT_COUNTRY,
     FLAT_SHIPPING_NZD,
     FREE_SHIPPING_THRESHOLD_NZD,
+    FX_RATES_FROM_NZD,
     GSTIN_RE,
     INR_PER_NZD,
     JWT_ALG,
@@ -22,6 +24,7 @@ from config import (
     JWT_SECRET,
     LLPIN_RE,
     PAN_RE,
+    SUPPORTED_COUNTRIES,
     VALID_BUSINESS_TYPES,
 )
 from models import CartView, SellerBusiness, UserPublic
@@ -62,6 +65,8 @@ def cancellable_until_from(paid_at: datetime) -> datetime:
 
 
 def public_user(doc: dict) -> UserPublic:
+    country = (doc.get("country") or DEFAULT_COUNTRY).upper()
+    currency_map = {c["code"]: c["currency"] for c in SUPPORTED_COUNTRIES}
     return UserPublic(
         id=doc["id"],
         email=doc["email"],
@@ -70,7 +75,31 @@ def public_user(doc: dict) -> UserPublic:
         provider=doc.get("provider", "email"),
         is_seller=bool(doc.get("is_seller")),
         seller_verified=doc.get("seller_verification_status") == "auto_verified",
+        country=country,
+        currency=currency_map.get(country, "NZD"),
     )
+
+
+def convert_from_nzd(amount_nzd: float, currency: str) -> float:
+    """Convert an NZD amount to the requested currency using hardcoded rates."""
+    rate = FX_RATES_FROM_NZD.get((currency or "NZD").upper(), 1.0)
+    return round(float(amount_nzd) * rate, 2)
+
+
+def localize_price(amount_nzd: float, country: str) -> dict:
+    """Return both the NZD original and the buyer's-currency converted price."""
+    country = (country or DEFAULT_COUNTRY).upper()
+    info = next(
+        (c for c in SUPPORTED_COUNTRIES if c["code"] == country),
+        SUPPORTED_COUNTRIES[0],
+    )
+    return {
+        "nzd": round(float(amount_nzd), 2),
+        "amount": convert_from_nzd(amount_nzd, info["currency"]),
+        "currency": info["currency"],
+        "symbol": info["symbol"],
+        "country": country,
+    }
 
 
 def validate_indian_business(b: SellerBusiness) -> dict:

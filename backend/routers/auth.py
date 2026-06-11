@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import uuid
+from typing import Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
+from config import COUNTRY_CODES, DEFAULT_COUNTRY
 from db import db
 from deps import get_current_user
 from models import (
@@ -20,8 +23,22 @@ from utils import create_token, hash_password, now_utc, public_user, verify_pass
 router = APIRouter(tags=["auth"])
 
 
+def _normalize_country(value: Optional[str], request: Request) -> str:
+    """Best-effort country resolution: explicit body > proxy header > default."""
+    candidate = (value or "").strip().upper()
+    if candidate in COUNTRY_CODES:
+        return candidate
+    raw = (
+        request.headers.get("cf-ipcountry")
+        or request.headers.get("x-country")
+        or request.headers.get("x-vercel-ip-country")
+        or ""
+    ).upper()
+    return raw if raw in COUNTRY_CODES else DEFAULT_COUNTRY
+
+
 @router.post("/auth/register", response_model=AuthResponse)
-async def register(body: UserCreate):
+async def register(body: UserCreate, request: Request):
     email = body.email.lower()
     existing = await db.users.find_one({"email": email})
     if existing:
@@ -34,6 +51,7 @@ async def register(body: UserCreate):
         "password_hash": hash_password(body.password),
         "provider": "email",
         "picture": None,
+        "country": _normalize_country(body.country, request),
         "created_at": now_utc(),
     }
     await db.users.insert_one(user_doc)
@@ -109,3 +127,20 @@ async def google_session(body: GoogleSessionRequest):
 @router.get("/auth/me", response_model=UserPublic)
 async def me(current=Depends(get_current_user)):
     return public_user(current)
+
+
+class CountryUpdate(BaseModel):
+    country: str
+
+
+@router.post("/auth/country", response_model=UserPublic)
+async def update_country(body: CountryUpdate, current=Depends(get_current_user)):
+    """Update the signed-in user's country (and therefore currency)."""
+    code = (body.country or "").strip().upper()
+    if code not in COUNTRY_CODES:
+        raise HTTPException(status_code=400, detail=f"Unsupported country: {body.country}")
+    await db.users.update_one({"id": current["id"]}, {"$set": {"country": code}})
+    fresh = await db.users.find_one(
+        {"id": current["id"]}, {"_id": 0, "password_hash": 0}
+    )
+    return public_user(fresh)

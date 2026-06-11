@@ -14,6 +14,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6)
     full_name: str = Field(..., min_length=1)
+    country: Optional[str] = Field(default=None, min_length=2, max_length=2, description="ISO-2 country code (NZ/AU/US/GB/CA)")
 
 
 class UserLogin(BaseModel):
@@ -29,6 +30,8 @@ class UserPublic(BaseModel):
     provider: str = "email"
     is_seller: bool = False
     seller_verified: bool = False
+    country: str = "NZ"
+    currency: str = "NZD"
 
 
 class AuthResponse(BaseModel):

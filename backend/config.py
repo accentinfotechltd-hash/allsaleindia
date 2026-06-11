@@ -46,6 +46,29 @@ VALID_BUSINESS_TYPES = (
 # 1 NZD ≈ 51 INR (display only). Hardcoded for MVP.
 INR_PER_NZD = 51.0
 
+# ---------------------------------------------------------------------------
+# Multi-country support (Phase 1 — June 2026)
+# ---------------------------------------------------------------------------
+SUPPORTED_COUNTRIES: list[dict] = [
+    {"code": "NZ", "name": "New Zealand",   "currency": "NZD", "symbol": "$",  "flag": "🇳🇿"},
+    {"code": "AU", "name": "Australia",     "currency": "AUD", "symbol": "A$", "flag": "🇦🇺"},
+    {"code": "US", "name": "United States", "currency": "USD", "symbol": "US$","flag": "🇺🇸"},
+    {"code": "GB", "name": "United Kingdom","currency": "GBP", "symbol": "£",  "flag": "🇬🇧"},
+    {"code": "CA", "name": "Canada",        "currency": "CAD", "symbol": "C$", "flag": "🇨🇦"},
+]
+COUNTRY_CODES = {c["code"] for c in SUPPORTED_COUNTRIES}
+DEFAULT_COUNTRY = "NZ"
+
+# Catalog prices are stored in NZD. These FX rates (NZD → target) are
+# hardcoded for MVP — update every few months OR swap for a live rates API.
+FX_RATES_FROM_NZD: dict[str, float] = {
+    "NZD": 1.00,
+    "AUD": 0.92,
+    "USD": 0.61,
+    "GBP": 0.48,
+    "CAD": 0.83,
+}
+
 # Order cancellation window: buyers can cancel within 12 hours of payment.
 CANCELLATION_WINDOW_HOURS = 12
 # Payout hold: seller payouts only become eligible 10 days after delivery

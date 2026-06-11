@@ -1,5 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export type ProductLite = {
@@ -24,6 +25,8 @@ export function ProductCard({
   onPress: () => void;
   width: number;
 }) {
+  const { info, formatPrice } = useRegion();
+  const isLocal = info.currency === "NZD";
   return (
     <Pressable
       testID={`product-card-${product.id}`}
@@ -47,9 +50,14 @@ export function ProductCard({
           </Text>
         ) : null}
         <View style={styles.priceRow}>
-          <Text style={styles.priceNzd}>{formatNZD(product.price_nzd)}</Text>
-          <Text style={styles.priceLabel}>NZD</Text>
+          <Text style={styles.priceNzd}>
+            {isLocal ? formatNZD(product.price_nzd) : formatPrice(product.price_nzd)}
+          </Text>
+          <Text style={styles.priceLabel}>{info.currency}</Text>
         </View>
+        {!isLocal ? (
+          <Text style={styles.priceNzdSub}>NZ${product.price_nzd.toFixed(2)}</Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -72,4 +80,5 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 4 },
   priceNzd: { fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
   priceLabel: { fontSize: 10, color: colors.textFaint, fontWeight: "700", letterSpacing: 0.5 },
+  priceNzdSub: { fontSize: 10, color: colors.textFaint, fontWeight: "600", marginTop: 2 },
 });

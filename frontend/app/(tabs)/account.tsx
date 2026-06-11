@@ -1,17 +1,23 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { Bell, ChevronRight, FileText, Globe2, LogOut, MapPin, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Store, XCircle } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useRegion } from "@/src/contexts/RegionContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Account() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { country, info, countries, setCountry } = useRegion();
   const [unread, setUnread] = useState(0);
+  const [showCountrySheet, setShowCountrySheet] = useState(false);
+  const regionFlag = info.flag;
+  const regionName = info.name;
+  const regionCurrency = info.currency;
 
   const loadUnread = useCallback(async () => {
     try {
@@ -82,6 +88,13 @@ export default function Account() {
             subtitle="Track refund requests & seller responses"
             onPress={() => router.push("/returns")}
             testID="account-returns-btn"
+          />
+          <Row
+            icon={<Text style={{ fontSize: 18 }}>{regionFlag}</Text>}
+            label={`Ship to ${regionName}`}
+            subtitle={`Prices shown in ${regionCurrency}`}
+            onPress={() => setShowCountrySheet(true)}
+            testID="account-region-btn"
           />
           {user?.is_seller ? (
             <Row
@@ -168,6 +181,48 @@ export default function Account() {
 
         <Text style={styles.footer}>Allsale · India → NZ · Authentic, fairly traded.</Text>
       </ScrollView>
+
+      <Modal
+        visible={showCountrySheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCountrySheet(false)}
+      >
+        <Pressable
+          style={styles.modalScrim}
+          onPress={() => setShowCountrySheet(false)}
+        />
+        <View style={styles.countrySheet}>
+          <View style={styles.sheetHandle} />
+          <Text style={styles.sheetTitle}>Where do you want to ship?</Text>
+          <Text style={styles.sheetSubtitle}>
+            Prices, taxes and delivery options adjust to your selection.
+          </Text>
+          {countries.map((c) => {
+            const active = c.code === country;
+            return (
+              <Pressable
+                key={c.code}
+                testID={`country-opt-${c.code}`}
+                onPress={async () => {
+                  await setCountry(c.code as any);
+                  setShowCountrySheet(false);
+                }}
+                style={[styles.countryRow, active && styles.countryRowActive]}
+              >
+                <Text style={{ fontSize: 22 }}>{c.flag}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.countryName}>{c.name}</Text>
+                  <Text style={styles.countryMeta}>
+                    {c.currency} · {c.symbol}
+                  </Text>
+                </View>
+                {active ? <ShieldCheck size={18} color={colors.success} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -317,4 +372,42 @@ const styles = StyleSheet.create({
   },
   logoutText: { color: colors.error, fontWeight: "700", fontSize: 14 },
   footer: { textAlign: "center", color: colors.textFaint, fontSize: 11, marginTop: spacing.xl },
+  modalScrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  countrySheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#fff",
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: "800", color: colors.text, marginBottom: 4 },
+  sheetSubtitle: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.md, lineHeight: 17 },
+  countryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 8,
+    backgroundColor: "#fff",
+  },
+  countryRowActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  countryName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  countryMeta: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
 });

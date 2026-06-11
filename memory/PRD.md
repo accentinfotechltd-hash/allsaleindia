@@ -238,3 +238,34 @@ Buyers were reporting that the Cancel option vanished after 12 hours even though
 - `services/seed.py`: snapshot `view_count` + `cart_add_count` from all platform-owned products before the delete+reinsert branch, and re-apply them by `name` lookup on the new docs. Noop branch is unchanged (matching count → no-op).
 - Logs the reseed line as `seeded N products (carried over counters for M)` so it's visible in production logs.
 - New test `tests/test_seed_counters.py::test_reseed_carries_over_view_counters` — uses an isolated event loop. Passes in isolation; joins the known-flaky exclusion list for full suite runs because of the same Motor + pytest event-loop interop quirk that already affects `test_seller_payouts.py`.
+
+## Multi-region support (Phase 1 — June 2026)
+
+**Goals**
+Allow buyers from 5 countries (NZ / AU / US / GB / CA) to use one Allsale mobile app with auto geo-detected region and prices shown in their local currency. Catalog stays NZD-base; FX is applied at display time.
+
+**Backend**
+- `config.py`: new `SUPPORTED_COUNTRIES`, `COUNTRY_CODES`, `DEFAULT_COUNTRY`, and hardcoded `FX_RATES_FROM_NZD` (`NZD 1.00`, `AUD 0.92`, `USD 0.61`, `GBP 0.48`, `CAD 0.83`). MVP rates — swap for a live API later (Frankfurter, Wise, etc.) without changing surface.
+- `models.py`: `UserPublic` gains `country` + `currency`. `UserCreate` accepts optional `country`.
+- `utils.py`: new `convert_from_nzd()` and `localize_price()` helpers.
+- New router `routers/geo.py`:
+  - `GET /api/geo/detect` reads `cf-ipcountry` / `x-country` / `x-vercel-ip-country` and falls back to NZ.
+  - `GET /api/currency/rates` exposes the rates table + supported-country metadata.
+- `routers/auth.py`:
+  - `POST /api/auth/register` persists country (explicit body → header → default).
+  - New `POST /api/auth/country` lets a signed-in user change their country/currency.
+
+**Frontend**
+- New `src/contexts/RegionContext.tsx` — single source of truth for the buyer's country & currency. Resolution chain: stored choice → backend geo-detect → default NZ. Exposes `formatPrice(nzd)`, `convert(nzd)`, `setCountry(code)` (also syncs to backend when logged in).
+- `app/_layout.tsx`: wraps the tree in `<RegionProvider>`.
+- `ProductCard`: shows the localized price in the buyer's currency plus a small `NZ$xx.xx` ref below when not NZD.
+- Account screen: new **"Ship to {Country}" row** with a bottom-sheet country picker showing flags, names, currencies, and a checkmark on the active selection.
+
+**Quality**
+- 169 backend tests still pass. New `/api/geo/detect` + `/api/currency/rates` smoke-verified.
+- Lint clean. App loads cleanly with the new provider in place.
+
+**Known follow-ups**
+- Surface localized prices on product detail, cart, and order screens (currently NZD shown there).
+- Hook checkout to charge in the buyer's currency via Stripe `currency` param.
+- Backfill `country=NZ` on existing users (handled implicitly by `public_user()` defaulting; can add an explicit migration if needed).

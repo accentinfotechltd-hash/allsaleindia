@@ -27,6 +27,7 @@ from routers import (
     auth,
     cart,
     checkout,
+    geo,
     health,
     notifications,
     orders,
@@ -68,6 +69,7 @@ api.include_router(shiprocket.router)
 api.include_router(uploads.router)
 api.include_router(notifications.router)
 api.include_router(admin.router)
+api.include_router(geo.router)
 api.include_router(health.router)
 
 app.include_router(api)
