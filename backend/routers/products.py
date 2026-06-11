@@ -30,7 +30,26 @@ async def list_products(
     category: Optional[str] = None,
     subcategory: Optional[str] = None,
     q: Optional[str] = None,
+    sort: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    brand: Optional[str] = None,
+    in_stock: Optional[bool] = None,
 ):
+    """List the catalog with optional filters and sort.
+
+    Filters:
+      * `category`, `subcategory` — exact match against the taxonomy (case-sensitive)
+      * `q` — case-insensitive substring on product name
+      * `min_price`, `max_price` — NZD bounds (inclusive)
+      * `brand` — case-insensitive substring on seller_name (company)
+      * `in_stock` — only products with stock available
+
+    Sort (`sort` param):
+      * `price_asc` | `price_desc`
+      * `newest` (by created_at desc, falls back to id)
+      * `top_rated` (rating desc then reviews_count desc)
+    """
     query: dict = {}
     if category and category.lower() != "all":
         query["category"] = category
@@ -38,8 +57,46 @@ async def list_products(
         query["subcategory"] = subcategory
     if q:
         query["name"] = {"$regex": q, "$options": "i"}
+    if brand:
+        query["seller_name"] = {"$regex": brand, "$options": "i"}
+    if in_stock is True:
+        query["in_stock"] = True
+    price_range: dict = {}
+    if min_price is not None:
+        price_range["$gte"] = float(min_price)
+    if max_price is not None:
+        price_range["$lte"] = float(max_price)
+    if price_range:
+        query["price_nzd"] = price_range
+
+    sort_spec: Optional[list] = None
+    if sort == "price_asc":
+        sort_spec = [("price_nzd", 1)]
+    elif sort == "price_desc":
+        sort_spec = [("price_nzd", -1)]
+    elif sort == "newest":
+        sort_spec = [("created_at", -1), ("id", -1)]
+    elif sort == "top_rated":
+        sort_spec = [("rating", -1), ("reviews_count", -1)]
+
     cursor = db.products.find(query, {"_id": 0})
+    if sort_spec:
+        cursor = cursor.sort(sort_spec)
     return [Product(**p) async for p in cursor]
+
+
+@router.get("/brands", response_model=List[str])
+async def list_brands(category: Optional[str] = None):
+    """Distinct seller_name values, optionally scoped to a category.
+
+    Used to populate the "Brand" filter chips on the buyer-facing catalog.
+    Sellerless / platform products are excluded.
+    """
+    query: dict = {"seller_name": {"$nin": [None, ""]}}
+    if category and category.lower() != "all":
+        query["category"] = category
+    names = await db.products.distinct("seller_name", query)
+    return sorted([n for n in names if n])
 
 
 @router.get("/categories", response_model=List[str])

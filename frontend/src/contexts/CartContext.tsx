@@ -72,6 +72,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       body: { product_id: productId, quantity: qty },
     });
     setCart(c);
+    // Fire-and-forget analytics ping for seller dashboard.
+    api(`/products/${productId}/track-cart-add`, { method: "POST", auth: false }).catch(
+      () => {},
+    );
   }, []);
 
   const update = useCallback(async (productId: string, qty: number) => {

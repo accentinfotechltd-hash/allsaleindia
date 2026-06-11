@@ -53,6 +53,8 @@ export default function ProductDetail() {
         setProduct(p);
         if (p.colors?.length) setSelectedColor(p.colors[0]);
         if (p.sizes?.length) setSelectedSize(p.sizes[0]);
+        // Fire-and-forget analytics ping (anonymous view counter).
+        api(`/products/${id}/track-view`, { method: "POST", auth: false }).catch(() => {});
       } finally {
         setLoading(false);
       }

@@ -12,6 +12,8 @@ from db import db
 from deps import get_current_user
 from models import (
     AuthResponse,
+    BulkListingOp,
+    BulkListingResult,
     ListingCreate,
     ListingUpdate,
     Payout,
@@ -306,4 +308,389 @@ async def list_seller_payouts(seller=Depends(get_current_user)):
         lifetime_earnings_nzd=round(pending + paid_out, 2),
         pending_nzd=pending,
         paid_out_nzd=paid_out,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bulk edit listings
+# ---------------------------------------------------------------------------
+VALID_BULK_ACTIONS = {
+    "set_price",
+    "adjust_price_pct",
+    "set_stock",
+    "adjust_stock",
+    "set_category",
+    "set_in_stock",
+    "delete",
+}
+
+
+@router.post("/seller/products/bulk", response_model=BulkListingResult)
+async def bulk_listings_op(
+    body: BulkListingOp, seller=Depends(_require_verified_seller)
+):
+    """Apply a single bulk operation to many of the seller's listings.
+
+    Operations:
+      * `set_price` (requires `price_nzd`)
+      * `adjust_price_pct` (requires `pct`; e.g. `-10` for a 10% discount)
+      * `set_stock` (requires `stock_count`)
+      * `adjust_stock` (requires `stock_delta`; e.g. `+5`)
+      * `set_category` (requires `category`)
+      * `set_in_stock` (requires `in_stock` boolean)
+      * `delete`
+    """
+    if body.action not in VALID_BULK_ACTIONS:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {body.action}")
+
+    # Always scope to the seller's own products to prevent cross-seller damage.
+    base_filter: dict = {
+        "id": {"$in": body.product_ids},
+        "seller_id": seller["id"],
+    }
+
+    if body.action == "delete":
+        res = await db.products.delete_many(base_filter)
+        return BulkListingResult(
+            matched=res.deleted_count,
+            modified=0,
+            deleted=res.deleted_count,
+            action=body.action,
+        )
+
+    if body.action == "set_price":
+        if body.price_nzd is None:
+            raise HTTPException(status_code=400, detail="price_nzd required")
+        new_price = round(float(body.price_nzd), 2)
+        res = await db.products.update_many(
+            base_filter,
+            {
+                "$set": {
+                    "price_nzd": new_price,
+                    "price_inr": round(new_price * INR_PER_NZD, 0),
+                    "updated_at": now_utc(),
+                }
+            },
+        )
+        return BulkListingResult(
+            matched=res.matched_count,
+            modified=res.modified_count,
+            deleted=0,
+            action=body.action,
+        )
+
+    if body.action == "adjust_price_pct":
+        if body.pct is None:
+            raise HTTPException(status_code=400, detail="pct required")
+        factor = 1.0 + float(body.pct) / 100.0
+        if factor <= 0:
+            raise HTTPException(status_code=400, detail="pct would zero/negate price")
+        res = await db.products.update_many(
+            base_filter,
+            [
+                {
+                    "$set": {
+                        "price_nzd": {
+                            "$round": [{"$multiply": ["$price_nzd", factor]}, 2]
+                        }
+                    }
+                },
+                {
+                    "$set": {
+                        "price_inr": {
+                            "$round": [
+                                {"$multiply": ["$price_nzd", INR_PER_NZD]},
+                                0,
+                            ]
+                        },
+                        "updated_at": now_utc(),
+                    }
+                },
+            ],
+        )
+        return BulkListingResult(
+            matched=res.matched_count,
+            modified=res.modified_count,
+            deleted=0,
+            action=body.action,
+        )
+
+    if body.action == "set_stock":
+        if body.stock_count is None:
+            raise HTTPException(status_code=400, detail="stock_count required")
+        sc = int(body.stock_count)
+        res = await db.products.update_many(
+            base_filter,
+            {"$set": {"stock_count": sc, "in_stock": sc > 0, "updated_at": now_utc()}},
+        )
+        return BulkListingResult(
+            matched=res.matched_count,
+            modified=res.modified_count,
+            deleted=0,
+            action=body.action,
+        )
+
+    if body.action == "adjust_stock":
+        if body.stock_delta is None:
+            raise HTTPException(status_code=400, detail="stock_delta required")
+        delta = int(body.stock_delta)
+        res = await db.products.update_many(
+            base_filter,
+            [
+                {
+                    "$set": {
+                        "stock_count": {
+                            "$max": [
+                                0,
+                                {
+                                    "$add": [
+                                        {"$ifNull": ["$stock_count", 0]},
+                                        delta,
+                                    ]
+                                },
+                            ]
+                        }
+                    }
+                },
+                {
+                    "$set": {
+                        "in_stock": {"$gt": ["$stock_count", 0]},
+                        "updated_at": now_utc(),
+                    }
+                },
+            ],
+        )
+        return BulkListingResult(
+            matched=res.matched_count,
+            modified=res.modified_count,
+            deleted=0,
+            action=body.action,
+        )
+
+    if body.action == "set_category":
+        if not body.category:
+            raise HTTPException(status_code=400, detail="category required")
+        res = await db.products.update_many(
+            base_filter,
+            {"$set": {"category": body.category.strip(), "updated_at": now_utc()}},
+        )
+        return BulkListingResult(
+            matched=res.matched_count,
+            modified=res.modified_count,
+            deleted=0,
+            action=body.action,
+        )
+
+    # set_in_stock
+    if body.in_stock is None:
+        raise HTTPException(status_code=400, detail="in_stock required")
+    res = await db.products.update_many(
+        base_filter,
+        {"$set": {"in_stock": bool(body.in_stock), "updated_at": now_utc()}},
+    )
+    return BulkListingResult(
+        matched=res.matched_count,
+        modified=res.modified_count,
+        deleted=0,
+        action=body.action,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Seller analytics dashboard
+# ---------------------------------------------------------------------------
+@router.post("/products/{product_id}/track-view")
+async def track_product_view(product_id: str):
+    """Anonymous product-view counter. Fire-and-forget from the buyer client."""
+    await db.products.update_one(
+        {"id": product_id}, {"$inc": {"view_count": 1}}
+    )
+    return {"ok": True}
+
+
+@router.post("/products/{product_id}/track-cart-add")
+async def track_cart_add(product_id: str):
+    """Anonymous add-to-cart counter."""
+    await db.products.update_one(
+        {"id": product_id}, {"$inc": {"cart_add_count": 1}}
+    )
+    return {"ok": True}
+
+
+@router.get("/seller/analytics")
+async def seller_analytics(seller=Depends(get_current_user)):
+    """Aggregate per-listing analytics for the current seller.
+
+    Returns view/cart-add/purchase counters per product plus a sellerwide
+    summary (top 5 by views and by sold quantity).
+    """
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+
+    # Per-product counters live on the product doc itself.
+    cursor = db.products.find(
+        {"seller_id": seller["id"]},
+        {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "image": 1,
+            "price_nzd": 1,
+            "stock_count": 1,
+            "in_stock": 1,
+            "view_count": 1,
+            "cart_add_count": 1,
+        },
+    )
+    products = [p async for p in cursor]
+
+    # Sold quantity per product is derived from orders containing this seller's items.
+    sold_map: dict[str, dict] = {}
+    orders_cursor = db.orders.find(
+        {
+            "items.seller_id": seller["id"],
+            "payment_status": "paid",
+            "status": {"$nin": ["cancelled", "refunded"]},
+        },
+        {"_id": 0, "items": 1, "created_at": 1},
+    )
+    async for o in orders_cursor:
+        for it in o.get("items", []):
+            if it.get("seller_id") != seller["id"]:
+                continue
+            pid = it.get("product_id")
+            if not pid:
+                continue
+            bucket = sold_map.setdefault(
+                pid, {"sold": 0, "revenue_nzd": 0.0}
+            )
+            bucket["sold"] += int(it.get("quantity", 0))
+            bucket["revenue_nzd"] += float(it.get("price_nzd", 0)) * int(
+                it.get("quantity", 0)
+            )
+
+    listings = []
+    for p in products:
+        pid = p["id"]
+        views = int(p.get("view_count") or 0)
+        cart_adds = int(p.get("cart_add_count") or 0)
+        sold = int(sold_map.get(pid, {}).get("sold", 0))
+        revenue = round(float(sold_map.get(pid, {}).get("revenue_nzd", 0.0)), 2)
+        conversion_pct = round((sold / views) * 100, 1) if views > 0 else 0.0
+        listings.append(
+            {
+                "product_id": pid,
+                "name": p.get("name"),
+                "image": p.get("image"),
+                "price_nzd": float(p.get("price_nzd", 0)),
+                "stock_count": int(p.get("stock_count") or 0),
+                "in_stock": bool(p.get("in_stock", True)),
+                "views": views,
+                "cart_adds": cart_adds,
+                "sold": sold,
+                "revenue_nzd": revenue,
+                "conversion_pct": conversion_pct,
+            }
+        )
+
+    total_views = sum(int(p.get("view_count") or 0) for p in products)
+    total_cart_adds = sum(int(p.get("cart_add_count") or 0) for p in products)
+    total_sold = sum(b["sold"] for b in sold_map.values())
+    total_revenue = round(sum(b["revenue_nzd"] for b in sold_map.values()), 2)
+
+    top_by_views = sorted(listings, key=lambda x: x["views"], reverse=True)[:5]
+    top_by_sold = sorted(listings, key=lambda x: x["sold"], reverse=True)[:5]
+
+    return {
+        "listings": listings,
+        "summary": {
+            "total_listings": len(listings),
+            "total_views": total_views,
+            "total_cart_adds": total_cart_adds,
+            "total_sold": total_sold,
+            "total_revenue_nzd": total_revenue,
+            "overall_conversion_pct": (
+                round((total_sold / total_views) * 100, 1) if total_views > 0 else 0.0
+            ),
+        },
+        "top_by_views": top_by_views,
+        "top_by_sold": top_by_sold,
+    }
+
+
+# ---------------------------------------------------------------------------
+# CSV export of seller orders
+# ---------------------------------------------------------------------------
+@router.get("/seller/orders.csv")
+async def export_seller_orders_csv(seller=Depends(get_current_user)):
+    """Stream a CSV of this seller's orders (one row per item).
+
+    Columns: order_id, created_at, buyer_name, buyer_city, buyer_region,
+    product_id, product_name, quantity, unit_price_nzd, item_subtotal_nzd,
+    order_status, awb_code.
+    """
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+
+    import csv
+    import io
+
+    from fastapi.responses import StreamingResponse
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(
+        [
+            "order_id",
+            "created_at",
+            "buyer_name",
+            "buyer_city",
+            "buyer_region",
+            "product_id",
+            "product_name",
+            "quantity",
+            "unit_price_nzd",
+            "item_subtotal_nzd",
+            "order_status",
+            "awb_code",
+        ]
+    )
+
+    cursor = db.orders.find(
+        {"items.seller_id": seller["id"]}, {"_id": 0}
+    ).sort("created_at", -1)
+    async for order in cursor:
+        addr = order.get("address") or {}
+        created = order.get("created_at")
+        created_str = (
+            created.isoformat() if hasattr(created, "isoformat") else str(created or "")
+        )
+        for it in order.get("items", []):
+            if it.get("seller_id") != seller["id"]:
+                continue
+            qty = int(it.get("quantity", 0))
+            unit = float(it.get("price_nzd", 0))
+            writer.writerow(
+                [
+                    order.get("id", ""),
+                    created_str,
+                    addr.get("full_name", ""),
+                    addr.get("city", ""),
+                    addr.get("region", ""),
+                    it.get("product_id", ""),
+                    it.get("name", ""),
+                    qty,
+                    f"{unit:.2f}",
+                    f"{unit * qty:.2f}",
+                    order.get("status", ""),
+                    order.get("awb_code", ""),
+                ]
+            )
+
+    buf.seek(0)
+    filename = f"allsale-orders-{seller['id']}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { AlertTriangle, ChevronDown, ChevronLeft, ChevronUp, ShieldCheck, Truck } from "lucide-react-native";
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronUp, ShieldCheck, SlidersHorizontal, Truck, X } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,6 +14,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
+import {
+  activeFilterSummary,
+  buildProductsQuery,
+  DEFAULT_FILTERS,
+  FilterState,
+  SortFilterSheet,
+} from "@/src/components/SortFilterSheet";
 import { api } from "@/src/lib/api";
 import { fetchTaxonomy, NZ_FAQS, TRUST_POINTS, TaxonomyNode } from "@/src/lib/nz";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -27,29 +34,44 @@ export default function CategoryDetail() {
   const router = useRouter();
   const [items, setItems] = useState<ProductLite[]>([]);
   const [taxonomy, setTaxonomy] = useState<TaxonomyNode | null>(null);
+  const [brands, setBrands] = useState<string[]>([]);
   const [subcat, setSubcat] = useState<string>("All");
   const [loading, setLoading] = useState(true);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [showFilter, setShowFilter] = useState(false);
 
+  // Fetch products + taxonomy + brands. Re-runs when filters change.
   useEffect(() => {
+    let alive = true;
     (async () => {
+      setLoading(true);
       try {
-        const [tax, list] = await Promise.all([
+        const catParam = `category=${encodeURIComponent(name as string)}`;
+        const subParam =
+          subcat && subcat !== "All" ? `&subcategory=${encodeURIComponent(subcat)}` : "";
+        const productsUrl = `/products?${catParam}${subParam}${buildProductsQuery(filters)}`;
+        const [tax, list, brandList] = await Promise.all([
           fetchTaxonomy(),
-          api<ProductLite[]>(`/products?category=${encodeURIComponent(name as string)}`, { auth: false }),
+          api<ProductLite[]>(productsUrl, { auth: false }),
+          api<string[]>(`/brands?${catParam}`, { auth: false }).catch(() => []),
         ]);
+        if (!alive) return;
         setTaxonomy(tax.find((t) => t.name === name) || null);
         setItems(list);
+        setBrands(brandList);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     })();
-  }, [name]);
+    return () => {
+      alive = false;
+    };
+  }, [name, subcat, filters]);
 
-  const filtered = useMemo(() => {
-    if (subcat === "All") return items;
-    return items.filter((p: any) => p.subcategory === subcat);
-  }, [items, subcat]);
+  const filtered = items;
+  const activeChips = useMemo(() => activeFilterSummary(filters), [filters]);
+  const hasActiveFilters = activeChips.length > 0;
 
   const chips = ["All", ...(taxonomy?.subcategories ?? [])];
 
@@ -74,6 +96,18 @@ export default function CategoryDetail() {
                 <Text style={styles.title}>{name}</Text>
                 <Text style={styles.subtitle}>From India → to NZ</Text>
               </View>
+              <Pressable
+                testID="category-filter-btn"
+                onPress={() => setShowFilter(true)}
+                style={[styles.filterBtn, hasActiveFilters && styles.filterBtnActive]}
+              >
+                <SlidersHorizontal size={18} color={hasActiveFilters ? "#fff" : colors.text} />
+                {hasActiveFilters ? (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>{activeChips.length}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
             </View>
 
             {/* Hero */}
@@ -131,6 +165,30 @@ export default function CategoryDetail() {
               <Truck size={14} color={colors.primary} />
               <Text style={styles.shippingText}>Auckland 7-10 days · Wellington 8-11 · Christchurch 9-12</Text>
             </View>
+
+            {/* Active filters strip */}
+            {hasActiveFilters ? (
+              <View testID="active-filter-strip" style={styles.activeFiltersWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeChipsRow}>
+                  {activeChips.map((c) => (
+                    <View key={c} style={styles.activeChip}>
+                      <Text style={styles.activeChipText}>{c}</Text>
+                    </View>
+                  ))}
+                  <Pressable
+                    testID="active-filters-clear"
+                    onPress={() => setFilters(DEFAULT_FILTERS)}
+                    style={styles.clearAllBtn}
+                  >
+                    <X size={12} color={colors.primary} />
+                    <Text style={styles.clearAllText}>Clear all</Text>
+                  </Pressable>
+                </ScrollView>
+                <Text style={styles.resultCount}>
+                  {loading ? "Loading…" : `${filtered.length} result${filtered.length === 1 ? "" : "s"}`}
+                </Text>
+              </View>
+            ) : null}
           </View>
         }
         ListEmptyComponent={
@@ -164,6 +222,14 @@ export default function CategoryDetail() {
             })}
           </View>
         }
+      />
+
+      <SortFilterSheet
+        visible={showFilter}
+        initial={filters}
+        brands={brands}
+        onClose={() => setShowFilter(false)}
+        onApply={(next) => setFilters(next)}
       />
     </SafeAreaView>
   );
@@ -209,4 +275,61 @@ const styles = StyleSheet.create({
   faqQuestionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   faqQuestion: { fontSize: 13, fontWeight: "700", color: colors.text, flex: 1 },
   faqAnswer: { fontSize: 12, color: colors.textMuted, marginTop: 8, lineHeight: 18 },
+  filterBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: spacing.sm,
+  },
+  filterBtnActive: { backgroundColor: colors.text, borderColor: colors.text },
+  filterBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  filterBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
+  activeFiltersWrap: { marginTop: spacing.xs },
+  activeChipsRow: { gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 6, alignItems: "center" },
+  activeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  activeChipText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+  clearAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  clearAllText: { color: colors.primary, fontSize: 11, fontWeight: "800" },
+  resultCount: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: 4,
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
 });

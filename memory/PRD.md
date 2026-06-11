@@ -146,3 +146,25 @@ Backward compatibility preserved: `server.py` re-exports
 and `db` so existing tests still work unchanged. All 158 backend tests pass
 (plus the 10 `test_seller_payouts` in isolation; same pre-existing async
 teardown flake when run together).
+
+## Filters, Bulk-Edit, Analytics & CSV (June 2026)
+
+**Buyer-side: shop catalog filters & sort**
+- New `/api/products` query params: `sort` (price_asc | price_desc | newest | top_rated), `min_price`, `max_price`, `brand`, `in_stock`.
+- New `GET /api/brands?category=…` returns distinct seller names for chip population.
+- Frontend: `src/components/SortFilterSheet.tsx` bottom-sheet with sort options, 5 price presets + custom range, in-stock toggle, brand chips. Active filters render as orange chips above the grid with a "Clear all" pill.
+
+**Seller-side: bulk-edit listings**
+- `POST /api/seller/products/bulk` — single op against many products (always scoped to caller's `seller_id`).
+- Actions: `set_price`, `adjust_price_pct`, `set_stock`, `adjust_stock`, `set_category`, `set_in_stock`, `delete`.
+- Frontend `/seller/bulk-edit.tsx`: multi-select list + action chip strip + contextual input + confirmation dialog for destructive deletes.
+
+**Seller-side: analytics dashboard**
+- Anonymous counters: `view_count` (bumped on product detail open) and `cart_add_count` (bumped on add-to-cart).
+  - Two unauth endpoints: `POST /api/products/{id}/track-view`, `POST /api/products/{id}/track-cart-add`.
+- `GET /api/seller/analytics` returns per-listing rows + summary (total views/carts/sold/revenue/conversion %) + Top 5 by views & by sold.
+- Frontend `/seller/analytics.tsx`: 4 summary cards, conversion banner, Top-5 lists, per-listing rows with views/carts/sold/conversion metrics.
+
+**Seller-side: CSV export of orders**
+- `GET /api/seller/orders.csv` streams a CSV (one row per item) with columns: order_id, created_at, buyer_name, buyer_city, buyer_region, product_id, product_name, quantity, unit_price_nzd, item_subtotal_nzd, order_status, awb_code.
+- Frontend: download button in seller orders header. On web, blob-download via anchor click; on native, write to cache + share sheet via `expo-file-system` + `expo-sharing`.

@@ -389,3 +389,31 @@ class UploadImageResponse(BaseModel):
     public_id: Optional[str] = None
     provider: str  # "cloudinary" | "passthrough"
     bytes: Optional[int] = None
+
+
+# ---------------------------------------------------------------------------
+# Bulk listing operations (seller)
+# ---------------------------------------------------------------------------
+class BulkListingOp(BaseModel):
+    """A single bulk operation applied to many product_ids at once."""
+    product_ids: List[str] = Field(..., min_length=1, max_length=200)
+    action: str = Field(
+        ...,
+        description=(
+            "One of: set_price, adjust_price_pct, set_stock, "
+            "adjust_stock, set_category, toggle_in_stock, delete"
+        ),
+    )
+    price_nzd: Optional[float] = Field(default=None, gt=0)
+    pct: Optional[float] = Field(default=None)
+    stock_count: Optional[int] = Field(default=None, ge=0)
+    stock_delta: Optional[int] = Field(default=None)
+    category: Optional[str] = None
+    in_stock: Optional[bool] = None
+
+
+class BulkListingResult(BaseModel):
+    matched: int
+    modified: int
+    deleted: int
+    action: str

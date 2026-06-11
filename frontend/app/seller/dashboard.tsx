@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { CheckCircle2, ChevronLeft, Package, Pencil, Plus, RefreshCcw, Store, Trash2, Wallet } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Store, Trash2, Wallet } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -148,6 +148,32 @@ export default function SellerDashboard() {
                   <Text style={styles.quickTitle}>Returns</Text>
                   <Text style={styles.quickSubtitle}>Approve or decline buyer returns</Text>
                 </Pressable>
+              </View>
+
+              <View style={[styles.quickActions, { marginTop: 10 }]}>
+                <Pressable
+                  testID="seller-analytics-link"
+                  onPress={() => router.push("/seller/analytics")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <BarChart3 size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Analytics</Text>
+                  <Text style={styles.quickSubtitle}>Views, carts, sold & conversion</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-bulk-edit-link"
+                  onPress={() => router.push("/seller/bulk-edit")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <ClipboardList size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Bulk edit</Text>
+                  <Text style={styles.quickSubtitle}>Update price / stock in one go</Text>
+                </Pressable>
+                <View style={[styles.quickCard, { opacity: 0 }]} pointerEvents="none" />
               </View>
 
               <View style={styles.listingsHeader}>

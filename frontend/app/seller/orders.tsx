@@ -1,10 +1,13 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { ChevronLeft, MapPin, Package } from "lucide-react-native";
+import { ChevronLeft, Download, MapPin, Package } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
+  Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { storage } from "@/src/utils/storage";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type SellerOrder = {
@@ -55,6 +59,45 @@ export default function SellerOrders() {
     }, [load]),
   );
 
+  const downloadCsv = useCallback(async () => {
+    try {
+      const base = process.env.EXPO_PUBLIC_BACKEND_URL as string;
+      const token = await storage.secureGet<string>("allsale_token", "");
+      const url = `${base}/api/seller/orders.csv`;
+      if (Platform.OS === "web") {
+        // Web: fetch with auth, blob it, click an anchor.
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const href = URL.createObjectURL(blob);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const a = (globalThis as any).document?.createElement("a");
+        if (a) {
+          a.href = href;
+          a.download = `allsale-orders-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(href), 1000);
+        }
+        return;
+      }
+      // Native: fetch CSV string, write to cache, then open share sheet.
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const FileSystem = await import("expo-file-system/legacy");
+      const Sharing = await import("expo-sharing");
+      const path = `${FileSystem.cacheDirectory}allsale-orders-${Date.now()}.csv`;
+      await FileSystem.writeAsStringAsync(path, text, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Save orders CSV" });
+      } else {
+        await Linking.openURL(path);
+      }
+    } catch (e: any) {
+      Alert.alert("Couldn't download", e?.message || "Please try again.");
+    }
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.topBar}>
@@ -62,7 +105,14 @@ export default function SellerOrders() {
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>Orders</Text>
-        <View style={{ width: 40 }} />
+        <Pressable
+          testID="seller-orders-csv-btn"
+          onPress={downloadCsv}
+          style={styles.csvBtn}
+          hitSlop={10}
+        >
+          <Download size={18} color={colors.text} />
+        </Pressable>
       </View>
 
       {loading ? (
@@ -146,6 +196,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: { fontSize: 18, fontWeight: "800", color: colors.text },
+  csvBtn: { width: 40, height: 40, borderRadius: 999, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl },
   emptyIcon: {
     width: 60,
