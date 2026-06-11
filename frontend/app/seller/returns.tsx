@@ -1,7 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
 import { Check, ChevronLeft, Film, Play, RefreshCcw, X } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { VideoPreviewModal } from "@/src/components/VideoPreviewModal";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type ReturnItem = {
@@ -60,6 +61,7 @@ export default function SellerReturnsScreen() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pending, setPending] = useState<{ rtn: Return; action: "approve" | "reject" } | null>(null);
   const [note, setNote] = useState("");
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -178,7 +180,7 @@ export default function SellerReturnsScreen() {
                         <Pressable
                           key={"v" + url + idx}
                           testID={`seller-rtn-video-${item.id}-${idx}`}
-                          onPress={() => Linking.openURL(url)}
+                          onPress={() => setVideoUrl(url)}
                           style={[styles.proofTile, styles.proofTileVideo]}
                         >
                           <Film size={18} color="#fff" />
@@ -327,6 +329,13 @@ export default function SellerReturnsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <VideoPreviewModal
+        visible={videoUrl !== null}
+        url={videoUrl}
+        title="Buyer's proof video"
+        onClose={() => setVideoUrl(null)}
+      />
     </SafeAreaView>
   );
 }

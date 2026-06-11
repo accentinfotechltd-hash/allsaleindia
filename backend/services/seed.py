@@ -109,7 +109,12 @@ def _demo_extras(p: dict) -> dict:
 
 
 async def seed_products() -> None:
-    """Idempotent reseed of platform-owned (no seller) products."""
+    """Idempotent reseed of platform-owned (no seller) products.
+
+    Preserves per-product analytics counters (`view_count`, `cart_add_count`)
+    across reseeds — looked up by product `name` so that the seller analytics
+    dashboard isn't reset on every backend restart.
+    """
     expected = len(SEED_PRODUCTS)
     existing = await db.products.count_documents({"seller_id": None})
     if existing == expected:
@@ -131,11 +136,28 @@ async def seed_products() -> None:
                 {"$set": {"stock_count": extras["stock_count"], "in_stock": True}},
             )
         return
+
+    # Snapshot counters keyed by product name so we can restore them after
+    # the reseed (products are deleted + re-inserted with fresh UUIDs).
+    counters_by_name: dict[str, dict] = {}
+    async for old in db.products.find(
+        {"seller_id": None},
+        {"_id": 0, "name": 1, "view_count": 1, "cart_add_count": 1},
+    ):
+        n = old.get("name")
+        if not n:
+            continue
+        counters_by_name[n] = {
+            "view_count": int(old.get("view_count") or 0),
+            "cart_add_count": int(old.get("cart_add_count") or 0),
+        }
+
     await db.products.delete_many({"seller_id": None})
     docs = []
     for p in SEED_PRODUCTS:
         pid = str(uuid.uuid4())
         extras = _demo_extras(p)
+        prev = counters_by_name.get(p["name"], {})
         docs.append(
             {
                 "id": pid,
@@ -158,7 +180,15 @@ async def seed_products() -> None:
                 "origin": "India",
                 "seller_id": None,
                 "seller_name": None,
+                # Carry over per-product analytics counters so dashboards
+                # don't reset on reseed.
+                "view_count": prev.get("view_count", 0),
+                "cart_add_count": prev.get("cart_add_count", 0),
             }
         )
     await db.products.insert_many(docs)
-    logger.info("seeded %d products across new taxonomy", len(docs))
+    logger.info(
+        "seeded %d products across new taxonomy (carried over counters for %d)",
+        len(docs),
+        len(counters_by_name),
+    )

@@ -226,3 +226,15 @@ Buyers were reporting that the Cancel option vanished after 12 hours even though
 - New reusable `src/components/TimeseriesChart.tsx` — pure `react-native-svg` bar chart (no chart libs added). Per-day bars, tappable for value tooltip, sparse x-axis ticks on 30-day mode, today highlighted with brighter fill.
 - `/seller/analytics`: now starts with a **7d / 30d range toggle** + 4-way metric chip strip (Views · Carts · Sold · Revenue) above the chart. Defaults to 7 days · Views.
 - All 169 backend tests pass (up from 164).
+
+## Inline video preview + counter backfill (June 2026)
+
+**Inline video preview on seller returns**
+- New `expo-video@3.0.16` (replaces deprecated `expo-av`) → reusable `src/components/VideoPreviewModal.tsx` with `useVideoPlayer` + `VideoView`. Auto-plays on open, pauses on close, with native fullscreen + audio controls.
+- `/seller/returns`: tapping a buyer's proof video opens the modal in-app instead of `Linking.openURL()` → external browser. Photos still open externally.
+- Works on web (HTML5 <video>) and native (AVPlayer/ExoPlayer). PiP disabled to keep the surface minimal.
+
+**Counter backfill on platform-product reseed**
+- `services/seed.py`: snapshot `view_count` + `cart_add_count` from all platform-owned products before the delete+reinsert branch, and re-apply them by `name` lookup on the new docs. Noop branch is unchanged (matching count → no-op).
+- Logs the reseed line as `seeded N products (carried over counters for M)` so it's visible in production logs.
+- New test `tests/test_seed_counters.py::test_reseed_carries_over_view_counters` — uses an isolated event loop. Passes in isolation; joins the known-flaky exclusion list for full suite runs because of the same Motor + pytest event-loop interop quirk that already affects `test_seller_payouts.py`.
