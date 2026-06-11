@@ -227,6 +227,18 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Iter-14: Wired the seller listing EDIT UI. Dashboard row now has a
+      Pencil icon next to Trash. Tapping it opens /seller/edit-listing/{id}
+      which pre-fills name/description/category/price/stock_count/colors/
+      sizes/photos from the existing product. Edits support adding new
+      photos via Cloudinary (re-uses /api/uploads/image), removing photos,
+      adding/removing color & size chips. Save calls
+      PATCH /api/seller/products/{id} and pops back to the dashboard.
+      Verified visually: existing Saree listing loads with all fields
+      populated incl. the 4 colour chips.
+
+  - agent: "main"
+    message: |
       Iter-13: 🎉 LIVE Cloudinary uploads. New POST /api/uploads/image
       endpoint signs uploads server-side using CLOUDINARY_CLOUD_NAME +
       _API_KEY + _API_SECRET from /app/backend/.env. Accepts base64 data

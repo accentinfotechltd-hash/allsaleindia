@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { CheckCircle2, ChevronLeft, Package, Plus, RefreshCcw, Store, Trash2, Wallet } from "lucide-react-native";
+import { CheckCircle2, ChevronLeft, Package, Pencil, Plus, RefreshCcw, Store, Trash2, Wallet } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -173,6 +173,13 @@ export default function SellerDashboard() {
                 <Text style={styles.itemPrice}>{formatNZD(item.price_nzd)}</Text>
               </View>
               <Pressable
+                testID={`listing-edit-${item.id}`}
+                onPress={() => router.push(`/seller/edit-listing/${item.id}`)}
+                style={styles.editBtn}
+              >
+                <Pencil size={16} color={colors.primary} />
+              </Pressable>
+              <Pressable
                 testID={`listing-delete-${item.id}`}
                 onPress={() => remove(item.id)}
                 style={styles.deleteBtn}
@@ -294,6 +301,7 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 14, fontWeight: "600", color: colors.text, marginTop: 2, lineHeight: 18 },
   itemPrice: { fontSize: 14, fontWeight: "800", color: colors.text, marginTop: 4 },
   deleteBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  editBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   fab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   fabBtn: {
     backgroundColor: colors.primary,
