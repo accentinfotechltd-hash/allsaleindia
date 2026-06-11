@@ -136,6 +136,12 @@ TAXONOMY: list[dict] = [
     },
 ]
 
+# Buyer-facing hidden categories: temporarily suppressed in the public
+# catalog while logistics (single-pack couriering for food, special handling
+# for ayurveda/herbs) is being validated. Sellers continue to see their own
+# listings in these categories via /api/seller/products.
+HIDDEN_BUYER_CATEGORIES: set[str] = {"Food & Groceries", "Wellness"}
+
 PROHIBITED_KEYWORDS: list[dict] = [
     {"term": "homemade", "reason": "NZ MPI bans homemade food items."},
     {"term": "home-made", "reason": "NZ MPI bans homemade food items."},

@@ -293,3 +293,52 @@ Buyer report: on mobile, the "Cancel this order" banner sat below the fold and w
 - Order detail screen (`/app/frontend/app/order/[id].tsx`): when `canCancel` is true, a red pill **"× Cancel"** now renders inside the sticky top bar (right side, where the empty placeholder used to be). Tapping it opens the existing cancel confirmation modal.
 - The detailed `cancelWindowCard` (with copy + countdown) remains in the scroll area for context, but the top-bar pill makes the action discoverable without scrolling on any device size.
 - Pure UI change — no API / data-model changes; all 169 backend tests still pass.
+
+## Bulk Listing Upload — CSV / XLSX (June 2026)
+
+Big-catalog sellers can now add or edit hundreds of products at once instead
+of typing them one-by-one.
+
+**Backend (`/api/seller/bulk/*`)**
+- `GET  /seller/bulk/template.csv` and `template.xlsx` — download a blank
+  template pre-filled with two example rows.
+- `GET  /seller/bulk/export.csv` and `export.xlsx` — export current
+  listings (with `product_id`) for round-trip edits.
+- `POST /seller/bulk/preview` — multipart upload (CSV/XLSX). Validates each
+  row, returns `{total, valid, errors, will_create, will_update, rows[]}`
+  WITHOUT touching the DB.
+- `POST /seller/bulk/import` — commit validated rows. Creates new listings
+  (when `product_id` empty) and updates existing ones (ownership-checked).
+- `GET  /seller/bulk/columns` — discovery endpoint listing expected columns.
+
+**Template columns:** `product_id, name, description, category, subcategory,
+price_nzd, stock_count, sizes, colors, shipping_days_min, shipping_days_max,
+image_urls`. Multi-value fields use `|` (also accepts `,` / `;`).
+
+**Frontend** — new `/app/frontend/app/seller/bulk-upload.tsx`:
+- Download CSV / XLSX template tiles
+- Export current listings for round-trip edit
+- File picker (expo-document-picker) → upload → preview screen with
+  per-row status (✅ create / 🟦 update / ❌ errors)
+- "Import N rows" button commits the preview, shows success summary
+- Web + native; on web uses Blob download, on native uses
+  expo-sharing + expo-file-system/legacy
+
+**Limits:** 1000 rows / 8 MB per upload.
+
+**Tests** — `tests/test_bulk_listings.py` (9 tests, all passing):
+template download (CSV+XLSX), columns endpoint, valid CSV preview,
+validation errors, end-to-end create import, round-trip export/edit/update,
+cross-seller product_id rejection, XLSX upload.
+
+**Architecture**
+- `routers/bulk_listings.py` — endpoints (router prefix `/seller/bulk`)
+- `services/bulk_listings_svc.py` — pure parsing/validation/serialization
+  (CSV + openpyxl-based XLSX)
+- `models.py` — `BulkImportRow`, `BulkImportRequest`,
+  `BulkImportPreviewResponse`, `BulkImportResult`
+
+**Image handling (option c — URLs first):** sellers paste hosted URLs into
+`image_urls` (separated by `|`). URLs go straight into `images[]` on the
+product doc. We can optionally re-host via Cloudinary later — the field
+accepts any `http(s)` URL or `data:` URI.

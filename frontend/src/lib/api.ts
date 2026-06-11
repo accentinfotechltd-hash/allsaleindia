@@ -13,6 +13,11 @@ async function getToken(): Promise<string | null> {
   return await storage.secureGet<string>(TOKEN_KEY, "");
 }
 
+/** Public token accessor for non-JSON requests (file uploads, downloads). */
+export async function getAuthToken(): Promise<string | null> {
+  return await getToken();
+}
+
 export async function setToken(token: string): Promise<void> {
   await storage.secureSet(TOKEN_KEY, token);
 }

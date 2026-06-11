@@ -1,0 +1,50 @@
+{
+  "summary": "Backend-only review of the new bulk seller listings feature (CSV/XLSX upload + bulk-edit round trip). All 9 pre-existing tests in tests/test_bulk_listings.py PASS. Added 23 new edge / regression / auth-gating tests in tests/test_bulk_listings_edges.py — ALL 23 PASS. Coverage of every item in the review request is now green: (1) template.csv has required headers + 2 example rows (Banarasi & Brass Diya), (2) template.xlsx openable by openpyxl with header row + ≥2 example rows, (3) /columns returns columns list + categories + max_rows_per_upload, (4) preview validates mixed valid+invalid rows correctly without DB writes (will_create/will_update/errors counters all correct), (5) preview rejects empty file → 400, oversize >8 MB → 413, >1000 rows → 413, headers-only → 400, (6) import creates new products when product_id empty, (7) import updates products when product_id present AND owned by seller, (8) import REJECTS rows whose product_id belongs to another seller — error 'product_id … is not one of your listings', (9) export.csv returns current listings with product_id populated for round-trip editing (validated end-to-end: export → modify price → re-import → confirms updated price persisted), (10) every /api/seller/bulk/* endpoint returns 403 when called by a buyer (non-seller) — verified across template.csv, template.xlsx, columns, export.csv, export.xlsx, preview, import, (11) every endpoint returns 401/403 when Authorization header is missing — verified across all 7 endpoints, garbage bearer token and wrong-scheme (Basic) header are both blocked, (12) valid Bearer token works end-to-end, (13) NO REGRESSION on POST /api/seller/products + GET /api/seller/products — both still return 200 with valid persisted data alongside bulk feature. Full regression: 209 passed / 2 skipped / 2 known-flaky failures (test_seed_counters::test_reseed_carries_over_view_counters and test_seller_payouts::test_payouts_created_per_seller_idempotent) — both flagged by E1 in the request as pre-existing flakes unrelated to this iteration; they pass in isolation.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bulk_listings.py",
+    "/app/backend/tests/test_bulk_listings_edges.py",
+    "/app/test_reports/pytest/iter11_bulk_results.xml",
+    "/app/test_reports/pytest/iter11_edges_results.xml",
+    "/app/test_reports/pytest/iter11_full_results.xml"
+  ],
+  "action_items": [
+    "(Optional, non-blocking) Same two known-flaky tests are still in the suite — test_seed_counters::test_reseed_carries_over_view_counters and test_seller_payouts::test_payouts_created_per_seller_idempotent. Per E1's note they are pre-existing flakes (NOT introduced by the bulk feature) and pass in isolation. Long-term fix: add uuid4 entropy in test seed helpers and/or pytest teardown that wipes TEST_ sellers between suites.",
+    "(Optional polish) bulk_listings.py validate_row hardcodes shipping_days defaults (7/14) — `_coerce_int(..., default=7) or 7` swallows explicit 0 (a 0 would be rejected by the smin<1 check anyway, so functionally fine; just dead-code-ish).",
+    "(Optional polish) preview MAX_FILE_BYTES check happens AFTER `await file.read()` — for truly huge uploads the server still buffers the body before rejecting. Acceptable for an 8 MB cap, but consider Starlette/Spool-on-disk streaming if the cap grows.",
+    "(Optional polish) on the import path, when a row's product_id was once owned but the document is then deleted between preview and import, the user gets 'product_id … not found' — UX could be 'this listing was deleted after preview, please re-preview'."
+  ],
+  "critical_code_review_comments": [
+    "Ownership check at routers/bulk_listings.py:171-175 (preview) and :238-243 (import) both correctly use `{id:{$in:update_ids}, seller_id: seller['id']}` so spoofed product_ids cannot leak across sellers — verified by test_import_rejects_other_sellers_product_id and the buyer-403 tests.",
+    "services/bulk_listings_svc.py _split_multi correctly normalises ';' and ',' to '|' so sellers can use any common separator. Cap at 10 images / 12 sizes / 10 colors mirrors the single-product endpoint and is enforced before persistence (bulk_listings.py:271, :287, :286).",
+    "TEMPLATE_COLUMNS includes `product_id` as the FIRST column so a round-trip export → re-upload naturally drives update mode — confirmed by test_round_trip_export_edit_import.",
+    "All bulk endpoints sit behind `_require_verified_seller` which checks both `is_seller` AND `seller_verification_status == 'auto_verified'` — confirmed by buyer-403 and missing-auth tests across all 7 endpoints.",
+    "Auth header enforcement: missing header → 403 (HTTPBearer default), wrong scheme → 403, garbage Bearer → 401. All 3 paths return non-200 — verified.",
+    "preview path enforces MAX_FILE_BYTES (8MB) and MAX_ROWS (1000) with proper 413, and empty/headers-only files with 400.",
+    "MongoDB `_id` is excluded everywhere via `{_id: 0}` projection (e.g. bulk_listings.py:88, 173, 223, 225, 242) — no ObjectId serialization risk.",
+    "No use of HTML elements or hardcoded URLs in the new files. EXPO_PUBLIC_BACKEND_URL is sourced correctly from frontend/.env in tests.",
+    "bulk_listings.py keeps router prefix `/seller/bulk` — combined with the app's `/api` prefix this gives the documented `/api/seller/bulk/*` URLs.",
+    "services/bulk_listings_svc.py is 302 LOC, routers/bulk_listings.py is 361 LOC — both well under the 700-line threshold."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bulk_listings_edges.py (NEW — 23 tests: 4 size-limit + 17 auth-gating + 2 regression)"
+  ],
+  "success_rate": {
+    "backend": "100% (9/9 baseline bulk tests + 23/23 new edge tests = 32/32 bulk-feature tests pass; full regression 209/211 with 2 known pre-existing flakes that E1 flagged as not-our-problem)",
+    "frontend": "N/A — backend-only review per E1's request"
+  },
+  "seed_data_creation": "Two ephemeral sellers (TEST_bulk_edge_* via tests/test_bulk_listings_edges.py + TEST_bulk_seller_* via tests/test_bulk_listings.py) and one buyer (TEST_bulk_buyer_*) per test session. Both fixtures are module-scoped and use uuid-based GSTIN/PAN from _helpers.make_gstin_pan() to avoid collisions. Products created by the regression test are prefixed 'TEST Regression Listing' and 'Bulk Test Saree …' for easy identification.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Bulk listings feature is solid. The 7 endpoints under /api/seller/bulk/* (template.csv, template.xlsx, columns, export.csv, export.xlsx, preview, import) all enforce verified-seller auth, return proper HTTP codes for empty/oversize/too-many-rows, and the create-vs-update logic correctly keys off product_id with ownership validation. To extend coverage further: (a) test concurrent imports from the same seller racing on the same product_id, (b) test malformed XLSX (non-spreadsheet bytes with .xlsx extension), (c) test very long single-cell values (DoS protection). Same two flaky tests (test_reseed_carries_over_view_counters, test_payouts_created_per_seller_idempotent) continue to flake during full-suite runs — re-run in isolation to confirm green.",
+  "rca_of_issue": "N/A — no bugs found in iter-11."
+}

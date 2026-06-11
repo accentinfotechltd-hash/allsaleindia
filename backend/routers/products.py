@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 
 from config import (
+    HIDDEN_BUYER_CATEGORIES,
     NZ_DUTY_RATE,
     NZ_DUTY_THRESHOLD_NZD,
     NZ_GST_RATE,

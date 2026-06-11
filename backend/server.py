@@ -25,6 +25,7 @@ from db import client, db, ensure_indexes
 from routers import (
     admin,
     auth,
+    bulk_listings,
     cart,
     checkout,
     geo,
@@ -62,6 +63,7 @@ api.include_router(auth.router)
 api.include_router(products.router)
 api.include_router(cart.router)
 api.include_router(seller.router)
+api.include_router(bulk_listings.router)
 api.include_router(orders.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)

@@ -426,3 +426,55 @@ class BulkListingResult(BaseModel):
     modified: int
     deleted: int
     action: str
+
+
+# ---------------------------------------------------------------------------
+# Bulk import (CSV / XLSX upload)
+# ---------------------------------------------------------------------------
+class BulkImportRowReport(BaseModel):
+    row_number: int
+    mode: str  # "create" | "update"
+    ok: bool
+    errors: List[str] = Field(default_factory=list)
+    data: dict
+
+
+class BulkImportPreviewResponse(BaseModel):
+    total: int
+    valid: int
+    errors: int
+    will_create: int
+    will_update: int
+    rows: List[BulkImportRowReport]
+
+
+class BulkImportRow(BaseModel):
+    """One row that the buyer has confirmed for import."""
+    product_id: Optional[str] = None
+    name: str = ""
+    description: str = ""
+    category: str = ""
+    subcategory: Optional[str] = None
+    price_nzd: Optional[float] = None
+    stock_count: Optional[int] = None
+    sizes: List[str] = Field(default_factory=list)
+    colors: List[str] = Field(default_factory=list)
+    shipping_days_min: int = 7
+    shipping_days_max: int = 14
+    images: List[str] = Field(default_factory=list)
+
+
+class BulkImportRequest(BaseModel):
+    rows: List[BulkImportRow] = Field(..., min_length=1, max_length=1000)
+
+
+class BulkImportErrorEntry(BaseModel):
+    row_number: int
+    errors: List[str]
+
+
+class BulkImportResult(BaseModel):
+    created: int
+    updated: int
+    errors: List[BulkImportErrorEntry] = Field(default_factory=list)
+    total_attempted: int
