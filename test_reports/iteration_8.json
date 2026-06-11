@@ -1,0 +1,36 @@
+{
+  "summary": "Iter-8 cancellation + policies + notifications fully green. Backend: 13/13 cancellation+notification tests pass (7/7 existing test_cancellation.py + 6/6 new test_iter8_cancellation_notifications.py covering refund/refund_id/refund_amount_nzd response shape, full buyer+seller+admin fan-out via Mongo + X-Admin-Secret endpoint, 403 without secret, single-notification mark-read, newest-first ordering, and Shiprocket-label-does-not-set-status=shipped regression). Full regression: 115/115 backend tests pass (100%). Frontend on 390x844 (Expo web): Account header shows Bell with numeric badge (verified '1' after cancellation), tapping bell opens /notifications. New 'POLICIES & HELP' group on Account renders Payment policy / Return policy / Cancellation policy rows — each navigates to /help/<slug> and the policy screen (testIDs policy-payment, policy-return, policy-cancel) renders. /order/[id] for a paid in-window order shows green 'Free cancellation available' card with live HH:MM:SS countdown ('11:59:12') and 'Cancel this order' button (order-cancel-btn). Tapping opens order-cancel-modal with reason textarea, Keep and Confirm controls; confirming POST /api/orders/{id}/cancel returns the cancelled order, the red 'Order cancelled' banner with 'Your refund is being processed' and 'Reason: …' line appears, cancel-window card disappears, and the bottom 'Read cancellation & return policies' link navigates to /help/cancellation-policy. Notifications list shows the order_cancelled item ('Order #C78170D3 cancelled') with 'just now' timestamp, mark-all button visible, and tapping the item navigates to /order/<id>.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_cancellation.py",
+    "/app/backend/tests/test_iter8_cancellation_notifications.py",
+    "/app/test_reports/pytest/iter8_results.xml",
+    "/app/test_reports/pytest/iter8_full_results.xml",
+    "/app/test_reports/_ui_setup_paid_order.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/server.py is now 1813 lines (>700 LOC threshold). The new cancellation + notifications block (lines ~1340-1570) is a natural split point — consider extracting backend/cancellation.py and backend/notifications.py to keep server.py readable. Not blocking iter-8.",
+    "Refund flow is best-effort against Stripe test mode (refund_id may be null when no real PaymentIntent is attached). The Order response correctly returns refund_amount_nzd in NZD; frontend banner only shows 'Your refund is being processed' generically — consider showing the NZD amount on the banner once available so users see exactly how much they will get back.",
+    "The bell badge in account.tsx caps at '9+' but uses a 9px font on a 16px circle which can be hard to read on small devices; visually fine on 390x844 but worth verifying on devices ≤ 360 wide."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter8_cancellation_notifications.py (new — 6 tests: refund-fields shape, full fan-out incl. seller via Mongo + admin via X-Admin-Secret, admin-secret guard 403, single mark-read, newest-first ordering, label-does-not-ship regression)",
+    "/app/test_reports/_ui_setup_paid_order.py (new — helper that registers a buyer, adds product, opens checkout session, then flips order to status=paid + cancellable_until=now+12h so the cancel UI is testable)"
+  ],
+  "success_rate": {
+    "backend": "100% (115/115; 13/13 cancellation+notifications, 102/102 prior regression)",
+    "frontend": "100% on iter-8 surfaces (bell+badge, /notifications list with mark-read & tap-to-order navigation, 3 policy rows + screens, /order paid-in-window cancel card + countdown + modal + post-cancel banner + policy link)"
+  },
+  "seed_data_creation": "One ephemeral buyer + one paid order created via /app/test_reports/_ui_setup_paid_order.py per session run. No mutation of existing seller/product data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "To re-test the cancel-UI on /order/[id], run `python /app/test_reports/_ui_setup_paid_order.py` — it prints TOKEN and ORDER_ID. Inject TOKEN into the web app via `localStorage.setItem('allsale_token', JSON.stringify('<token>'))` then navigate to /order/<id>. expo-secure-store falls back to localStorage on web, so this is the correct shape. Admin notifications endpoint uses header X-Admin-Secret with value 'allsale-admin-dev-secret' (matches backend/.env ADMIN_SECRET).",
+  "rca_of_issue": "N/A — no iter-8 bugs found."
+}

@@ -1,13 +1,18 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, MapPin, Package } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { ChevronLeft, MapPin, Package, ShieldCheck, XCircle } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,31 +40,105 @@ type Order = {
   payment_status: string;
   created_at: string;
   estimated_delivery: string;
+  cancellable_until?: string | null;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
+  refund_id?: string | null;
+  refund_amount_nzd?: number | null;
 };
 
 const TIMELINE = [
   { key: "paid", label: "Order confirmed" },
   { key: "shipped", label: "Shipped from India" },
-  { key: "delivered", label: "Delivered in NZ" },
+  { key: "out_for_delivery", label: "Out for delivery in NZ" },
+  { key: "delivered", label: "Delivered" },
 ];
+
+function useCountdown(targetIso?: string | null) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!targetIso) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [targetIso]);
+  if (!targetIso) return { ms: 0, label: "" };
+  const target = new Date(targetIso).getTime();
+  const ms = Math.max(0, target - now);
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { ms, label: `${pad(h)}:${pad(m)}:${pad(s)}` };
+}
 
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCancel, setShowCancel] = useState(false);
+  const [reason, setReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    (async () => {
-      if (!id) return;
-      try {
-        const o = await api<Order>(`/orders/${id}`);
-        setOrder(o);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    try {
+      const o = await api<Order>(`/orders/${id}`);
+      if (mounted.current) setOrder(o);
+    } finally {
+      if (mounted.current) setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const { ms: msLeft, label: countdown } = useCountdown(order?.cancellable_until);
+
+  const canCancel = useMemo(() => {
+    if (!order) return false;
+    if (["cancelled", "refunded", "shipped", "out_for_delivery", "delivered"].includes(order.status)) {
+      return false;
+    }
+    if (order.payment_status !== "paid") return false;
+    if (!order.cancellable_until) return false;
+    return msLeft > 0;
+  }, [order, msLeft]);
+
+  const onCancel = useCallback(async () => {
+    if (!order) return;
+    setCancelling(true);
+    try {
+      const updated = await api<Order>(`/orders/${order.id}/cancel`, {
+        method: "POST",
+        body: { reason: reason.trim() || undefined },
+      });
+      if (mounted.current) {
+        setOrder(updated);
+        setShowCancel(false);
+        setReason("");
+      }
+      Alert.alert(
+        "Order cancelled",
+        updated.refund_id
+          ? `Your refund of ${formatNZD(updated.refund_amount_nzd || 0)} is on the way. It typically appears within 5–10 business days.`
+          : "Your cancellation has been received. Your refund will be processed shortly.",
+      );
+    } catch (e: any) {
+      Alert.alert("Couldn't cancel", e?.message || "Please try again.");
+    } finally {
+      if (mounted.current) setCancelling(false);
+    }
+  }, [order, reason]);
 
   if (loading) {
     return (
@@ -76,8 +155,9 @@ export default function OrderDetail() {
     );
   }
 
-  const orderStages = ["paid", "shipped", "delivered"];
+  const orderStages = ["paid", "shipped", "out_for_delivery", "delivered"];
   const currentIdx = orderStages.indexOf(order.status);
+  const isCancelled = order.status === "cancelled" || order.status === "refunded";
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -89,7 +169,10 @@ export default function OrderDetail() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.headerCard}>
           <View style={styles.iconCircle}>
             <Package size={20} color={colors.primary} />
@@ -99,44 +182,101 @@ export default function OrderDetail() {
               Order #{order.id.replace("order_", "").slice(0, 8).toUpperCase()}
             </Text>
             <Text style={styles.orderDate}>
-              {new Date(order.created_at).toLocaleString("en-NZ", { dateStyle: "medium", timeStyle: "short" })}
+              {new Date(order.created_at).toLocaleString("en-NZ", {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
             </Text>
           </View>
         </View>
 
-        <View style={styles.deliveryBanner}>
-          <Text style={styles.deliveryLabel}>Estimated arrival</Text>
-          <Text style={styles.deliveryDate}>{order.estimated_delivery}</Text>
-        </View>
-
-        <Text style={styles.sectionTitle}>Tracking</Text>
-        {order.payment_status === "paid" ? (
-          <View style={styles.trackingCard} testID="order-tracking-card">
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-              <Text style={styles.trackingCarrier}>Shiprocket X · India → NZ</Text>
-              <Text style={styles.trackingMock}>via courier</Text>
+        {isCancelled ? (
+          <View style={styles.cancelledBanner}>
+            <XCircle size={20} color={colors.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cancelledTitle}>Order cancelled</Text>
+              <Text style={styles.cancelledBody}>
+                {order.refund_id
+                  ? `Refund of ${formatNZD(order.refund_amount_nzd || order.total_nzd)} is being processed to your card (5–10 business days).`
+                  : "Your refund is being processed."}
+              </Text>
+              {order.cancel_reason ? (
+                <Text style={styles.cancelledReason}>Reason: {order.cancel_reason}</Text>
+              ) : null}
             </View>
-            <Text style={styles.trackingAwb}>AWB pending · check back once shipment is dispatched</Text>
+          </View>
+        ) : (
+          <View style={styles.deliveryBanner}>
+            <Text style={styles.deliveryLabel}>Estimated arrival</Text>
+            <Text style={styles.deliveryDate}>{order.estimated_delivery}</Text>
+          </View>
+        )}
+
+        {canCancel ? (
+          <View style={styles.cancelWindowCard} testID="order-cancel-window">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <ShieldCheck size={16} color={colors.success} />
+              <Text style={styles.cancelWindowTitle}>Free cancellation available</Text>
+            </View>
+            <Text style={styles.cancelWindowBody}>
+              You can cancel this order for a full refund within the next{" "}
+              <Text style={styles.cancelCountdown}>{countdown}</Text>.
+            </Text>
+            <Pressable
+              testID="order-cancel-btn"
+              onPress={() => setShowCancel(true)}
+              style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.85 }]}
+            >
+              <XCircle size={16} color={colors.error} />
+              <Text style={styles.cancelBtnText}>Cancel this order</Text>
+            </Pressable>
           </View>
         ) : null}
-        <View style={styles.timeline}>
-          {TIMELINE.map((t, i) => {
-            const done = i <= currentIdx;
-            return (
-              <View key={t.key} style={styles.timelineRow}>
-                <View style={[styles.dot, done && styles.dotDone]} />
-                <Text style={[styles.timelineLabel, done && styles.timelineLabelDone]}>{t.label}</Text>
+
+        {!isCancelled ? (
+          <>
+            <Text style={styles.sectionTitle}>Tracking</Text>
+            {order.payment_status === "paid" ? (
+              <View style={styles.trackingCard} testID="order-tracking-card">
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={styles.trackingCarrier}>Shiprocket X · India → NZ</Text>
+                  <Text style={styles.trackingMock}>via courier</Text>
+                </View>
+                <Text style={styles.trackingAwb}>
+                  AWB pending · check back once shipment is dispatched
+                </Text>
               </View>
-            );
-          })}
-        </View>
+            ) : null}
+            <View style={styles.timeline}>
+              {TIMELINE.map((t, i) => {
+                const done = i <= currentIdx;
+                return (
+                  <View key={t.key} style={styles.timelineRow}>
+                    <View style={[styles.dot, done && styles.dotDone]} />
+                    <Text style={[styles.timelineLabel, done && styles.timelineLabelDone]}>
+                      {t.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionTitle}>Items</Text>
         {order.items.map((it) => (
           <View key={it.product_id} style={styles.itemRow}>
             <Image source={{ uri: it.image }} style={styles.itemImg} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.itemName} numberOfLines={2}>{it.name}</Text>
+              <Text style={styles.itemName} numberOfLines={2}>
+                {it.name}
+              </Text>
               <Text style={styles.itemMeta}>Qty {it.quantity}</Text>
             </View>
             <Text style={styles.itemPrice}>{formatNZD(it.price_nzd * it.quantity)}</Text>
@@ -170,16 +310,98 @@ export default function OrderDetail() {
           <View style={styles.divider} />
           <Line label="Total (NZD)" value={formatNZD(order.total_nzd)} bold />
         </View>
+
+        <Pressable
+          testID="order-cancel-policy-link"
+          onPress={() => router.push("/help/cancellation-policy")}
+          style={{ marginTop: spacing.md, alignSelf: "center" }}
+        >
+          <Text style={styles.policyLink}>Read cancellation & return policies</Text>
+        </Pressable>
       </ScrollView>
+
+      <Modal
+        visible={showCancel}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowCancel(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalRoot}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowCancel(false)} />
+          <View style={styles.modalCard} testID="order-cancel-modal">
+            <Text style={styles.modalTitle}>Cancel this order?</Text>
+            <Text style={styles.modalBody}>
+              You&apos;ll receive a full refund of {formatNZD(order.total_nzd)} to your card. We&apos;ll
+              notify the seller and Allsale support straight away.
+            </Text>
+            <Text style={styles.modalLabel}>Reason (optional)</Text>
+            <TextInput
+              testID="order-cancel-reason-input"
+              value={reason}
+              onChangeText={setReason}
+              placeholder="e.g. Ordered by mistake"
+              placeholderTextColor={colors.textFaint}
+              maxLength={300}
+              multiline
+              style={styles.modalInput}
+            />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: spacing.md }}>
+              <Pressable
+                testID="order-cancel-modal-keep"
+                onPress={() => setShowCancel(false)}
+                style={({ pressed }) => [styles.modalSecondary, pressed && { opacity: 0.85 }]}
+                disabled={cancelling}
+              >
+                <Text style={styles.modalSecondaryText}>Keep order</Text>
+              </Pressable>
+              <Pressable
+                testID="order-cancel-modal-confirm"
+                onPress={onCancel}
+                style={({ pressed }) => [
+                  styles.modalPrimary,
+                  pressed && { opacity: 0.9 },
+                  cancelling && { opacity: 0.7 },
+                ]}
+                disabled={cancelling}
+              >
+                {cancelling ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalPrimaryText}>Confirm cancel</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function Line({ label, value, bold, highlight }: { label: string; value: string; bold?: boolean; highlight?: boolean }) {
+function Line({
+  label,
+  value,
+  bold,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  bold?: boolean;
+  highlight?: boolean;
+}) {
   return (
     <View style={styles.line}>
       <Text style={[styles.lineLabel, bold && styles.lineBold]}>{label}</Text>
-      <Text style={[styles.lineValue, bold && styles.lineBold, highlight && { color: colors.success, fontWeight: "800" }]}>
+      <Text
+        style={[
+          styles.lineValue,
+          bold && styles.lineBold,
+          highlight && { color: colors.success, fontWeight: "800" },
+        ]}
+      >
         {value}
       </Text>
     </View>
@@ -233,9 +455,53 @@ const styles = StyleSheet.create({
   },
   deliveryLabel: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   deliveryDate: { color: "#fff", fontSize: 18, fontWeight: "800", marginTop: 4, letterSpacing: -0.3 },
+  cancelledBanner: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+  },
+  cancelledTitle: { fontSize: 14, fontWeight: "800", color: colors.error },
+  cancelledBody: { fontSize: 12, color: "#7F1D1D", marginTop: 4, lineHeight: 17 },
+  cancelledReason: { fontSize: 11, color: "#7F1D1D", marginTop: 6, fontStyle: "italic" },
+  cancelWindowCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.successSoft,
+    backgroundColor: colors.successSoft,
+  },
+  cancelWindowTitle: { fontSize: 13, fontWeight: "800", color: colors.text },
+  cancelWindowBody: { fontSize: 12, color: colors.textMuted, marginTop: 6, lineHeight: 17 },
+  cancelCountdown: { fontWeight: "800", color: colors.text, fontVariant: ["tabular-nums"] },
+  cancelBtn: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 44,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.error,
+    backgroundColor: "#fff",
+  },
+  cancelBtnText: { color: colors.error, fontWeight: "800", fontSize: 13 },
   sectionTitle: { fontSize: 14, fontWeight: "800", color: colors.text, marginTop: spacing.lg, marginBottom: 8 },
   timeline: { padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, gap: 12 },
-  trackingCard: { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", marginBottom: spacing.sm },
+  trackingCard: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+    marginBottom: spacing.sm,
+  },
   trackingCarrier: { fontSize: 13, fontWeight: "800", color: colors.text },
   trackingMock: { fontSize: 10, fontWeight: "700", color: colors.textFaint, letterSpacing: 0.5 },
   trackingAwb: { fontSize: 12, color: colors.textMuted, marginTop: 6 },
@@ -244,12 +510,7 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: colors.primary },
   timelineLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
   timelineLabelDone: { color: colors.text },
-  itemRow: {
-    flexDirection: "row",
-    gap: 12,
-    paddingVertical: spacing.sm,
-    alignItems: "center",
-  },
+  itemRow: { flexDirection: "row", gap: 12, paddingVertical: spacing.sm, alignItems: "center" },
   itemImg: { width: 60, height: 60, borderRadius: radius.md, backgroundColor: colors.surface },
   itemName: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 18 },
   itemMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
@@ -272,4 +533,46 @@ const styles = StyleSheet.create({
   lineValue: { fontSize: 13, color: colors.text, fontWeight: "600" },
   lineBold: { fontSize: 16, fontWeight: "800", color: colors.text },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
+  policyLink: { color: colors.primary, fontWeight: "700", fontSize: 12 },
+  modalRoot: { flex: 1, justifyContent: "flex-end" },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  modalBody: { fontSize: 13, color: colors.textMuted, marginTop: 6, lineHeight: 19 },
+  modalLabel: { fontSize: 11, fontWeight: "800", color: colors.textMuted, marginTop: spacing.md, letterSpacing: 0.8 },
+  modalInput: {
+    marginTop: 6,
+    minHeight: 70,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 10,
+    color: colors.text,
+    textAlignVertical: "top",
+  },
+  modalSecondary: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSecondaryText: { color: colors.text, fontWeight: "700" },
+  modalPrimary: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.error,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalPrimaryText: { color: "#fff", fontWeight: "800" },
 });

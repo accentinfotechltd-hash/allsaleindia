@@ -101,3 +101,137 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Build a mobile app like Amazon and Flipkart called "Allsale" for cross-border e-commerce,
+  allowing users in New Zealand to buy products from sellers in India. Recently added:
+  Payment & Return policies, 12-hour order cancellation with notifications, in-app
+  notifications system for buyer/seller/admin.
+
+backend:
+  - task: "12-hour order cancellation with Stripe refund + notifications fan-out"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          Added POST /api/orders/{order_id}/cancel. Cancels if order is paid and
+          cancellable_until (paid_at + 12h) has not elapsed and status not in
+          {shipped, out_for_delivery, delivered, cancelled, refunded}. Issues a
+          Stripe refund (best-effort), voids pending payouts, marks order
+          cancelled, fans out notifications to buyer/sellers/admin. 7/7 backend
+          pytest cases pass (test_cancellation.py). Full suite: 109 passed.
+
+  - task: "Notifications API (list, unread-count, mark read/read-all, admin list)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          New /api/notifications GET, /api/notifications/unread-count,
+          /api/notifications/{id}/read POST, /api/notifications/read-all POST,
+          /api/admin/notifications (header X-Admin-Secret). Fired automatically
+          on order_placed (buyer + each seller + admin) and on order_cancelled.
+
+  - task: "Shiprocket mock no longer auto-flips status to 'shipped'"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          Label creation now only stores AWB+shipment record. Order remains in
+          'paid' status so the 12-hour cancellation window is honoured. Real
+          'shipped' transition will be done by Shiprocket webhook later.
+
+frontend:
+  - task: "Payment, Return, Cancellation policy pages"
+    implemented: true
+    working: true
+    file: "frontend/app/help/*.tsx + frontend/src/components/PolicyScreen.tsx"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          /help/payment-policy, /help/return-policy, /help/cancellation-policy
+          rendered via shared PolicyScreen component. Linked from Account tab
+          under a new "Policies & help" group.
+
+  - task: "Order detail: 12-hour live countdown + Cancel modal + cancelled-state UI"
+    implemented: true
+    working: true
+    file: "frontend/app/order/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          When status=paid and cancellable_until is in the future, show green
+          "Free cancellation available" card with a live HH:MM:SS countdown and
+          Cancel button. Tap -> modal with optional reason text input -> calls
+          POST /api/orders/{id}/cancel. Once cancelled, banner shows refund
+          amount and reason. Policy link added at the bottom.
+
+  - task: "Notifications screen + bell badge in Account tab"
+    implemented: true
+    working: true
+    file: "frontend/app/notifications.tsx + frontend/app/(tabs)/account.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          New /notifications screen lists user notifications (newest first),
+          per-type icons, time-ago, mark-all-read. Bell icon in Account header
+          shows unread badge (9+). Tapping notification with order_id deep-links
+          to order detail and marks it read.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.1"
+  test_sequence: 8
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "12-hour order cancellation with Stripe refund + notifications fan-out"
+    - "Notifications API (list, unread-count, mark read/read-all, admin list)"
+    - "Order detail: 12-hour live countdown + Cancel modal + cancelled-state UI"
+    - "Notifications screen + bell badge in Account tab"
+    - "Payment, Return, Cancellation policy pages"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Added payment/return/cancellation policy pages, an in-app notifications
+      system, and 12-hour order cancellation with Stripe refund + fan-out
+      notifications to buyer/seller/admin. Mock Shiprocket no longer flips
+      order status to "shipped" immediately so the cancellation window is
+      honoured. 7 new pytest cases added — full backend suite 109/109 green.
+      Please verify both backend endpoints AND the new frontend flows
+      (Account bell, policy pages, order cancel modal+countdown,
+      notifications screen, deep-link to order from notification).

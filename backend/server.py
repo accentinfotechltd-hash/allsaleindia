@@ -63,6 +63,14 @@ VALID_BUSINESS_TYPES = (
 # 1 NZD ≈ 51 INR (display only). Hardcoded for MVP.
 INR_PER_NZD = 51.0
 
+# Order cancellation window: buyers can cancel within 12 hours of payment.
+CANCELLATION_WINDOW_HOURS = 12
+# Payout hold: seller payouts only become eligible 10 days after delivery
+# (used for the buyer-facing return / dispute window).
+PAYOUT_HOLD_DAYS_AFTER_DELIVERY = 10
+# Return request window: 7 days from delivery (NZ Consumer Guarantees Act).
+RETURN_WINDOW_DAYS = 7
+
 # Shipping rule: free over NZD 100, else NZD 12 flat.
 FREE_SHIPPING_THRESHOLD_NZD = 100.0
 FLAT_SHIPPING_NZD = 12.0
@@ -398,11 +406,32 @@ class Order(BaseModel):
     shipping_nzd: float
     total_nzd: float
     address: Address
-    status: str  # pending | paid | shipped | delivered | cancelled
-    payment_status: str  # initiated | paid | failed
+    status: str  # pending | paid | shipped | out_for_delivery | delivered | cancelled | refunded
+    payment_status: str  # initiated | paid | failed | refunded
     session_id: Optional[str] = None
     created_at: datetime
     estimated_delivery: str  # human readable e.g. "12-18 Mar 2026"
+    cancellable_until: Optional[datetime] = None  # 12h window from paid time
+    cancelled_at: Optional[datetime] = None
+    cancel_reason: Optional[str] = None
+    refund_id: Optional[str] = None
+    refund_amount_nzd: Optional[float] = None
+
+
+class Notification(BaseModel):
+    id: str
+    user_id: str  # recipient user id, or "admin" for admin notifications
+    role: str  # buyer | seller | admin
+    type: str  # order_cancelled | order_placed | refund_issued | ...
+    title: str
+    body: str
+    order_id: Optional[str] = None
+    read: bool = False
+    created_at: datetime
+
+
+class CancelOrderRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=300)
 
 
 # ---------------------------------------------------------------------------
@@ -436,6 +465,44 @@ def estimate_delivery_window(days_min: int = 7, days_max: int = 14) -> str:
     start = now_utc() + timedelta(days=days_min)
     end = now_utc() + timedelta(days=days_max)
     return f"{start.strftime('%d %b')} – {end.strftime('%d %b %Y')}"
+
+
+async def create_notification(
+    user_id: str,
+    role: str,
+    n_type: str,
+    title: str,
+    body: str,
+    order_id: Optional[str] = None,
+) -> dict:
+    """Create an in-app notification doc.
+
+    `user_id` should be a real user id; for admin recipients pass the literal
+    string ``"admin"``.
+    """
+    doc = {
+        "id": f"ntf_{uuid.uuid4().hex[:12]}",
+        "user_id": user_id,
+        "role": role,
+        "type": n_type,
+        "title": title,
+        "body": body,
+        "order_id": order_id,
+        "read": False,
+        "created_at": now_utc(),
+    }
+    await db.notifications.insert_one(doc)
+    return doc
+
+
+async def notify_admins(n_type: str, title: str, body: str, order_id: Optional[str] = None) -> None:
+    await create_notification(
+        user_id="admin", role="admin", n_type=n_type, title=title, body=body, order_id=order_id
+    )
+
+
+def cancellable_until_from(paid_at: datetime) -> datetime:
+    return paid_at + timedelta(hours=CANCELLATION_WINDOW_HOURS)
 
 
 def public_user(doc: dict) -> "UserPublic":
@@ -1247,11 +1314,14 @@ async def book_shiprocket_shipment(order_id: str) -> Optional[dict]:
         "created_at": now_utc(),
     }
     await db.shipments.insert_one(shipment)
+    # Just store the AWB on the order — DO NOT flip status to "shipped" yet.
+    # Real "shipped" status only when courier picks up (Shiprocket webhook),
+    # which lets the 12-hour cancellation window still apply.
     await db.orders.update_one(
         {"id": order_id},
-        {"$set": {"status": "shipped", "shipment_id": shipment["id"], "awb_code": awb}},
+        {"$set": {"shipment_id": shipment["id"], "awb_code": awb}},
     )
-    logger.info("shipment booked %s for %s (mocked=%s)", awb, order_id, not SHIPROCKET_LIVE)
+    logger.info("shipment label created %s for %s (mocked=%s)", awb, order_id, not SHIPROCKET_LIVE)
     return shipment
 
 
@@ -1264,6 +1334,236 @@ class Shipment(BaseModel):
     status: str
     estimated_delivery: str
     is_mocked: bool
+
+
+# ---------------------------------------------------------------------------
+# Notifications & Order cancellation
+# ---------------------------------------------------------------------------
+async def notify_order_placed(order_id: str) -> None:
+    """Fan-out: notify the buyer, each unique seller, and the admin."""
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        return
+    short = order_id.replace("order_", "")[:8].upper()
+    total = order.get("total_nzd", 0)
+
+    # Buyer confirmation
+    await create_notification(
+        user_id=order["user_id"],
+        role="buyer",
+        n_type="order_placed",
+        title=f"Order #{short} confirmed",
+        body=f"Thanks! Your order of ${total:.2f} NZD is being prepared. You can cancel within 12 hours.",
+        order_id=order_id,
+    )
+
+    # Seller notifications (one per unique seller)
+    seen_sellers: set[str] = set()
+    for it in order.get("items", []):
+        sid = it.get("seller_id")
+        if not sid or sid in seen_sellers:
+            continue
+        seen_sellers.add(sid)
+        await create_notification(
+            user_id=sid,
+            role="seller",
+            n_type="new_order",
+            title=f"New order #{short}",
+            body="You have a new order. Please prepare items for dispatch.",
+            order_id=order_id,
+        )
+
+    # Admin
+    await notify_admins(
+        n_type="order_placed",
+        title=f"New order #{short}",
+        body=f"Order placed for ${total:.2f} NZD by user {order['user_id']}.",
+        order_id=order_id,
+    )
+
+
+async def issue_stripe_refund(order: dict) -> tuple[Optional[str], float]:
+    """Issue a Stripe refund for a paid order. Returns (refund_id, amount).
+
+    Falls back gracefully if no payment_intent / session exists (e.g. test
+    fixtures) — returns (None, total_nzd) so the cancellation still proceeds.
+    """
+    import stripe as stripe_sdk
+
+    stripe_sdk.api_key = STRIPE_API_KEY
+    session_id = order.get("session_id")
+    amount = float(order.get("total_nzd", 0))
+    if not session_id:
+        return None, amount
+    try:
+        session = stripe_sdk.checkout.Session.retrieve(session_id)
+        payment_intent_id = session.get("payment_intent") if isinstance(session, dict) else getattr(session, "payment_intent", None)
+        if not payment_intent_id:
+            return None, amount
+        refund = stripe_sdk.Refund.create(payment_intent=payment_intent_id)
+        return (refund.get("id") if isinstance(refund, dict) else getattr(refund, "id", None)), amount
+    except Exception as e:
+        logger.warning("Stripe refund failed for %s: %s", order.get("id"), e)
+        return None, amount
+
+
+@api.post("/orders/{order_id}/cancel", response_model=Order)
+async def cancel_order(
+    order_id: str,
+    body: CancelOrderRequest,
+    current=Depends(get_current_user),
+):
+    """Buyer cancels an order within the 12-hour window.
+
+    Issues a Stripe refund, voids any pending payouts, marks the order
+    `cancelled`, and fans out notifications to buyer, sellers and admin.
+    """
+    order = await db.orders.find_one({"id": order_id, "user_id": current["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    status_val = order.get("status")
+    if status_val in {"cancelled", "refunded"}:
+        raise HTTPException(status_code=400, detail="Order already cancelled")
+    if status_val in {"delivered", "out_for_delivery", "shipped"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Order has already been dispatched and cannot be cancelled. Please request a return after delivery.",
+        )
+
+    cancellable_until = order.get("cancellable_until")
+    if not cancellable_until:
+        raise HTTPException(status_code=400, detail="This order cannot be cancelled yet (payment not confirmed).")
+    # Mongo returns datetime; ensure tz-aware
+    if isinstance(cancellable_until, datetime) and cancellable_until.tzinfo is None:
+        cancellable_until = cancellable_until.replace(tzinfo=timezone.utc)
+    if now_utc() > cancellable_until:
+        raise HTTPException(
+            status_code=400,
+            detail="The 12-hour cancellation window has passed. Please request a return after delivery.",
+        )
+
+    # Stripe refund (best-effort)
+    refund_id, refund_amount = await issue_stripe_refund(order)
+
+    # Void pending payouts for this order
+    await db.payouts.update_many(
+        {"order_id": order_id, "status": "pending"},
+        {"$set": {"status": "void", "voided_at": now_utc()}},
+    )
+
+    new_status = "cancelled"
+    await db.orders.update_one(
+        {"id": order_id},
+        {
+            "$set": {
+                "status": new_status,
+                "payment_status": "refunded" if refund_id else "refund_pending",
+                "cancelled_at": now_utc(),
+                "cancel_reason": (body.reason or "").strip()[:300] or None,
+                "refund_id": refund_id,
+                "refund_amount_nzd": refund_amount,
+            }
+        },
+    )
+
+    short = order_id.replace("order_", "")[:8].upper()
+    reason_txt = (body.reason or "").strip()
+
+    # Notify buyer
+    await create_notification(
+        user_id=order["user_id"],
+        role="buyer",
+        n_type="order_cancelled",
+        title=f"Order #{short} cancelled",
+        body=(
+            f"Your refund of ${refund_amount:.2f} NZD is on the way. "
+            "It typically appears on your statement within 5–10 business days."
+            if refund_id
+            else "Your cancellation has been received. The refund will be processed shortly."
+        ),
+        order_id=order_id,
+    )
+
+    # Notify sellers
+    seen_sellers: set[str] = set()
+    for it in order.get("items", []):
+        sid = it.get("seller_id")
+        if not sid or sid in seen_sellers:
+            continue
+        seen_sellers.add(sid)
+        await create_notification(
+            user_id=sid,
+            role="seller",
+            n_type="order_cancelled",
+            title=f"Order #{short} was cancelled",
+            body=(
+                "The buyer has cancelled this order within the 12-hour window."
+                + (f" Reason: {reason_txt}" if reason_txt else "")
+                + " Please halt dispatch."
+            ),
+            order_id=order_id,
+        )
+
+    # Notify admin
+    await notify_admins(
+        n_type="order_cancelled",
+        title=f"Order #{short} cancelled by buyer",
+        body=(
+            f"Refund: ${refund_amount:.2f} NZD ({'issued' if refund_id else 'pending'})."
+            + (f" Reason: {reason_txt}" if reason_txt else "")
+        ),
+        order_id=order_id,
+    )
+
+    updated = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    return Order(**updated)
+
+
+# ---- Notifications API --------------------------------------------------
+@api.get("/notifications", response_model=List[Notification])
+async def list_my_notifications(current=Depends(get_current_user)):
+    cursor = db.notifications.find(
+        {"user_id": current["id"]}, {"_id": 0}
+    ).sort("created_at", -1).limit(100)
+    return [Notification(**n) async for n in cursor]
+
+
+@api.get("/notifications/unread-count")
+async def my_unread_count(current=Depends(get_current_user)):
+    count = await db.notifications.count_documents({"user_id": current["id"], "read": False})
+    return {"unread": int(count)}
+
+
+@api.post("/notifications/{notification_id}/read", response_model=Notification)
+async def mark_notification_read(notification_id: str, current=Depends(get_current_user)):
+    res = await db.notifications.find_one_and_update(
+        {"id": notification_id, "user_id": current["id"]},
+        {"$set": {"read": True}},
+        return_document=True,
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    res.pop("_id", None)
+    return Notification(**res)
+
+
+@api.post("/notifications/read-all")
+async def mark_all_read(current=Depends(get_current_user)):
+    res = await db.notifications.update_many(
+        {"user_id": current["id"], "read": False}, {"$set": {"read": True}}
+    )
+    return {"updated": res.modified_count}
+
+
+@api.get("/admin/notifications", response_model=List[Notification])
+async def admin_list_notifications(
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    if x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    cursor = db.notifications.find({"user_id": "admin"}, {"_id": 0}).sort("created_at", -1).limit(200)
+    return [Notification(**n) async for n in cursor]
 
 
 def _orig_create_payouts_for_order_marker():
@@ -1359,12 +1659,21 @@ async def checkout_status(session_id: str, request: Request, current=Depends(get
             {"$set": {"payment_status": status_resp.payment_status, "updated_at": now_utc()}},
         )
         if status_resp.payment_status == "paid":
+            paid_at = now_utc()
             await db.orders.update_one(
                 {"id": tx["order_id"]},
-                {"$set": {"payment_status": "paid", "status": "paid"}},
+                {
+                    "$set": {
+                        "payment_status": "paid",
+                        "status": "paid",
+                        "paid_at": paid_at,
+                        "cancellable_until": cancellable_until_from(paid_at),
+                    }
+                },
             )
             await create_payouts_for_order(tx["order_id"])
             await book_shiprocket_shipment(tx["order_id"])
+            await notify_order_placed(tx["order_id"])
             # Clear cart on successful payment.
             await db.carts.update_one(
                 {"user_id": current["id"]},
@@ -1400,12 +1709,21 @@ async def stripe_webhook(request: Request):
                 {"session_id": response.session_id},
                 {"$set": {"payment_status": "paid", "updated_at": now_utc()}},
             )
+            paid_at = now_utc()
             await db.orders.update_one(
                 {"id": tx["order_id"]},
-                {"$set": {"payment_status": "paid", "status": "paid"}},
+                {
+                    "$set": {
+                        "payment_status": "paid",
+                        "status": "paid",
+                        "paid_at": paid_at,
+                        "cancellable_until": cancellable_until_from(paid_at),
+                    }
+                },
             )
             await create_payouts_for_order(tx["order_id"])
             await book_shiprocket_shipment(tx["order_id"])
+            await notify_order_placed(tx["order_id"])
             await db.carts.update_one(
                 {"user_id": tx["user_id"]},
                 {"$set": {"items": [], "updated_at": now_utc()}},
@@ -1484,6 +1802,9 @@ async def on_startup():
     await db.orders.create_index("items.seller_id")
     await db.shipments.create_index("order_id", unique=True)
     await db.shipments.create_index("awb_code", unique=True)
+    await db.notifications.create_index("id", unique=True)
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await seed_products()
 
 

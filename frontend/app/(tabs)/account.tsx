@@ -1,14 +1,32 @@
-import { useRouter } from "expo-router";
-import { ChevronRight, Globe2, LogOut, MapPin, Package, Settings, ShieldCheck, ShieldAlert, Store } from "lucide-react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import { Bell, ChevronRight, FileText, Globe2, LogOut, MapPin, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Store, XCircle } from "lucide-react-native";
+import React, { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Account() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  const loadUnread = useCallback(async () => {
+    try {
+      const res = await api<{ unread: number }>("/notifications/unread-count");
+      setUnread(res?.unread || 0);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUnread();
+    }, [loadUnread])
+  );
 
   const initials = (user?.full_name || "?")
     .split(" ")
@@ -22,6 +40,19 @@ export default function Account() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Account</Text>
+          <Pressable
+            testID="account-notifications-btn"
+            onPress={() => router.push("/notifications")}
+            style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.8 }]}
+            hitSlop={10}
+          >
+            <Bell size={20} color={colors.text} />
+            {unread > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unread > 9 ? "9+" : unread}</Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
 
         <View style={styles.profileCard}>
@@ -91,6 +122,31 @@ export default function Account() {
           />
         </View>
 
+        <Text style={styles.groupLabel}>Policies & help</Text>
+        <View style={styles.menuGroup}>
+          <Row
+            icon={<FileText size={18} color={colors.text} />}
+            label="Payment policy"
+            subtitle="How we charge, taxes, refunds"
+            onPress={() => router.push("/help/payment-policy")}
+            testID="account-payment-policy-btn"
+          />
+          <Row
+            icon={<RefreshCcw size={18} color={colors.text} />}
+            label="Return policy"
+            subtitle="7-day window · cross-border returns"
+            onPress={() => router.push("/help/return-policy")}
+            testID="account-return-policy-btn"
+          />
+          <Row
+            icon={<XCircle size={18} color={colors.text} />}
+            label="Cancellation policy"
+            subtitle="Free cancel within 12 hours"
+            onPress={() => router.push("/help/cancellation-policy")}
+            testID="account-cancellation-policy-btn"
+          />
+        </View>
+
         <Pressable
           testID="account-logout-btn"
           onPress={async () => {
@@ -140,8 +196,46 @@ function Row({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md },
+  header: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   title: { fontSize: 32, fontWeight: "800", color: colors.text, letterSpacing: -0.8 },
+  bellBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bellBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
+  groupLabel: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textFaint,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   profileCard: {
     marginHorizontal: spacing.lg,
     backgroundColor: colors.surface,
