@@ -6,9 +6,13 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -51,6 +55,8 @@ export default function SellerReturnsScreen() {
   const [returns, setReturns] = useState<Return[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ rtn: Return; action: "approve" | "reject" } | null>(null);
+  const [note, setNote] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -67,29 +73,30 @@ export default function SellerReturnsScreen() {
     }, [load])
   );
 
-  const decide = useCallback(
-    async (id: string, approve: boolean) => {
-      setBusyId(id);
-      try {
-        const updated = await api<Return>(`/returns/${id}/${approve ? "approve" : "reject"}`, {
-          method: "POST",
-          body: {},
-        });
-        setReturns((prev) => prev.map((r) => (r.id === id ? updated : r)));
-        Alert.alert(
-          approve ? "Return approved" : "Return declined",
-          approve
-            ? `A refund of ${formatNZD(updated.refund_amount_nzd)} has been initiated to the buyer.`
-            : "The buyer has been notified.",
-        );
-      } catch (e: any) {
-        Alert.alert("Couldn't update", e?.message || "Please try again.");
-      } finally {
-        setBusyId(null);
-      }
-    },
-    []
-  );
+  const confirmDecision = useCallback(async () => {
+    if (!pending) return;
+    const { rtn, action } = pending;
+    setBusyId(rtn.id);
+    try {
+      const updated = await api<Return>(`/returns/${rtn.id}/${action}`, {
+        method: "POST",
+        body: { note: note.trim() || undefined },
+      });
+      setReturns((prev) => prev.map((r) => (r.id === rtn.id ? updated : r)));
+      setPending(null);
+      setNote("");
+      Alert.alert(
+        action === "approve" ? "Return approved" : "Return declined",
+        action === "approve"
+          ? `A refund of ${formatNZD(updated.refund_amount_nzd)} has been initiated to the buyer.`
+          : "The buyer has been notified.",
+      );
+    } catch (e: any) {
+      Alert.alert("Couldn't update", e?.message || "Please try again.");
+    } finally {
+      setBusyId(null);
+    }
+  }, [pending, note]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -174,12 +181,10 @@ export default function SellerReturnsScreen() {
                     <Pressable
                       testID={`seller-rtn-reject-${item.id}`}
                       disabled={busyId === item.id}
-                      onPress={() =>
-                        Alert.alert("Decline return?", "The buyer will be notified.", [
-                          { text: "Cancel", style: "cancel" },
-                          { text: "Decline", style: "destructive", onPress: () => decide(item.id, false) },
-                        ])
-                      }
+                      onPress={() => {
+                        setNote("");
+                        setPending({ rtn: item, action: "reject" });
+                      }}
                       style={({ pressed }) => [
                         styles.btnSecondary,
                         pressed && { opacity: 0.85 },
@@ -192,16 +197,10 @@ export default function SellerReturnsScreen() {
                     <Pressable
                       testID={`seller-rtn-approve-${item.id}`}
                       disabled={busyId === item.id}
-                      onPress={() =>
-                        Alert.alert(
-                          "Approve return?",
-                          `A refund of ${formatNZD(item.refund_amount_nzd)} will be initiated to the buyer.`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            { text: "Approve", onPress: () => decide(item.id, true) },
-                          ]
-                        )
-                      }
+                      onPress={() => {
+                        setNote("");
+                        setPending({ rtn: item, action: "approve" });
+                      }}
                       style={({ pressed }) => [
                         styles.btnPrimary,
                         pressed && { opacity: 0.9 },
@@ -224,6 +223,76 @@ export default function SellerReturnsScreen() {
           }}
         />
       )}
+
+      <Modal
+        visible={pending !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPending(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalRoot}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setPending(null)} />
+          <View style={styles.modalCard} testID="seller-rtn-modal">
+            <Text style={styles.modalTitle}>
+              {pending?.action === "approve" ? "Approve return?" : "Decline return?"}
+            </Text>
+            <Text style={styles.modalBody}>
+              {pending?.action === "approve"
+                ? `A refund of ${formatNZD(pending?.rtn.refund_amount_nzd || 0)} will be initiated to the buyer in NZD. They'll receive an in-app notification immediately.`
+                : "The buyer will be notified your decision. Provide a brief reason so they understand."}
+            </Text>
+            <Text style={styles.modalLabel}>
+              {pending?.action === "approve" ? "Note (optional)" : "Reason for declining"}
+            </Text>
+            <TextInput
+              testID="seller-rtn-modal-note"
+              value={note}
+              onChangeText={setNote}
+              placeholder={
+                pending?.action === "approve"
+                  ? "Anything to add for the buyer..."
+                  : "Item is in non-returnable condition..."
+              }
+              placeholderTextColor={colors.textFaint}
+              maxLength={300}
+              multiline
+              style={styles.modalInput}
+            />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: spacing.md }}>
+              <Pressable
+                testID="seller-rtn-modal-cancel"
+                onPress={() => setPending(null)}
+                style={({ pressed }) => [styles.modalSecondary, pressed && { opacity: 0.85 }]}
+                disabled={busyId !== null}
+              >
+                <Text style={styles.modalSecondaryText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="seller-rtn-modal-confirm"
+                onPress={confirmDecision}
+                style={({ pressed }) => [
+                  styles.modalPrimary,
+                  pending?.action === "reject" && { backgroundColor: colors.error },
+                  pressed && { opacity: 0.9 },
+                  busyId !== null && { opacity: 0.7 },
+                ]}
+                disabled={busyId !== null}
+              >
+                {busyId === pending?.rtn.id ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.modalPrimaryText}>
+                    {pending?.action === "approve" ? "Approve & refund" : "Decline"}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -336,4 +405,51 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   btnPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  modalRoot: { flex: 1, justifyContent: "flex-end" },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  modalBody: { fontSize: 13, color: colors.textMuted, marginTop: 6, lineHeight: 19 },
+  modalLabel: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textMuted,
+    marginTop: spacing.md,
+    letterSpacing: 0.8,
+  },
+  modalInput: {
+    marginTop: 6,
+    minHeight: 70,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 10,
+    color: colors.text,
+    textAlignVertical: "top",
+  },
+  modalSecondary: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalSecondaryText: { color: colors.text, fontWeight: "700" },
+  modalPrimary: {
+    flex: 1,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalPrimaryText: { color: "#fff", fontWeight: "800" },
 });

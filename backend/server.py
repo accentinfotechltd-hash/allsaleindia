@@ -238,7 +238,7 @@ class SellerProfile(BaseModel):
     contact_phone: str
     verification_status: str  # auto_verified | pending_review | rejected
     verified_at: Optional[datetime] = None
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
 
 class ListingCreate(BaseModel):
