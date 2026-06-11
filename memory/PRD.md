@@ -88,6 +88,7 @@ with INR reference, shipping to NZ).
   `/seller/orders` and `/seller/payouts` screens with rich summary card.
 
 ## Iteration 5 — Indian business types (DONE)
+## Iteration 5 — Indian business types (DONE)
 Seller signup/upgrade now requires picking one of the 7 Indian business
 entity types. Validation is conditional on the type:
 
