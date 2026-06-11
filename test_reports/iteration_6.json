@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 6 (business-type selector across 7 entity types) fully verified. Backend: 31/31 new iter-6 tests pass covering CIN-required (private_limited/public_limited/opc/section_8), LLP with LLPIN (AAB-1234 and AAB1234), no-MCA types (sole_proprietorship/partnership_firm), unknown business_type → 400, PAN-vs-GSTIN cross-check for all 7 types, and /seller/me returns saved business_type + matching MCA id. Frontend: /seller/signup and /seller/upgrade both render all 7 chips with correct testIDs, hint box updates dynamically, CIN/LLPIN fields show/hide correctly per type, default chip is private_limited. E2E LLP signup with AAB-1234 → /seller/dashboard with 'Business auto-verified' badge succeeded. Pre-existing hygiene fix applied: updated _valid_business helper in test_seller.py and test_seller_payouts.py to include the now-required business_type field (otherwise all 4 payout tests and existing seller tests would 422).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/products", "issue": "Pre-existing flake: catalog now has 18 products (9 seeded + leftover from prior iterations' seller-created listings) causing test_list_products_returns_seeded to fail. Pre-existing from iter-5, not an iter-6 regression."},
+      {"endpoint": "/api/seller/register", "issue": "Pre-existing flake: test_duplicate_gstin_returns_409 fails when the random GSTIN collides with a previously-registered one in the long-lived test DB. Pre-existing from iter-5."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seller_business_types.py",
+    "/app/backend/tests/test_seller.py",
+    "/app/backend/tests/test_seller_payouts.py",
+    "/app/test_reports/pytest/iter6_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SellerBusiness.business_type uses Field(min_length=2) but the enforced enum is set-membership inside validate_indian_business — Pydantic will accept any string of length ≥2 and only reject at runtime. Consider a typed Literal[...] / Enum on the model so OpenAPI also documents the valid values.",
+    "BusinessFields uses a horizontal ScrollView for the chip row; on a 390px viewport the 7th chip (Section 8) is off-screen until the user scrolls. UX is fine but consider a hint that the row scrolls (e.g. fade-edge or showsHorizontalScrollIndicator).",
+    "Frontend trims+falls back to null for cin/llpin before send, but the backend SellerBusiness model accepts cin/llpin as Optional[str] without min_length, so an empty string '' would also pass Pydantic and only fail at validate_indian_business. Current FE handling is correct; just noting backend tolerance."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_seller.py (added business_type='private_limited' to _valid_business helper)",
+    "/app/backend/tests/test_seller_payouts.py (added business_type='private_limited' to _valid_business helper)",
+    "/app/backend/tests/test_seller_business_types.py (new file — 31 parametrized tests for iter-6)"
+  ],
+  "success_rate": {"backend": "97% (78/80 functional tests pass — 31/31 new iter-6 + 47/49 regression; 2 pre-existing flakes documented)", "frontend": "100% (all 7 chips, hint, conditional CIN/LLPIN, default chip, E2E LLP signup → dashboard, /seller/upgrade parity all pass on 390x844)"},
+  "seed_data_creation": "No seed data added. Tests self-register unique sellers with randomised GSTIN/PAN per run; all rows prefixed TEST_.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter-6 is fully green. Two long-standing hygiene flakes (products seed count and duplicate-GSTIN test) are unrelated to business-type changes and were already documented in iter-5. If the user requests stability, drop & re-seed the DB before running test_products.py, and reset the GSTIN counter / make _gstin() use a wider random alphabet in test_seller.py.",
+  "rca_of_issue": "N/A — no iter-6 bugs found."
+}

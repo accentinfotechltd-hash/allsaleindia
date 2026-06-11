@@ -21,7 +21,7 @@ import { colors, radius, spacing } from "@/src/lib/theme";
 export default function SellerUpgrade() {
   const router = useRouter();
   const { refresh } = useAuth();
-  const { form, set } = useBusinessForm();
+  const { form, set, setType } = useBusinessForm();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -31,7 +31,13 @@ export default function SellerUpgrade() {
     try {
       await api("/seller/upgrade", {
         method: "POST",
-        body: { business: { ...form, cin: form.cin.trim() || null } },
+        body: {
+          business: {
+            ...form,
+            cin: form.cin.trim() || null,
+            llpin: form.llpin.trim() || null,
+          },
+        },
       });
       await refresh();
       router.replace("/seller/dashboard");
@@ -59,7 +65,7 @@ export default function SellerUpgrade() {
             company against Indian government formats.
           </Text>
 
-          <BusinessFields form={form} set={set} prefix="seller-upgrade" />
+          <BusinessFields form={form} set={set} setType={setType} prefix="seller-upgrade" />
 
           {err ? <Text style={styles.error} testID="seller-upgrade-error">{err}</Text> : null}
 

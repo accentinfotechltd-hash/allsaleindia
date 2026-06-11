@@ -30,6 +30,7 @@ def _ts():
 
 def _valid_business(overrides=None):
     b = {
+        "business_type": "private_limited",
         "company_name": "TEST Allsale Crafts Pvt Ltd",
         "gstin": _gstin(),
         "pan": "ABCDE1234F",

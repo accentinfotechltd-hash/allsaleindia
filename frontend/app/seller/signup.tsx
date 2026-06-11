@@ -22,7 +22,7 @@ import { colors, radius, spacing } from "@/src/lib/theme";
 export default function SellerSignup() {
   const router = useRouter();
   const { refresh } = useAuth();
-  const { form, set } = useBusinessForm();
+  const { form, set, setType } = useBusinessForm();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,7 +42,11 @@ export default function SellerSignup() {
         body: {
           email: email.trim(),
           password,
-          business: { ...form, cin: form.cin.trim() || null },
+          business: {
+            ...form,
+            cin: form.cin.trim() || null,
+            llpin: form.llpin.trim() || null,
+          },
         },
       });
       await setToken(res.access_token);
@@ -94,7 +98,7 @@ export default function SellerSignup() {
             />
           </View>
 
-          <BusinessFields form={form} set={set} prefix="seller-signup" />
+          <BusinessFields form={form} set={set} setType={setType} prefix="seller-signup" />
 
           {err ? <Text style={styles.error} testID="seller-signup-error">{err}</Text> : null}
 

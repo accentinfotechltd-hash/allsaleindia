@@ -50,6 +50,15 @@ ADMIN_SECRET = os.environ.get("ADMIN_SECRET", "allsale-admin-dev-secret")
 GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
 CIN_RE = re.compile(r"^[LU][0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$")
+LLPIN_RE = re.compile(r"^[A-Z]{3}-?[0-9]{4}$")
+
+# Indian business entity types we accept on Allsale.
+BUSINESS_TYPES_NEEDS_CIN = {"private_limited", "public_limited", "opc", "section_8"}
+BUSINESS_TYPES_NEEDS_LLPIN = {"llp"}
+BUSINESS_TYPES_NO_MCA = {"sole_proprietorship", "partnership_firm"}
+VALID_BUSINESS_TYPES = (
+    BUSINESS_TYPES_NEEDS_CIN | BUSINESS_TYPES_NEEDS_LLPIN | BUSINESS_TYPES_NO_MCA
+)
 
 # 1 NZD ≈ 51 INR (display only). Hardcoded for MVP.
 INR_PER_NZD = 51.0
@@ -104,10 +113,12 @@ class GoogleSessionRequest(BaseModel):
 
 
 class SellerBusiness(BaseModel):
+    business_type: str = Field(..., min_length=2)
     company_name: str = Field(..., min_length=2)
     gstin: str = Field(..., min_length=15, max_length=15)
     pan: str = Field(..., min_length=10, max_length=10)
     cin: Optional[str] = Field(default=None)
+    llpin: Optional[str] = Field(default=None)
     address_line1: str = Field(..., min_length=2)
     address_line2: Optional[str] = ""
     city: str = Field(..., min_length=2)
@@ -129,10 +140,12 @@ class SellerUpgrade(BaseModel):
 
 class SellerProfile(BaseModel):
     user_id: str
+    business_type: str
     company_name: str
     gstin: str
     pan: str
     cin: Optional[str] = None
+    llpin: Optional[str] = None
     address_line1: str
     address_line2: Optional[str] = ""
     city: str
@@ -325,26 +338,46 @@ def public_user(doc: dict) -> "UserPublic":
 
 def validate_indian_business(b: SellerBusiness) -> dict:
     """Return cleaned/uppercased dict; raise HTTPException on invalid formats."""
+    btype = b.business_type.strip().lower()
+    if btype not in VALID_BUSINESS_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid business type")
     gstin = b.gstin.strip().upper()
     pan = b.pan.strip().upper()
     cin = b.cin.strip().upper() if b.cin else None
+    llpin = b.llpin.strip().upper() if b.llpin else None
     pincode = b.pincode.strip()
     if not GSTIN_RE.match(gstin):
         raise HTTPException(status_code=400, detail="Invalid GSTIN format (15 chars)")
     if not PAN_RE.match(pan):
         raise HTTPException(status_code=400, detail="Invalid PAN format (10 chars)")
-    if cin and not CIN_RE.match(cin):
-        raise HTTPException(status_code=400, detail="Invalid CIN format (21 chars)")
     if not pincode.isdigit() or len(pincode) != 6:
         raise HTTPException(status_code=400, detail="Pincode must be 6 digits")
     # Light cross-check: GSTIN positions 3..7 are the company PAN.
     if pan != gstin[2:12]:
         raise HTTPException(status_code=400, detail="PAN must match the PAN inside the GSTIN")
+
+    # Branch by business type to enforce the right MCA identifier.
+    if btype in BUSINESS_TYPES_NEEDS_CIN:
+        if not cin or not CIN_RE.match(cin):
+            raise HTTPException(status_code=400, detail="Valid CIN (21 chars) is required for this business type")
+        if llpin:
+            raise HTTPException(status_code=400, detail="LLPIN does not apply to this business type")
+    elif btype in BUSINESS_TYPES_NEEDS_LLPIN:
+        if not llpin or not LLPIN_RE.match(llpin):
+            raise HTTPException(status_code=400, detail="Valid LLPIN (7 chars: AAA-1234) is required for an LLP")
+        if cin:
+            raise HTTPException(status_code=400, detail="CIN does not apply to an LLP — use LLPIN")
+    else:
+        # Sole proprietorship / partnership firm — neither MCA id is applicable.
+        if cin or llpin:
+            raise HTTPException(status_code=400, detail="CIN/LLPIN do not apply to this business type")
     return {
+        "business_type": btype,
         "company_name": b.company_name.strip(),
         "gstin": gstin,
         "pan": pan,
         "cin": cin,
+        "llpin": llpin,
         "address_line1": b.address_line1.strip(),
         "address_line2": (b.address_line2 or "").strip(),
         "city": b.city.strip(),
