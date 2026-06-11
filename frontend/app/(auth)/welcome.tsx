@@ -23,8 +23,7 @@ export default function Welcome() {
           style={styles.gradient}
         />
         <View style={styles.brandRow}>
-          <View style={styles.brandDot} />
-          <Text style={styles.brandText}>allsale</Text>
+          <Image source={require("@/assets/images/allsale-logo.png")} style={styles.brandLogo} resizeMode="contain" />
         </View>
         <View style={styles.heroContent}>
           <Text style={styles.eyebrow}>INDIA → NEW ZEALAND</Text>
@@ -102,6 +101,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+  },
+  brandLogo: {
+    width: 120,
+    height: 44,
   },
   brandDot: { width: 10, height: 10, backgroundColor: colors.primary, borderRadius: 999 },
   brandText: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },

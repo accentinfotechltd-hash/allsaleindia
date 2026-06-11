@@ -108,8 +108,12 @@ export default function Home() {
           <View>
             {/* Top bar */}
             <View style={styles.topBar}>
-              <View>
-                <Text style={styles.brand}>allsale</Text>
+              <View style={{ flex: 1 }}>
+                <Image
+                  source={require("@/assets/images/allsale-logo.png")}
+                  style={styles.brandLogo}
+                  resizeMode="contain"
+                />
                 <View style={styles.regionRow}>
                   <Globe2 size={11} color={colors.textMuted} />
                   <Text style={styles.region}>Shipping to New Zealand</Text>
@@ -221,6 +225,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   brand: { fontSize: 22, fontWeight: "800", color: colors.text, letterSpacing: -0.8 },
+  brandLogo: { width: 132, height: 40, marginBottom: 2 },
   regionRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
   region: { fontSize: 11, color: colors.textMuted, fontWeight: "500" },
   iconBtn: {
