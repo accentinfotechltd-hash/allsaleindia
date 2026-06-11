@@ -28,6 +28,8 @@ export type FilterState = {
   maxPrice: string;
   brand: string | null; // null = any brand
   inStockOnly: boolean;
+  sizes: string[];
+  colors: string[];
 };
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -36,6 +38,8 @@ export const DEFAULT_FILTERS: FilterState = {
   maxPrice: "",
   brand: null,
   inStockOnly: false,
+  sizes: [],
+  colors: [],
 };
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -54,15 +58,44 @@ const PRICE_PRESETS: { label: string; min: string; max: string }[] = [
   { label: "Over $250", min: "250", max: "" },
 ];
 
+// Common apparel sizes & colors. We don't yet pull the catalog facets
+// dynamically — these cover ~90% of buyer queries and are intentionally
+// short to keep the sheet glanceable on phones.
+const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "Free Size"];
+const SHOE_SIZE_OPTIONS = ["6", "7", "8", "9", "10", "11"];
+const COLOR_OPTIONS: { name: string; hex: string }[] = [
+  { name: "Black", hex: "#0A0A0A" },
+  { name: "White", hex: "#FFFFFF" },
+  { name: "Grey", hex: "#9CA3AF" },
+  { name: "Navy", hex: "#1E3A8A" },
+  { name: "Red", hex: "#DC2626" },
+  { name: "Maroon", hex: "#7F1D1D" },
+  { name: "Blue", hex: "#2563EB" },
+  { name: "Green", hex: "#16A34A" },
+  { name: "Yellow", hex: "#FACC15" },
+  { name: "Pink", hex: "#EC4899" },
+  { name: "Gold", hex: "#D4AF37" },
+  { name: "Silver", hex: "#C0C0C0" },
+];
+
 type Props = {
   visible: boolean;
   initial: FilterState;
   brands: string[];
+  /** When true, the sizes & colors sections are shown (catalogue is apparel/lifestyle). */
+  showSizeColor?: boolean;
   onClose: () => void;
   onApply: (next: FilterState) => void;
 };
 
-export function SortFilterSheet({ visible, initial, brands, onClose, onApply }: Props) {
+export function SortFilterSheet({
+  visible,
+  initial,
+  brands,
+  showSizeColor = true,
+  onClose,
+  onApply,
+}: Props) {
   const [state, setState] = useState<FilterState>(initial);
 
   // Re-seed when reopened with a different starting state.
@@ -178,6 +211,60 @@ export function SortFilterSheet({ visible, initial, brands, onClose, onApply }: 
               <Text style={styles.toggleText}>Only show items in stock</Text>
             </Pressable>
 
+            {/* Sizes & colors — only meaningful for apparel/lifestyle catalogs */}
+            {showSizeColor ? (
+              <>
+                <Text style={styles.section}>Sizes</Text>
+                <View style={styles.chipsWrap}>
+                  {[...SIZE_OPTIONS, ...SHOE_SIZE_OPTIONS].map((sz) => {
+                    const active = state.sizes.includes(sz);
+                    return (
+                      <Pressable
+                        key={sz}
+                        testID={`size-chip-${sz}`}
+                        onPress={() =>
+                          setState((s) => ({
+                            ...s,
+                            sizes: active
+                              ? s.sizes.filter((x) => x !== sz)
+                              : [...s.sizes, sz],
+                          }))
+                        }
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{sz}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={styles.section}>Colors</Text>
+                <View style={styles.chipsWrap}>
+                  {COLOR_OPTIONS.map((c) => {
+                    const active = state.colors.includes(c.name);
+                    return (
+                      <Pressable
+                        key={c.name}
+                        testID={`color-chip-${c.name}`}
+                        onPress={() =>
+                          setState((s) => ({
+                            ...s,
+                            colors: active
+                              ? s.colors.filter((x) => x !== c.name)
+                              : [...s.colors, c.name],
+                          }))
+                        }
+                        style={[styles.colorChip, active && styles.colorChipActive]}
+                      >
+                        <View style={[styles.colorSwatch, { backgroundColor: c.hex }]} />
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{c.name}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+
             {/* Brand */}
             {brands.length > 0 ? (
               <>
@@ -241,6 +328,8 @@ export function buildProductsQuery(filters: FilterState): string {
   if (filters.maxPrice) params.push(`max_price=${encodeURIComponent(filters.maxPrice)}`);
   if (filters.brand) params.push(`brand=${encodeURIComponent(filters.brand)}`);
   if (filters.inStockOnly) params.push(`in_stock=true`);
+  filters.sizes.forEach((s) => params.push(`sizes=${encodeURIComponent(s)}`));
+  filters.colors.forEach((c) => params.push(`colors=${encodeURIComponent(c)}`));
   return params.length ? `&${params.join("&")}` : "";
 }
 
@@ -251,12 +340,12 @@ export function activeFilterSummary(filters: FilterState): string[] {
     if (opt) out.push(opt.label);
   }
   if (filters.minPrice || filters.maxPrice) {
-    out.push(
-      `$${filters.minPrice || "0"} – $${filters.maxPrice || "∞"}`,
-    );
+    out.push(`$${filters.minPrice || "0"} – $${filters.maxPrice || "∞"}`);
   }
   if (filters.brand) out.push(filters.brand);
   if (filters.inStockOnly) out.push("In stock");
+  if (filters.sizes.length) out.push(`Size ${filters.sizes.join("/")}`);
+  if (filters.colors.length) out.push(`${filters.colors.length} colour${filters.colors.length > 1 ? "s" : ""}`);
   return out;
 }
 
@@ -310,6 +399,26 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.text, borderColor: colors.text },
   chipText: { fontSize: 13, color: colors.text, fontWeight: "600" },
   chipTextActive: { color: "#fff" },
+  colorChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 36,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  colorChipActive: { backgroundColor: colors.text, borderColor: colors.text },
+  colorSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.15)",
+  },
   priceRow: { flexDirection: "row", gap: 10, marginTop: spacing.sm },
   priceField: { flex: 1 },
   priceLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 6, fontWeight: "700" },

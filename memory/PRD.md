@@ -427,3 +427,29 @@ the seed list but never surface to buyers.
 
 **Tests** — `test_iter7_nz.py` and `test_products.py` updated for the new
 taxonomy shape. 49/49 pass on the iter-7 + bulk test files.
+
+## Sort & Filter v2 — Sizes & Colors UI (June 2026)
+
+The Sort & Filter bottom-sheet now exposes the new backend filters
+introduced in iter-13:
+
+- **Sizes** — 13 chips: apparel (XS, S, M, L, XL, XXL, Free Size) and
+  shoe sizes (6-11). Multi-select; selected chips turn black.
+- **Colors** — 12 chips with mini visual swatches (Black, White, Grey,
+  Navy, Red, Maroon, Blue, Green, Yellow, Pink, Gold, Silver).
+  Multi-select.
+- The two sections are gated by a new `showSizeColor` prop (default
+  `true`) so consumers can hide them where they don't make sense.
+
+**FilterState** type grew two `string[]` fields (`sizes`, `colors`).
+`buildProductsQuery()` emits repeated `sizes=…&colors=…` query params.
+`activeFilterSummary()` shows the count in the active-filter chips row.
+
+**Tests** — `test_filters_v2.py` (10/10): gender/age_group/sizes/colors
+permutations + hidden-category leak prevention (`/taxonomy`,
+`/products`, explicit category probes).
+
+**Verified end-to-end** in the web preview: Categories tab → Women's
+Clothing → Sort & Filter shows all sections. Backend correctly returns
+the Flowy Midi Summer Dress when filtering by size=L AND when filtering
+by color=Black (case-insensitive).
