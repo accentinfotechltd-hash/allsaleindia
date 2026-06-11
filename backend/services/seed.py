@@ -83,11 +83,117 @@ SEED_PRODUCTS: list[dict] = [
         "image": "https://images.unsplash.com/photo-1683533698664-12ee473e8c9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85",
         "rating": 4.7, "reviews_count": 318,
     },
+    # ---------- New global taxonomy demo products (June 2026) ----------
+    {
+        "name": "Flowy Midi Summer Dress",
+        "description": "Lightweight cotton midi dress with adjustable straps. Perfect for warm Auckland summers.",
+        "category": "Women's Clothing", "subcategory": "Dresses",
+        "price_nzd": 39.90,
+        "image": "https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?w=800",
+        "rating": 4.6, "reviews_count": 142,
+    },
+    {
+        "name": "Men's Classic Oxford Shirt",
+        "description": "Tailored-fit oxford in long staple cotton. Easy iron, all-day comfort.",
+        "category": "Men's Clothing", "subcategory": "Tops",
+        "price_nzd": 49.00,
+        "image": "https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=800",
+        "rating": 4.7, "reviews_count": 211,
+    },
+    {
+        "name": "Kids Cotton T-Shirt Pack (3)",
+        "description": "Soft 100% cotton tees for everyday wear. Comes in three bright colours.",
+        "category": "Kids' Fashion", "subcategory": "Boys Clothing",
+        "price_nzd": 24.50,
+        "image": "https://images.unsplash.com/photo-1503944583220-79d8926ad5e2?w=800",
+        "rating": 4.8, "reviews_count": 89,
+    },
+    {
+        "name": "Lightweight Running Sneakers",
+        "description": "Breathable knit upper with cushioned EVA midsole. Built for daily 5K runs.",
+        "category": "Shoes", "subcategory": "Sports Shoes",
+        "price_nzd": 79.00,
+        "image": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800",
+        "rating": 4.7, "reviews_count": 526,
+    },
+    {
+        "name": "Genuine Leather Crossbody Bag",
+        "description": "Full-grain leather crossbody with adjustable strap and three internal compartments.",
+        "category": "Bags & Luggage", "subcategory": "Women's Bags",
+        "price_nzd": 89.00,
+        "image": "https://images.unsplash.com/photo-1591561954557-26941169b49e?w=800",
+        "rating": 4.8, "reviews_count": 174,
+    },
+    {
+        "name": "Bluetooth Noise-Cancelling Earbuds",
+        "description": "Active noise cancellation, 32-hour battery with case, USB-C fast charging.",
+        "category": "Electronics", "subcategory": "Audio",
+        "price_nzd": 99.00,
+        "image": "https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=800",
+        "rating": 4.6, "reviews_count": 902,
+    },
+    {
+        "name": "Scandinavian Linen Bedding Set",
+        "description": "100% French linen — duvet cover plus two pillowcases. Stone-washed for a relaxed look.",
+        "category": "Home & Kitchen", "subcategory": "Bedding",
+        "price_nzd": 149.00,
+        "image": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=800",
+        "rating": 4.9, "reviews_count": 320,
+    },
+    {
+        "name": "Vitamin C Brightening Serum",
+        "description": "20% Vitamin C with hyaluronic acid and ferulic acid. Cruelty-free, vegan formula.",
+        "category": "Beauty & Health", "subcategory": "Skincare",
+        "price_nzd": 34.50,
+        "image": "https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=800",
+        "rating": 4.7, "reviews_count": 612,
+    },
+    {
+        "name": "Lego-Compatible 320-Piece Building Set",
+        "description": "Build cars, robots and houses with this open-ended construction kit. Ages 5+.",
+        "category": "Toys & Games", "subcategory": "Building Toys",
+        "price_nzd": 29.90,
+        "image": "https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800",
+        "rating": 4.8, "reviews_count": 154,
+    },
+    {
+        "name": "Yoga Mat — Eco Cork 6mm",
+        "description": "Non-slip cork surface on natural tree rubber base. Hand-wash, biodegradable.",
+        "category": "Sports & Outdoors", "subcategory": "Exercise & Fitness",
+        "price_nzd": 54.00,
+        "image": "https://images.unsplash.com/photo-1591291621164-2c6367723315?w=800",
+        "rating": 4.9, "reviews_count": 287,
+    },
+    {
+        "name": "Dog Plush Memory-Foam Bed (Medium)",
+        "description": "Orthopedic memory-foam dog bed with washable removable cover. Fits dogs up to 18kg.",
+        "category": "Pet Supplies", "subcategory": "Dogs",
+        "price_nzd": 69.00,
+        "image": "https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800",
+        "rating": 4.8, "reviews_count": 219,
+    },
+    {
+        "name": "Premium Stationery Set — 8 piece",
+        "description": "Fountain pen, refills, journal, sticky tabs and washi tape — boxed gift set.",
+        "category": "Office & School Supplies", "subcategory": "Stationery",
+        "price_nzd": 39.50,
+        "image": "https://images.unsplash.com/photo-1455390582262-044cdead277a?w=800",
+        "rating": 4.6, "reviews_count": 98,
+    },
+    {
+        "name": "Cordless Drill Driver Kit — 20V",
+        "description": "Brushless motor, 2 batteries, 30+ accessories. Includes hard storage case.",
+        "category": "Tools & Home Improvement", "subcategory": "Power Tools",
+        "price_nzd": 129.00,
+        "image": "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=800",
+        "rating": 4.7, "reviews_count": 412,
+    },
 ]
 
 
 def _demo_extras(p: dict) -> dict:
     cat = (p.get("category") or "").lower()
+    sub = (p.get("subcategory") or "").lower()
     name = (p.get("name") or "").lower()
     if (
         "fashion" in cat
@@ -105,6 +211,43 @@ def _demo_extras(p: dict) -> dict:
         return {"colors": ["Brass", "Antique Brass"], "sizes": [], "stock_count": 30}
     if "food" in cat or "grocer" in cat or "spice" in name or "tea" in name:
         return {"colors": [], "sizes": [], "stock_count": 100}
+    # Global taxonomy (June 2026)
+    if "women's clothing" in cat or "men's clothing" in cat:
+        return {
+            "colors": ["Black", "White", "Navy", "Olive"],
+            "sizes": ["XS", "S", "M", "L", "XL", "XXL"],
+            "stock_count": 35,
+        }
+    if "kids' fashion" in cat:
+        return {
+            "colors": ["Red", "Blue", "Yellow", "Green"],
+            "sizes": ["2-3Y", "4-5Y", "6-7Y", "8-9Y", "10-12Y"],
+            "stock_count": 40,
+        }
+    if cat == "shoes":
+        return {
+            "colors": ["Black", "White", "Grey", "Navy"],
+            "sizes": ["6", "7", "8", "9", "10", "11"],
+            "stock_count": 22,
+        }
+    if "bags" in cat:
+        return {"colors": ["Black", "Tan", "Cognac", "Burgundy"], "sizes": [], "stock_count": 18}
+    if "home & kitchen" in cat:
+        return {"colors": ["White", "Sand", "Charcoal"], "sizes": ["Single", "Queen", "King"], "stock_count": 25}
+    if "beauty" in cat or "health" in cat:
+        return {"colors": [], "sizes": ["30ml", "50ml", "100ml"], "stock_count": 80}
+    if "electronics" in cat:
+        return {"colors": ["Black", "White"], "sizes": [], "stock_count": 60}
+    if "toys" in cat:
+        return {"colors": [], "sizes": [], "stock_count": 45}
+    if "sports" in cat:
+        return {"colors": ["Black", "Purple", "Teal"], "sizes": [], "stock_count": 35}
+    if "pet" in cat:
+        return {"colors": ["Grey", "Beige"], "sizes": ["S", "M", "L"], "stock_count": 20}
+    if "office" in cat:
+        return {"colors": [], "sizes": [], "stock_count": 50}
+    if "tools" in cat:
+        return {"colors": [], "sizes": [], "stock_count": 25}
     return {"colors": [], "sizes": [], "stock_count": 25}
 
 

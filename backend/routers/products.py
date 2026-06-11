@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from config import (
     HIDDEN_BUYER_CATEGORIES,
@@ -26,6 +26,27 @@ from models import (
 router = APIRouter(tags=["products"])
 
 
+# Buyer-facing top-level groupings used to derive "gender" / "age_group"
+# filters from a product's category. Keeps the model schema simple while
+# letting the UI offer "Show me only Women's items" filters.
+_WOMEN_CATEGORIES = {"Women's Clothing"}
+_MEN_CATEGORIES = {"Men's Clothing"}
+_KIDS_CATEGORIES = {"Kids' Fashion"}
+_BABY_SUBCATS = {"Baby 0-24M", "Baby & Toddler Toys"}
+
+
+def _derive_gender(category: str | None, subcategory: str | None) -> str:
+    if not category:
+        return "unisex"
+    if category in _WOMEN_CATEGORIES or (subcategory or "").startswith("Women"):
+        return "women"
+    if category in _MEN_CATEGORIES or (subcategory or "").startswith("Men"):
+        return "men"
+    if category in _KIDS_CATEGORIES or (subcategory or "").startswith(("Girls", "Boys", "Baby", "Kids")):
+        return "kids"
+    return "unisex"
+
+
 @router.get("/products", response_model=List[Product])
 async def list_products(
     category: Optional[str] = None,
@@ -36,6 +57,10 @@ async def list_products(
     max_price: Optional[float] = None,
     brand: Optional[str] = None,
     in_stock: Optional[bool] = None,
+    gender: Optional[str] = Query(default=None, description="women | men | kids | unisex"),
+    age_group: Optional[str] = Query(default=None, description="baby | kids | adult"),
+    sizes: Optional[List[str]] = Query(default=None, description="Filter by available size(s)"),
+    colors: Optional[List[str]] = Query(default=None, description="Filter by available color(s)"),
 ):
     """List the catalog with optional filters and sort.
 
@@ -45,6 +70,10 @@ async def list_products(
       * `min_price`, `max_price` — NZD bounds (inclusive)
       * `brand` — case-insensitive substring on seller_name (company)
       * `in_stock` — only products with stock available
+      * `gender` — `women` | `men` | `kids` | `unisex` (derived from category)
+      * `age_group` — `baby` | `kids` | `adult` (derived from category)
+      * `sizes` — list of sizes (any-match)
+      * `colors` — list of colors (any-match, case-insensitive)
 
     Sort (`sort` param):
       * `price_asc` | `price_desc`
@@ -52,8 +81,14 @@ async def list_products(
       * `top_rated` (rating desc then reviews_count desc)
     """
     query: dict = {}
+    # Buyer-side hidden categories: NEVER expose products in those categories
+    # to non-seller listing endpoints, even if the seller had created them.
+    query["category"] = {"$nin": list(HIDDEN_BUYER_CATEGORIES)}
+
     if category and category.lower() != "all":
-        query["category"] = category
+        if category in HIDDEN_BUYER_CATEGORIES:
+            return []  # explicit hidden — return empty
+        query["category"] = category  # override the $nin
     if subcategory and subcategory.lower() != "all":
         query["subcategory"] = subcategory
     if q:
@@ -69,6 +104,37 @@ async def list_products(
         price_range["$lte"] = float(max_price)
     if price_range:
         query["price_nzd"] = price_range
+
+    # Gender filter — map to category set.
+    if gender:
+        g = gender.lower().strip()
+        if g == "women":
+            query["category"] = "Women's Clothing"
+        elif g == "men":
+            query["category"] = "Men's Clothing"
+        elif g == "kids":
+            query["category"] = "Kids' Fashion"
+        # `unisex` is the default; no additional filter applied.
+
+    # Age group filter — only narrows kids' down to baby vs older.
+    if age_group:
+        ag = age_group.lower().strip()
+        if ag == "baby":
+            query["subcategory"] = {"$in": list(_BABY_SUBCATS)}
+        elif ag == "kids":
+            query["category"] = "Kids' Fashion"
+
+    if sizes:
+        query["sizes"] = {"$in": sizes}
+    if colors:
+        query["colors"] = {
+            "$in": [{"$regex": f"^{c}$", "$options": "i"} for c in colors]
+        }
+        # Mongo $in doesn't take regex objects directly — switch to $elemMatch
+        query.pop("colors", None)
+        query["$or"] = [
+            {"colors": {"$regex": f"^{c}$", "$options": "i"}} for c in colors
+        ]
 
     sort_spec: Optional[list] = None
     if sort == "price_asc":
@@ -96,6 +162,8 @@ async def list_brands(category: Optional[str] = None):
     query: dict = {"seller_name": {"$nin": [None, ""]}}
     if category and category.lower() != "all":
         query["category"] = category
+    else:
+        query["category"] = {"$nin": list(HIDDEN_BUYER_CATEGORIES)}
     names = await db.products.distinct("seller_name", query)
     return sorted([n for n in names if n])
 
@@ -103,12 +171,16 @@ async def list_brands(category: Optional[str] = None):
 @router.get("/categories", response_model=List[str])
 async def list_categories():
     cats = await db.products.distinct("category")
-    return sorted(cats)
+    return sorted(c for c in cats if c not in HIDDEN_BUYER_CATEGORIES)
 
 
 @router.get("/taxonomy", response_model=List[TaxonomyNode])
 async def get_taxonomy():
-    return [TaxonomyNode(**node) for node in TAXONOMY]
+    return [
+        TaxonomyNode(**node)
+        for node in TAXONOMY
+        if node["name"] not in HIDDEN_BUYER_CATEGORIES
+    ]
 
 
 @router.post("/duty/estimate", response_model=DutyEstimateResponse)

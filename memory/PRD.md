@@ -397,3 +397,33 @@ Testing agent flagged that `_split_multi()` was mangling `data:image/png;base64,
    column without breaking parsing.
 
 24/24 bulk tests pass (9 baseline + 5 ZIP + 10 new edge cases).
+
+## Catalog Taxonomy v2 — Global expansion (June 2026)
+
+Allsale catalog grew from 7 Indian-focused categories to a 17-category
+global storefront while keeping the Indian-heritage anchors.
+
+**New taxonomy (in display order):**
+1. Heritage: Ethnic Fashion, Home & Puja, Books & Gifts (unchanged)
+2. Apparel: Women's Clothing, Men's Clothing, Kids' Fashion
+3. Footwear & Bags: Shoes, Bags & Luggage
+4. Lifestyle: Jewelry & Accessories (expanded subcategories), Home & Kitchen, Beauty & Health
+5. Tech & toys: Electronics (expanded), Toys & Games
+6. Sport & special: Sports & Outdoors, Pet Supplies, Automotive, Office & School Supplies, Tools & Home Improvement
+
+**Buyer-hidden** (until courier rules confirmed): Food & Groceries, Wellness.
+The hidden filter now wraps `/api/products`, `/api/categories`, `/api/brands`,
+and `/api/taxonomy` consistently (was previously just imported but unused).
+
+**New filters on `/api/products`:**
+- `gender=women|men|kids|unisex` — derived from category
+- `age_group=baby|kids|adult` — derived from category/subcategory
+- `sizes=XS&sizes=S` — repeatable, any-match against the product's sizes array
+- `colors=red&colors=blue` — repeatable, case-insensitive match
+
+**Demo catalog:** 9 heritage + 13 new global = 22 seeded products
+(13 carry-over counters preserved). Hidden categories still exist in
+the seed list but never surface to buyers.
+
+**Tests** — `test_iter7_nz.py` and `test_products.py` updated for the new
+taxonomy shape. 49/49 pass on the iter-7 + bulk test files.

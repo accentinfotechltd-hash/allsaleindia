@@ -91,30 +91,18 @@ NZ_DUTY_RATE = 0.10
 # ---------------------------------------------------------------------------
 # Catalog taxonomy & NZ MPI prohibited keyword list
 # ---------------------------------------------------------------------------
+# Two-tier catalog (June 2026):
+#   1. Indian-heritage categories (kept verbatim — Allsale's anchor story)
+#   2. Global Amazon/AliExpress-style categories (added below)
+# Both share the same product collection; the `category` string field on
+# each product points at one of these `name`s.
 TAXONOMY: list[dict] = [
+    # ---------- Indian heritage ----------
     {
         "key": "ethnic_fashion",
         "name": "Ethnic Fashion",
         "blurb": "Sarees, lehengas and kurtis hand-picked from across India.",
         "subcategories": ["Sarees", "Lehengas", "Kurtis", "Mens Wear", "Kids Wear"],
-    },
-    {
-        "key": "jewelry_accessories",
-        "name": "Jewelry & Accessories",
-        "blurb": "Imitation, silver, juttis and bags — heritage craft, modern shipping.",
-        "subcategories": ["Imitation Jewelry", "Silver Jewelry", "Juttis", "Bags"],
-    },
-    {
-        "key": "food_groceries",
-        "name": "Food & Groceries",
-        "blurb": "Sealed, branded Indian groceries that clear NZ biosecurity.",
-        "subcategories": ["Spices", "Snacks", "Sweets", "Tea & Coffee", "Pickles"],
-    },
-    {
-        "key": "wellness",
-        "name": "Wellness",
-        "blurb": "Authentic ayurveda, herbs and oils from Indian wellness houses.",
-        "subcategories": ["Ayurvedic Medicines", "Herbal Supplements", "Essential Oils"],
     },
     {
         "key": "home_puja",
@@ -129,10 +117,159 @@ TAXONOMY: list[dict] = [
         "subcategories": ["Books", "Rakhis", "Diwali Gifts", "Wedding Favors"],
     },
     {
+        "key": "food_groceries",
+        "name": "Food & Groceries",
+        "blurb": "Sealed, branded Indian groceries that clear NZ biosecurity.",
+        "subcategories": ["Spices", "Snacks", "Sweets", "Tea & Coffee", "Pickles"],
+    },
+    {
+        "key": "wellness",
+        "name": "Wellness",
+        "blurb": "Authentic ayurveda, herbs and oils from Indian wellness houses.",
+        "subcategories": ["Ayurvedic Medicines", "Herbal Supplements", "Essential Oils"],
+    },
+    # ---------- Global fashion ----------
+    {
+        "key": "womens_clothing",
+        "name": "Women's Clothing",
+        "blurb": "Trend-led womenswear from dresses to activewear.",
+        "subcategories": [
+            "Dresses", "Tops", "Bottoms", "Outerwear", "Swimwear",
+            "Sleepwear & Loungewear", "Activewear", "Plus Size",
+            "Underwear & Lingerie",
+        ],
+    },
+    {
+        "key": "mens_clothing",
+        "name": "Men's Clothing",
+        "blurb": "Everyday menswear, performance and big & tall fits.",
+        "subcategories": [
+            "Tops", "Bottoms", "Outerwear", "Underwear & Sleepwear",
+            "Activewear", "Swimwear", "Big & Tall",
+        ],
+    },
+    {
+        "key": "kids_fashion",
+        "name": "Kids' Fashion",
+        "blurb": "Girls, boys and baby outfits sized 0-14.",
+        "subcategories": [
+            "Girls Clothing", "Boys Clothing", "Baby 0-24M",
+            "Kids Shoes", "Kids Accessories",
+        ],
+    },
+    # ---------- Footwear & bags ----------
+    {
+        "key": "shoes",
+        "name": "Shoes",
+        "blurb": "Sneakers, heels, sandals and sport shoes for the whole family.",
+        "subcategories": [
+            "Women's Shoes", "Men's Shoes", "Kids' Shoes", "Sports Shoes",
+        ],
+    },
+    {
+        "key": "bags_luggage",
+        "name": "Bags & Luggage",
+        "blurb": "Handbags, backpacks, wallets and travel luggage.",
+        "subcategories": [
+            "Women's Bags", "Men's Bags", "Luggage & Travel",
+            "Wallets & Card Holders", "Kids' Bags",
+        ],
+    },
+    # ---------- Jewelry — merged Indian + global ----------
+    {
+        "key": "jewelry_accessories",
+        "name": "Jewelry & Accessories",
+        "blurb": "Imitation, silver, watches and the heritage juttis.",
+        "subcategories": [
+            "Necklaces & Pendants", "Earrings", "Rings", "Bracelets & Bangles",
+            "Body Jewelry", "Hair Accessories", "Watches", "Sunglasses & Eyewear",
+            "Hats & Caps", "Belts & Scarves",
+            "Imitation Jewelry", "Silver Jewelry", "Juttis",
+        ],
+    },
+    # ---------- Lifestyle ----------
+    {
+        "key": "home_kitchen",
+        "name": "Home & Kitchen",
+        "blurb": "Decor, bedding, kitchen and furniture for every room.",
+        "subcategories": [
+            "Home Decor", "Bedding", "Bath", "Kitchen & Dining", "Furniture",
+            "Lighting", "Storage & Organization", "Cleaning Supplies",
+        ],
+    },
+    {
+        "key": "beauty_health",
+        "name": "Beauty & Health",
+        "blurb": "Makeup, skincare, fragrance and wellness essentials.",
+        "subcategories": [
+            "Makeup", "Skincare", "Hair Care", "Personal Care",
+            "Health Care", "Fragrance",
+        ],
+    },
+    # ---------- Tech & toys ----------
+    {
         "key": "electronics",
         "name": "Electronics",
-        "blurb": "Small gadgets and accessories that meet NZ import rules.",
-        "subcategories": ["Mobile Accessories", "Small Gadgets"],
+        "blurb": "Phones, audio, smart home, cameras and wearables.",
+        "subcategories": [
+            "Phones & Accessories", "Audio", "Smart Home",
+            "Computer & Office", "Camera & Photo", "TV & Home Audio",
+            "Wearables", "Mobile Accessories", "Small Gadgets",
+        ],
+    },
+    {
+        "key": "toys_games",
+        "name": "Toys & Games",
+        "blurb": "Figures, dolls, building sets and outdoor play.",
+        "subcategories": [
+            "Action Figures & Collectibles", "Dolls & Accessories",
+            "Building Toys", "Vehicles", "Puzzles & Games",
+            "Outdoor Play", "Arts & Crafts", "Baby & Toddler Toys",
+        ],
+    },
+    {
+        "key": "sports_outdoors",
+        "name": "Sports & Outdoors",
+        "blurb": "Fitness, hiking, team sports and water gear.",
+        "subcategories": [
+            "Exercise & Fitness", "Outdoor Recreation", "Sports",
+            "Water Sports", "Winter Sports",
+        ],
+    },
+    {
+        "key": "pet_supplies",
+        "name": "Pet Supplies",
+        "blurb": "Beds, toys, food and accessories for every pet.",
+        "subcategories": [
+            "Dogs", "Cats", "Fish & Aquatic", "Birds & Small Animals",
+        ],
+    },
+    {
+        "key": "automotive",
+        "name": "Automotive",
+        "blurb": "Interior, exterior and electronic upgrades for your ride.",
+        "subcategories": [
+            "Interior Accessories", "Exterior Accessories", "Car Electronics",
+            "Tools & Equipment", "Motorcycle Accessories",
+        ],
+    },
+    {
+        "key": "office_school",
+        "name": "Office & School Supplies",
+        "blurb": "Stationery, office gadgets and back-to-school essentials.",
+        "subcategories": [
+            "Stationery", "Office Electronics", "Arts & Crafts Supplies",
+            "School Bags & Pencil Cases",
+        ],
+    },
+    {
+        "key": "tools_home_improvement",
+        "name": "Tools & Home Improvement",
+        "blurb": "Hand tools, power tools, hardware and garden gear.",
+        "subcategories": [
+            "Hand Tools", "Power Tools", "Hardware", "Electrical",
+            "Plumbing", "Garden",
+        ],
     },
 ]
 

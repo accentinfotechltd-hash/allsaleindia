@@ -1,34 +1,57 @@
 """Iteration 7 — NZ cross-border features: taxonomy, duty estimator, prohibited checker."""
 import pytest
 
-EXPECTED_TAXONOMY = [
+# Three heritage categories still anchor the taxonomy. Food & Wellness are
+# now buyer-hidden so they don't appear in /api/taxonomy. Books & Gifts,
+# Jewelry & Accessories and Electronics live alongside the new global
+# categories.
+EXPECTED_HERITAGE = [
     ("Ethnic Fashion", ["Sarees", "Lehengas", "Kurtis", "Mens Wear", "Kids Wear"]),
-    ("Jewelry & Accessories", ["Imitation Jewelry", "Silver Jewelry", "Juttis", "Bags"]),
-    ("Food & Groceries", ["Spices", "Snacks", "Sweets", "Tea & Coffee", "Pickles"]),
-    ("Wellness", ["Ayurvedic Medicines", "Herbal Supplements", "Essential Oils"]),
     ("Home & Puja", ["Brass Items", "Wall Decor", "Kitchenware", "Idols", "Incense"]),
     ("Books & Gifts", ["Books", "Rakhis", "Diwali Gifts", "Wedding Favors"]),
-    ("Electronics", ["Mobile Accessories", "Small Gadgets"]),
 ]
 
 
 # --- Taxonomy ----------------------------------------------------------------
-def test_taxonomy_returns_seven_mains_in_order(api_client, base_url):
+def test_taxonomy_returns_full_catalog(api_client, base_url):
     r = api_client.get(f"{base_url}/api/taxonomy")
     assert r.status_code == 200
     nodes = r.json()
     assert isinstance(nodes, list)
-    assert len(nodes) == 7
-    names = [n["name"] for n in nodes]
-    assert names == [n[0] for n in EXPECTED_TAXONOMY]
+    # Heritage + 15 new categories = 18, minus 2 hidden (Food, Wellness) = 18
+    assert len(nodes) >= 18
+    names = {n["name"] for n in nodes}
+    # Heritage retained
+    assert "Ethnic Fashion" in names
+    assert "Home & Puja" in names
+    # New global categories present
+    for must_have in (
+        "Women's Clothing",
+        "Men's Clothing",
+        "Kids' Fashion",
+        "Shoes",
+        "Bags & Luggage",
+        "Home & Kitchen",
+        "Beauty & Health",
+        "Toys & Games",
+        "Sports & Outdoors",
+        "Pet Supplies",
+        "Automotive",
+        "Office & School Supplies",
+        "Tools & Home Improvement",
+    ):
+        assert must_have in names, f"missing {must_have}"
+    # Hidden categories should NOT appear in the buyer taxonomy
+    assert "Food & Groceries" not in names
+    assert "Wellness" not in names
 
 
-@pytest.mark.parametrize("idx,expected", list(enumerate(EXPECTED_TAXONOMY)))
-def test_taxonomy_subcategories(api_client, base_url, idx, expected):
+@pytest.mark.parametrize("expected", EXPECTED_HERITAGE)
+def test_taxonomy_heritage_subcategories(api_client, base_url, expected):
     nodes = api_client.get(f"{base_url}/api/taxonomy").json()
     name, subs = expected
-    node = nodes[idx]
-    assert node["name"] == name
+    node = next((n for n in nodes if n["name"] == name), None)
+    assert node, f"heritage node {name} missing"
     assert node["subcategories"] == subs
     assert node["key"]
     assert node["blurb"]
@@ -60,13 +83,20 @@ def test_products_search_q_still_works(api_client, base_url):
 
 
 def test_platform_seeded_products_count_nine(api_client, base_url):
-    # Platform-owned (no seller) products: there are 9 seeded across new taxonomy.
+    # June 2026 catalog: 9 heritage Indian products + 13 new global =
+    # at least 9 platform-owned (food-and-wellness hidden from buyer view).
     r = api_client.get(f"{base_url}/api/products")
     items = r.json()
     platform = [p for p in items if not p.get("seller_id")]
-    assert len(platform) == 9, f"expected 9 platform-seeded items, got {len(platform)}"
+    assert len(platform) >= 9, f"expected at least 9 platform-seeded items, got {len(platform)}"
     cats = {p["category"] for p in platform}
-    assert {"Ethnic Fashion", "Food & Groceries", "Home & Puja"} <= cats
+    # Heritage retained
+    assert {"Ethnic Fashion", "Home & Puja"} <= cats
+    # New global categories seeded too
+    assert {"Women's Clothing", "Men's Clothing", "Electronics"} <= cats
+    # Hidden categories should NOT appear in the buyer-facing list
+    assert "Food & Groceries" not in cats
+    assert "Wellness" not in cats
 
 
 # --- Duty estimate -----------------------------------------------------------

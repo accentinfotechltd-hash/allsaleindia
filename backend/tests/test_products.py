@@ -8,7 +8,9 @@ def test_list_products_returns_seeded(api_client, base_url):
     assert isinstance(items, list)
     # Only count platform-owned (seed) products. Seller listings from prior iters may persist.
     platform = [p for p in items if not p.get("seller_id")]
-    assert len(platform) == 9, f"expected 9 platform-seeded products, got {len(platform)}"
+    # June 2026 catalog: 9 heritage + 13 new global = 22 (minus any in
+    # currently-hidden categories).
+    assert len(platform) >= 9, f"expected at least 9 platform-seeded products, got {len(platform)}"
     p = platform[0]
     for key in ("id", "name", "price_nzd", "price_inr", "category", "image"):
         assert key in p
@@ -21,8 +23,12 @@ def test_list_categories(api_client, base_url):
     cats = r.json()
     assert isinstance(cats, list)
     assert cats == sorted(cats)
-    # New iter-7 taxonomy: at least these 3 main categories are seeded.
-    assert {"Ethnic Fashion", "Home & Puja", "Food & Groceries"} <= set(cats)
+    # Heritage + new global taxonomy categories should be present.
+    assert {"Ethnic Fashion", "Home & Puja"} <= set(cats)
+    assert {"Women's Clothing", "Men's Clothing"} <= set(cats)
+    # Hidden categories should NOT appear here.
+    assert "Food & Groceries" not in cats
+    assert "Wellness" not in cats
 
 
 def test_products_category_filter(api_client, base_url):
