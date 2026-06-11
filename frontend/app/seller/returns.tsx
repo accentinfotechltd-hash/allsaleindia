@@ -1,4 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import { Check, ChevronLeft, RefreshCcw, X } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import {
@@ -36,6 +37,7 @@ type Return = {
   note?: string | null;
   status: string;
   items: ReturnItem[];
+  photos?: string[];
   refund_amount_nzd: number;
   restocking_fee_nzd: number;
   buyer_pays_shipping: boolean;
@@ -156,6 +158,24 @@ export default function SellerReturnsScreen() {
                     </View>
                   ))}
                 </View>
+
+                {item.photos && item.photos.length > 0 ? (
+                  <View style={styles.proofWrap}>
+                    <Text style={styles.proofLabel}>Buyer's proof photos</Text>
+                    <View style={styles.proofRow}>
+                      {item.photos.map((url, idx) => (
+                        <Pressable
+                          key={url + idx}
+                          testID={`seller-rtn-proof-${item.id}-${idx}`}
+                          onPress={() => Linking.openURL(url)}
+                          style={styles.proofTile}
+                        >
+                          <Image source={{ uri: url }} style={styles.proofImg} />
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                ) : null}
 
                 <View style={styles.summary}>
                   <Text style={styles.summaryRow}>
@@ -380,6 +400,11 @@ const styles = StyleSheet.create({
   },
   summaryRow: { fontSize: 12, color: colors.textMuted },
   summaryBold: { color: colors.text, fontWeight: "800" },
+  proofWrap: { marginTop: spacing.sm },
+  proofLabel: { fontSize: 11, fontWeight: "800", color: colors.text, letterSpacing: 0.5, marginBottom: 6, textTransform: "uppercase" },
+  proofRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  proofTile: { width: 64, height: 64, borderRadius: radius.sm, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  proofImg: { width: "100%", height: "100%" },
   actions: { flexDirection: "row", gap: 10, marginTop: 8 },
   btnSecondary: {
     flex: 1,

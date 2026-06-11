@@ -1,11 +1,14 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import {
   AlertCircle,
   Check,
   ChevronLeft,
+  ImagePlus,
   PackageX,
   Sparkles,
   ThumbsDown,
+  X,
   XCircle,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
@@ -82,6 +85,10 @@ export default function ReturnRequestScreen() {
   const [reason, setReason] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [note, setNote] = useState("");
+  const [photos, setPhotos] = useState<string[]>([]); // Cloudinary URLs
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const MAX_PHOTOS = 4;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -105,10 +112,70 @@ export default function ReturnRequestScreen() {
     );
   };
 
+  const pickPhoto = useCallback(async () => {
+    if (photos.length >= MAX_PHOTOS) {
+      Alert.alert("Limit reached", `You can attach up to ${MAX_PHOTOS} photos.`);
+      return;
+    }
+    // Request gallery permission first.
+    const perm = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (!perm.granted && perm.canAskAgain) {
+      const ask = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!ask.granted) {
+        Alert.alert(
+          "Photos access needed",
+          "Please allow photo library access in Settings to attach proof images.",
+        );
+        return;
+      }
+    } else if (!perm.granted) {
+      Alert.alert(
+        "Photos access needed",
+        "Please allow photo library access in Settings to attach proof images.",
+      );
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.7,
+      base64: true,
+      allowsMultipleSelection: false,
+    });
+    if (res.canceled || !res.assets?.length) return;
+    const asset = res.assets[0];
+    const dataUri = asset.base64
+      ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
+      : asset.uri;
+    setUploadingPhoto(true);
+    try {
+      const uploaded = await api<{ url: string }>("/uploads/image", {
+        method: "POST",
+        body: { data: dataUri, folder: "allsale/returns" },
+      });
+      setPhotos((prev) => [...prev, uploaded.url]);
+    } catch (e: any) {
+      Alert.alert("Couldn't upload photo", e?.message || "Please try again.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  }, [photos]);
+
+  const removePhoto = (idx: number) =>
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
+
   const submit = useCallback(async () => {
     if (!order || !reason) return;
     if (selectedIds.length === 0) {
       Alert.alert("Select items", "Please select at least one item to return.");
+      return;
+    }
+    // Photo proof is required for seller-paid reasons.
+    const requiresProof = reason !== "changed_my_mind";
+    if (requiresProof && photos.length === 0) {
+      Alert.alert(
+        "Photo proof required",
+        "Please attach at least one photo showing the issue with your item. This helps the seller approve your return faster.",
+      );
       return;
     }
     setSubmitting(true);
@@ -120,7 +187,7 @@ export default function ReturnRequestScreen() {
           reason,
           product_ids: selectedIds,
           note: note.trim() || undefined,
-          photos: [],
+          photos,
         },
       });
       Alert.alert(
@@ -133,7 +200,7 @@ export default function ReturnRequestScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [order, reason, selectedIds, note, router]);
+  }, [order, reason, selectedIds, note, photos, router]);
 
   const chosenReason = REASONS.find((r) => r.value === reason);
 
@@ -249,6 +316,59 @@ export default function ReturnRequestScreen() {
                 </Pressable>
               );
             })}
+          </View>
+
+          <Text style={styles.section}>
+            Photo proof{" "}
+            {reason && reason !== "changed_my_mind" ? (
+              <Text style={styles.required}>*</Text>
+            ) : (
+              <Text style={styles.optional}> (optional)</Text>
+            )}
+          </Text>
+          <Text style={styles.photosHint}>
+            {reason && reason !== "changed_my_mind"
+              ? "Attach 1–4 clear photos showing the issue. Sellers approve faster with good evidence."
+              : "If you'd like to add context, you may attach up to 4 photos."}
+          </Text>
+
+          <View style={styles.photoRow}>
+            {photos.map((url, idx) => (
+              <View key={url + idx} style={styles.photoTile} testID={`rtn-photo-${idx}`}>
+                <Image source={{ uri: url }} style={styles.photoImg} />
+                <Pressable
+                  testID={`rtn-photo-remove-${idx}`}
+                  onPress={() => removePhoto(idx)}
+                  style={styles.photoRemove}
+                  hitSlop={8}
+                >
+                  <X size={12} color="#fff" />
+                </Pressable>
+              </View>
+            ))}
+            {photos.length < MAX_PHOTOS ? (
+              <Pressable
+                testID="rtn-photo-add"
+                onPress={pickPhoto}
+                disabled={uploadingPhoto}
+                style={({ pressed }) => [
+                  styles.photoAdd,
+                  pressed && { opacity: 0.85 },
+                  uploadingPhoto && { opacity: 0.5 },
+                ]}
+              >
+                {uploadingPhoto ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : (
+                  <>
+                    <ImagePlus size={20} color={colors.primary} />
+                    <Text style={styles.photoAddText}>
+                      {photos.length === 0 ? "Add photo" : `Add (${photos.length}/${MAX_PHOTOS})`}
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+            ) : null}
           </View>
 
           <Text style={styles.section}>Notes for the seller (optional)</Text>
@@ -401,6 +521,45 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     backgroundColor: "#fff",
   },
+  required: { color: colors.error, fontWeight: "800" },
+  optional: { color: colors.textMuted, fontWeight: "600", fontSize: 11 },
+  photosHint: { fontSize: 12, color: colors.textMuted, marginBottom: spacing.sm, lineHeight: 17 },
+  photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  photoTile: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    position: "relative",
+  },
+  photoImg: { width: "100%", height: "100%" },
+  photoRemove: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoAdd: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: "dashed",
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  photoAddText: { fontSize: 10, color: colors.primary, fontWeight: "700" },
   summaryCard: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius.lg },
   summaryGood: { backgroundColor: colors.successSoft },
   summaryWarn: { backgroundColor: "#FEF3C7" },

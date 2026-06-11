@@ -10,6 +10,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "allsale_database"
 
+# A tiny base64-encoded PNG used as photo proof in tests. Any non-empty
+# string is enough — the API only validates count + format prefix.
+PROOF_PHOTO = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+)
+
 
 def _address():
     return {
@@ -160,6 +167,7 @@ def test_create_return_request_defective(api_client, base_url, buyer_with_delive
         "order_id": buyer_with_delivered_order["order_id"],
         "reason": "defective",
         "note": "Stopped working on day 1",
+        "photos": [PROOF_PHOTO],
     }
     r = api_client.post(f"{base_url}/api/returns/request", headers=buyer_with_delivered_order["headers"], json=body)
     assert r.status_code == 200, r.text
@@ -212,7 +220,7 @@ def test_return_outside_window_400(api_client, base_url, buyer_with_delivered_or
     r = api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     )
     assert r.status_code == 400
     assert "delivered within" in r.json()["detail"] or "eligible" in r.json()["detail"].lower()
@@ -227,7 +235,7 @@ def test_return_other_users_order(api_client, base_url, buyer_with_delivered_ord
     r = api_client.post(
         f"{base_url}/api/returns/request",
         headers=auth_headers,
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     )
     assert r.status_code == 404
 
@@ -237,7 +245,7 @@ def test_my_returns_lists(api_client, base_url, buyer_with_delivered_order):
     api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     )
     r = api_client.get(f"{base_url}/api/returns/me", headers=buyer_with_delivered_order["headers"])
     assert r.status_code == 200
@@ -248,7 +256,7 @@ def test_seller_returns_visibility(api_client, base_url, buyer_with_delivered_or
     api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     )
     r = api_client.get(f"{base_url}/api/seller/returns", headers=seller_for_order["headers"])
     assert r.status_code == 200, r.text
@@ -261,7 +269,7 @@ def test_seller_approve_creates_buyer_notification(
     rtn = api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     ).json()[0]
 
     r = api_client.post(
@@ -303,7 +311,7 @@ def test_cannot_double_decide(api_client, base_url, buyer_with_delivered_order, 
     rtn = api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     ).json()[0]
     api_client.post(
         f"{base_url}/api/returns/{rtn['id']}/approve",
@@ -324,7 +332,7 @@ def test_seller_cannot_decide_others_return(
     rtn = api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     ).json()[0]
 
     # A fresh different seller
@@ -343,7 +351,7 @@ def test_returns_for_order_visibility(api_client, base_url, buyer_with_delivered
     api_client.post(
         f"{base_url}/api/returns/request",
         headers=buyer_with_delivered_order["headers"],
-        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective", "photos": [PROOF_PHOTO]},
     )
     # Buyer sees their returns
     r = api_client.get(
@@ -352,3 +360,58 @@ def test_returns_for_order_visibility(api_client, base_url, buyer_with_delivered
     )
     assert r.status_code == 200
     assert len(r.json()) >= 1
+
+
+# ---------------- photo proof validation -----------------------------------
+def test_seller_paid_reason_without_photos_400(api_client, base_url, buyer_with_delivered_order):
+    """damaged/wrong/defective/not_as_described REQUIRE >=1 photo."""
+    r = api_client.post(
+        f"{base_url}/api/returns/request",
+        headers=buyer_with_delivered_order["headers"],
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "defective"},
+    )
+    assert r.status_code == 400
+    assert "photo" in r.json()["detail"].lower()
+
+
+def test_change_of_mind_without_photos_ok(api_client, base_url, buyer_with_delivered_order):
+    """changed_my_mind keeps photos optional."""
+    r = api_client.post(
+        f"{base_url}/api/returns/request",
+        headers=buyer_with_delivered_order["headers"],
+        json={"order_id": buyer_with_delivered_order["order_id"], "reason": "changed_my_mind"},
+    )
+    assert r.status_code == 200
+
+
+def test_max_photos_enforced(api_client, base_url, buyer_with_delivered_order):
+    """API rejects > 4 photos with 400."""
+    r = api_client.post(
+        f"{base_url}/api/returns/request",
+        headers=buyer_with_delivered_order["headers"],
+        json={
+            "order_id": buyer_with_delivered_order["order_id"],
+            "reason": "defective",
+            "photos": [PROOF_PHOTO] * 5,
+        },
+    )
+    assert r.status_code == 400
+    assert "maximum" in r.json()["detail"].lower() or "4" in r.json()["detail"]
+
+
+def test_seller_sees_proof_photos(api_client, base_url, buyer_with_delivered_order, seller_for_order):
+    """Submitted proof URLs reach the seller-side endpoint as `photos`."""
+    submit = api_client.post(
+        f"{base_url}/api/returns/request",
+        headers=buyer_with_delivered_order["headers"],
+        json={
+            "order_id": buyer_with_delivered_order["order_id"],
+            "reason": "damaged_on_arrival",
+            "photos": [PROOF_PHOTO, PROOF_PHOTO],
+        },
+    )
+    assert submit.status_code == 200, submit.text
+    r = api_client.get(f"{base_url}/api/seller/returns", headers=seller_for_order["headers"])
+    assert r.status_code == 200
+    match = [rt for rt in r.json() if rt["order_id"] == buyer_with_delivered_order["order_id"]]
+    assert match and len(match[0]["photos"]) == 2

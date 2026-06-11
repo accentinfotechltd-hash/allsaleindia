@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { ChevronLeft, Package, RefreshCcw } from "lucide-react-native";
+import { ChevronLeft, Package, RefreshCcw, XCircle } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Pressable,
@@ -23,6 +24,7 @@ type Order = {
   payment_status: string;
   created_at: string;
   estimated_delivery: string;
+  cancellable_until?: string | null;
 };
 
 const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
@@ -46,6 +48,29 @@ export default function Orders() {
       setLoading(false);
     }
   }, []);
+
+  const cancelOrder = useCallback(
+    async (orderId: string) => {
+      const doIt = async () => {
+        try {
+          await api(`/orders/${orderId}/cancel`, { method: "POST", body: { reason: "" } });
+          Alert.alert("Order cancelled", "Your refund will be processed shortly.");
+          await load();
+        } catch (e: any) {
+          Alert.alert("Couldn't cancel", e?.message || "Please try again.");
+        }
+      };
+      Alert.alert(
+        "Cancel this order?",
+        "You'll receive a full refund within 5–10 business days.",
+        [
+          { text: "Keep order", style: "cancel" },
+          { text: "Cancel order", style: "destructive", onPress: doIt },
+        ],
+      );
+    },
+    [load],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -123,7 +148,30 @@ export default function Orders() {
                     <RefreshCcw size={13} color={colors.primary} />
                     <Text style={styles.returnLinkText}>Request return</Text>
                   </Pressable>
-                ) : null}
+                ) : (() => {
+                  // Show "Cancel order" link while still inside the 12-hour window.
+                  const undisp = ["paid", "pending"].includes(item.status);
+                  const cu = item.cancellable_until ? new Date(item.cancellable_until) : null;
+                  const canCancel = undisp && cu instanceof Date && !isNaN(cu.getTime()) && cu.getTime() > Date.now();
+                  if (!canCancel) return null;
+                  // Mins left for a friendly hint
+                  const mins = Math.max(0, Math.floor(((cu as Date).getTime() - Date.now()) / 60000));
+                  const hint = mins >= 60 ? `${Math.floor(mins / 60)}h left` : `${mins}m left`;
+                  return (
+                    <Pressable
+                      testID={`orders-cancel-link-${item.id}`}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        cancelOrder(item.id);
+                      }}
+                      style={styles.cancelLink}
+                    >
+                      <XCircle size={13} color={colors.error} />
+                      <Text style={styles.cancelLinkText}>Cancel order</Text>
+                      <Text style={styles.cancelHint}> · {hint}</Text>
+                    </Pressable>
+                  );
+                })()}
               </Pressable>
             );
           }}
@@ -200,4 +248,15 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   returnLinkText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
+  cancelLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  cancelLinkText: { fontSize: 12, color: colors.error, fontWeight: "700" },
+  cancelHint: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
 });

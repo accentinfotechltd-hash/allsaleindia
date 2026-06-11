@@ -175,3 +175,19 @@ Made returns option discoverable from anywhere a buyer might look:
 - **My Returns screen** (`/app/frontend/app/returns.tsx`): lists every return the user has submitted from `GET /api/returns/me` with status pill, reason, refund amount, and a friendly empty state with a `Go to my orders` CTA.
 - **Order detail screen**: returns section is now ALWAYS shown when relevant — when the order is `delivered` it shows the "Request return" CTA (existing); when the order is in any pre-delivered state (paid/shipped/out_for_delivery) it shows a subtle disabled hint card explaining when returns become available and a link to the return policy.
 - **Orders list**: delivered rows now show a `↻ Request return` inline link below the row footer (uses `e.stopPropagation()` so it doesn't navigate to order detail).
+
+## Photo proof & cancel discoverability (June 2026)
+
+**Photo proof on returns (mandatory for seller-paid reasons)**
+- `/app/frontend/app/order/[id]/return.tsx`: new "Photo proof" section above the seller-notes textarea. Picks images via `expo-image-picker`, uploads to Cloudinary (existing `/api/uploads/image`), and stores URLs on the return doc.
+  - Required (1–4 photos) when reason is `damaged_on_arrival` / `wrong_item` / `not_as_described` / `defective`.
+  - Optional for `changed_my_mind`.
+  - Handles permission denial gracefully (`handle_permissions_contract`).
+- Backend `/api/returns/request` enforces the same rule (400 with friendly detail if missing). Validation happens AFTER order-ownership check so unauthorized requests still return 404 instead of leaking that an order exists.
+- Seller-side `/seller/returns` now renders the buyer's proof images as a "Buyer's proof photos" tile strip (tap to open in browser).
+- 4 new backend tests cover: missing-photos rejection, change-of-mind optional, max-photos enforcement, and seller visibility of submitted photo URLs.
+
+**Cancel discoverability from orders list**
+- `/app/frontend/app/orders.tsx`: inline `× Cancel order · 11h left` link below the row footer whenever an order is still within the 12-hour cancellation window. Includes a confirmation dialog before issuing the cancellation.
+
+Test suite: 162 backend tests pass (up from 158).

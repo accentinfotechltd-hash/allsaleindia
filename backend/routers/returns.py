@@ -70,6 +70,16 @@ async def create_return_requests(
             detail="This order is not eligible for return (must be delivered within the last 7 days).",
         )
 
+    # Photo proof is REQUIRED for seller-paid reasons. Checked AFTER ownership
+    # so that other-user / outside-window requests return their original errors.
+    if body.reason in SELLER_PAID_REASONS and len(body.photos) < 1:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Please attach at least one photo as proof for this return reason."
+            ),
+        )
+
     all_items = order.get("items", [])
     chosen_ids = (
         set(body.product_ids)
