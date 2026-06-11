@@ -227,11 +227,135 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      Added payment/return/cancellation policy pages, an in-app notifications
-      system, and 12-hour order cancellation with Stripe refund + fan-out
-      notifications to buyer/seller/admin. Mock Shiprocket no longer flips
-      order status to "shipped" immediately so the cancellation window is
-      honoured. 7 new pytest cases added — full backend suite 109/109 green.
-      Please verify both backend endpoints AND the new frontend flows
-      (Account bell, policy pages, order cancel modal+countdown,
-      notifications screen, deep-link to order from notification).
+      Iter-9: Added Shiprocket webhook (POST /api/shiprocket/webhook) that maps
+      Shiprocket statuses to internal order statuses (paid → shipped →
+      out_for_delivery → delivered) and fans out buyer notifications. Mock
+      shiprocket no longer flips to "shipped" automatically. Added
+      GET /api/orders/{id}/shipment for the buyer to fetch AWB+tracking_url.
+      Order detail UI now shows a clickable tracking card with AWB +
+      latest carrier status + "tap to open live tracking".
+
+      Iter-9b: Full Return Request flow. New /api/returns/{request, me,
+      order/{id}, {id}/approve, {id}/reject} endpoints, plus
+      /api/seller/returns. Created a 7-day return window with the policy
+      defaults the user chose: defective/wrong/damaged = seller pays + full
+      refund; changed_my_mind = buyer pays return shipping + 15% restocking
+      fee. Non-returnable categories (Food & Groceries, Wellness, Personal
+      Care) are rejected upfront. Frontend: new /order/[id]/return.tsx,
+      /seller/returns.tsx, return-status card on /order/[id], and a Returns
+      tile on the seller dashboard.
+
+      Backend tests: 24 new pytest cases (11 webhook + 13 returns). Full
+      suite is now 139/139 passing.
+
+  - agent: "main"
+    message: |
+      Iter-8: Added payment/return/cancellation policy pages, an in-app
+      notifications system, and 12-hour order cancellation with Stripe
+      refund + fan-out notifications to buyer/seller/admin.
+
+backend:
+  - task: "Shiprocket webhook + per-status notifications + AWB tracking"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          POST /api/shiprocket/webhook accepts current_status and/or
+          current_status_id, maps to {paid, shipped, out_for_delivery,
+          delivered, rto_initiated, rto_delivered, cancelled}. Idempotent —
+          unknown statuses return 200 noop. Optional X-Api-Key header
+          verification if SHIPROCKET_WEBHOOK_TOKEN env is set. Buyer notif
+          on transitions only. New GET /api/orders/{id}/shipment returns
+          AWB + tracking URL for the owning user.
+
+  - task: "Returns API (buyer request, seller approve/reject, partial Stripe refund)"
+    implemented: true
+    working: true
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          5 endpoints. Multi-seller orders produce one ReturnRequest per
+          seller. 15% restocking fee for change_my_mind; seller pays for
+          defective/wrong/damaged. Stripe partial refund issued on
+          approval if a payment_intent is attached. Notifications fan out
+          to buyer + seller + admin at each transition.
+
+frontend:
+  - task: "Order tracking card (AWB, latest status, link to carrier site)"
+    implemented: true
+    working: true
+    file: "frontend/app/order/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          Fetches /orders/{id}/shipment in parallel with the order doc.
+          Renders carrier name + AWB code (monospace) + latest carrier
+          status + tap-to-open external tracking URL. Falls back to "AWB
+          pending" when no shipment exists yet.
+
+  - task: "Buyer Return Request screen + return-status card on order detail"
+    implemented: true
+    working: true
+    file: "frontend/app/order/[id]/return.tsx + frontend/app/order/[id].tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          New full-screen /order/[id]/return.tsx with 5-reason picker, item
+          checkboxes, optional note, and a contextual seller-paid vs
+          buyer-paid summary card. Submits POST /api/returns/request. On
+          /order/[id], shows a "Request return" prompt when status=delivered
+          and no existing return; once a return exists, shows a status pill
+          + refund-amount + decision-note.
+
+  - task: "Seller Returns screen + tile on dashboard"
+    implemented: true
+    working: true
+    file: "frontend/app/seller/returns.tsx + frontend/app/seller/dashboard.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          /seller/returns lists all returns for the seller's items with the
+          buyer's reason, optional note, item thumbnails, refund summary
+          (incl. 15% restocking when applicable), and Approve / Decline
+          buttons. Confirmation alert, then calls /returns/{id}/approve or
+          /reject. Returns tile added to seller dashboard.
+
+metadata:
+  created_by: "main_agent"
+  version: "1.2"
+  test_sequence: 9
+  run_ui: true
+
+test_plan:
+  current_focus:
+    - "Shiprocket webhook + per-status notifications + AWB tracking"
+    - "Returns API (buyer request, seller approve/reject, partial Stripe refund)"
+    - "Order tracking card (AWB, latest status, link to carrier site)"
+    - "Buyer Return Request screen + return-status card on order detail"
+    - "Seller Returns screen + tile on dashboard"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"

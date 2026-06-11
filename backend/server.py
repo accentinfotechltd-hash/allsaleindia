@@ -10,6 +10,7 @@ import os
 import re
 import secrets
 import uuid
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, List, Optional
@@ -432,6 +433,58 @@ class Notification(BaseModel):
 
 class CancelOrderRequest(BaseModel):
     reason: Optional[str] = Field(None, max_length=300)
+
+
+# Allowed buyer-visible return reasons (drives the picker on the app).
+RETURN_REASONS: list[str] = [
+    "damaged_on_arrival",
+    "wrong_item",
+    "not_as_described",
+    "defective",
+    "changed_my_mind",
+]
+# Seller-paid return reasons (defective/wrong) — buyer pays for "changed_my_mind".
+SELLER_PAID_REASONS = {"damaged_on_arrival", "wrong_item", "not_as_described", "defective"}
+RESTOCKING_FEE_PCT = 0.15  # 15% on change-of-mind returns
+
+
+class ReturnRequestItem(BaseModel):
+    product_id: str
+    name: str
+    image: str
+    price_nzd: float
+    quantity: int
+
+
+class ReturnRequestCreate(BaseModel):
+    order_id: str
+    reason: str = Field(..., description="One of RETURN_REASONS")
+    product_ids: List[str] = Field(default_factory=list)
+    note: Optional[str] = Field(None, max_length=600)
+    photos: List[str] = Field(default_factory=list, description="base64-encoded images, optional, max 4")
+
+
+class ReturnRequest(BaseModel):
+    id: str
+    order_id: str
+    user_id: str  # buyer
+    seller_id: str  # we group returns by seller — multi-seller orders create multiple
+    items: List[ReturnRequestItem]
+    reason: str
+    note: Optional[str] = None
+    photos: List[str] = Field(default_factory=list)
+    status: str  # pending_seller | approved | rejected | refunded | cancelled
+    buyer_pays_shipping: bool
+    restocking_fee_nzd: float
+    refund_amount_nzd: float
+    created_at: datetime
+    decided_at: Optional[datetime] = None
+    decision_note: Optional[str] = None
+    refund_id: Optional[str] = None
+
+
+class ReturnDecision(BaseModel):
+    note: Optional[str] = Field(None, max_length=300)
 
 
 # ---------------------------------------------------------------------------
@@ -1336,6 +1389,234 @@ class Shipment(BaseModel):
     is_mocked: bool
 
 
+# Shiprocket → Allsale order-status mapping.
+# Reference: Shiprocket webhook docs `current_status` field. We accept either
+# `current_status` (string) or `current_status_id` (numeric) and normalise.
+_SHIPROCKET_STATUS_MAP: dict[str, str] = {
+    # pre-dispatch
+    "new": "paid",
+    "awb assigned": "paid",
+    "label generated": "paid",
+    "pickup scheduled": "paid",
+    "pickup generated": "paid",
+    "pickup queued": "paid",
+    "pickup error": "paid",
+    # dispatched
+    "pickup completed": "shipped",
+    "shipped": "shipped",
+    "in transit": "shipped",
+    "reached destination hub": "shipped",
+    # last-mile
+    "out for delivery": "out_for_delivery",
+    # final
+    "delivered": "delivered",
+    # exceptions → keep status but notify
+    "undelivered": "shipped",
+    "rto initiated": "rto_initiated",
+    "rto delivered": "rto_delivered",
+    "cancelled": "cancelled",
+}
+
+_SHIPROCKET_STATUS_ID_MAP: dict[int, str] = {
+    # subset of Shiprocket status_id codes (publicly documented)
+    1: "paid",          # New
+    2: "paid",          # Invoiced
+    3: "paid",          # Manifest Generated
+    4: "paid",          # AWB Assigned
+    5: "paid",          # Label Generated
+    6: "shipped",       # Shipped (Pickup Completed)
+    7: "delivered",
+    8: "cancelled",
+    9: "shipped",       # In Transit
+    10: "out_for_delivery",
+    11: "rto_initiated",
+    12: "rto_delivered",
+    13: "shipped",      # Reached Destination Hub
+    17: "delivered",
+    18: "out_for_delivery",
+    19: "out_for_delivery",
+    21: "shipped",      # Picked Up
+}
+
+
+def _map_shiprocket_status(raw: dict) -> Optional[str]:
+    sid = raw.get("current_status_id") or raw.get("status_id")
+    if isinstance(sid, (int, str)):
+        try:
+            mapped = _SHIPROCKET_STATUS_ID_MAP.get(int(sid))
+            if mapped:
+                return mapped
+        except (TypeError, ValueError):
+            pass
+    txt = (raw.get("current_status") or raw.get("shipment_status") or raw.get("status") or "")
+    return _SHIPROCKET_STATUS_MAP.get(str(txt).strip().lower())
+
+
+def _shiprocket_signature_ok(raw_body: bytes, sent_token: Optional[str]) -> bool:
+    """Optional shared-secret verification.
+
+    If ``SHIPROCKET_WEBHOOK_TOKEN`` is configured in env, the webhook MUST send
+    it back as the ``X-Api-Key`` header. When unset (e.g. local dev) we accept
+    everything so mocked payloads still work.
+    """
+    secret = os.environ.get("SHIPROCKET_WEBHOOK_TOKEN")
+    if not secret:
+        return True
+    return bool(sent_token) and sent_token == secret
+
+
+@api.post("/shiprocket/webhook")
+async def shiprocket_webhook(
+    request: Request,
+    x_api_key: Annotated[Optional[str], Header()] = None,
+):
+    """Receive shipment status updates from Shiprocket.
+
+    Idempotent — replays of the same payload are safe. We resolve the order
+    via the AWB number, map the carrier status onto our internal status, and
+    fan-out an in-app notification to the buyer for the major milestones
+    (``shipped``, ``out_for_delivery``, ``delivered``).
+    """
+    raw = await request.body()
+    if not _shiprocket_signature_ok(raw, x_api_key):
+        raise HTTPException(status_code=403, detail="Invalid webhook signature")
+    try:
+        payload = json.loads(raw.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    awb = (
+        payload.get("awb")
+        or payload.get("awb_code")
+        or payload.get("awb_no")
+        or payload.get("awb_number")
+    )
+    if not awb:
+        raise HTTPException(status_code=400, detail="awb is required")
+
+    mapped = _map_shiprocket_status(payload)
+    if not mapped:
+        # Acknowledge but do not change state — keeps the webhook idempotent
+        # against unknown status codes Shiprocket may add later.
+        logger.info("shiprocket webhook unknown status: %s", payload.get("current_status"))
+        return {"received": True, "awb": awb, "ignored": True}
+
+    shipment = await db.shipments.find_one({"awb_code": awb}, {"_id": 0})
+    if not shipment:
+        raise HTTPException(status_code=404, detail="Shipment not found for awb")
+
+    order = await db.orders.find_one({"id": shipment["order_id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    # Compute new order status — never regress past a terminal state.
+    current = order.get("status")
+    if current in {"cancelled", "refunded", "delivered"}:
+        return {"received": True, "awb": awb, "noop": True, "status": current}
+
+    # Don't ever flip a cancelled / refunded shipment's order forward.
+    new_order_status = mapped
+    # If the buyer can still cancel (within 12h) AND the carrier hasn't actually
+    # picked up yet, keep status at 'paid'. Picked-up onwards → shipped.
+    if mapped == "paid" and current == "paid":
+        new_order_status = "paid"
+
+    # Persist
+    update_ts: dict = {
+        "status": new_order_status,
+        "tracking_status": payload.get("current_status") or payload.get("shipment_status"),
+        "last_tracking_update": now_utc(),
+    }
+    if mapped == "delivered":
+        update_ts["delivered_at"] = now_utc()
+        update_ts["return_window_until"] = now_utc() + timedelta(days=RETURN_WINDOW_DAYS)
+        update_ts["payout_release_at"] = now_utc() + timedelta(days=PAYOUT_HOLD_DAYS_AFTER_DELIVERY)
+    await db.orders.update_one({"id": order["id"]}, {"$set": update_ts})
+
+    await db.shipments.update_one(
+        {"awb_code": awb},
+        {
+            "$set": {
+                "status": mapped,
+                "carrier_status_raw": payload.get("current_status") or payload.get("shipment_status"),
+                "last_update_at": now_utc(),
+            },
+            "$push": {
+                "events": {
+                    "at": now_utc(),
+                    "status": payload.get("current_status") or payload.get("shipment_status"),
+                    "location": payload.get("current_location") or payload.get("location"),
+                    "remark": payload.get("scan_remark") or payload.get("activity"),
+                }
+            },
+        },
+    )
+
+    # Buyer notifications — only on transitions (skip if same status).
+    if current != new_order_status:
+        short = order["id"].replace("order_", "")[:8].upper()
+        title_body = {
+            "shipped": (
+                f"Order #{short} shipped",
+                f"Your parcel is on its way from India. AWB {awb}.",
+            ),
+            "out_for_delivery": (
+                f"Order #{short} is out for delivery",
+                "Your courier is heading your way today — please be available.",
+            ),
+            "delivered": (
+                f"Order #{short} delivered",
+                "Hope you love it! You have 7 days to request a return if needed.",
+            ),
+            "rto_initiated": (
+                f"Order #{short} being returned",
+                "The courier is returning your parcel to the seller. We'll refund you once it's confirmed.",
+            ),
+            "rto_delivered": (
+                f"Order #{short} return completed",
+                "The seller has received the parcel. Your refund is being processed.",
+            ),
+        }.get(new_order_status)
+        if title_body:
+            await create_notification(
+                user_id=order["user_id"],
+                role="buyer",
+                n_type=f"order_{new_order_status}",
+                title=title_body[0],
+                body=title_body[1],
+                order_id=order["id"],
+            )
+
+    return {
+        "received": True,
+        "awb": awb,
+        "order_id": order["id"],
+        "order_status": new_order_status,
+    }
+
+
+@api.get("/orders/{order_id}/shipment", response_model=Optional[Shipment])
+async def get_order_shipment(order_id: str, current=Depends(get_current_user)):
+    """Return shipment info for an order owned by the current user."""
+    order = await db.orders.find_one({"id": order_id, "user_id": current["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    shp = await db.shipments.find_one({"order_id": order_id}, {"_id": 0})
+    if not shp:
+        return None
+    # Pydantic Shipment only requires the documented subset of fields.
+    return Shipment(
+        id=shp["id"],
+        order_id=shp["order_id"],
+        carrier=shp.get("carrier", "Shiprocket X"),
+        awb_code=shp["awb_code"],
+        tracking_url=shp.get("tracking_url", f"https://shiprocket.co/tracking/{shp['awb_code']}"),
+        status=shp.get("status", "label_created"),
+        estimated_delivery=shp.get("estimated_delivery", order.get("estimated_delivery", "")),
+        is_mocked=bool(shp.get("is_mocked", False)),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Notifications & Order cancellation
 # ---------------------------------------------------------------------------
@@ -1564,6 +1845,265 @@ async def admin_list_notifications(
         raise HTTPException(status_code=403, detail="Forbidden")
     cursor = db.notifications.find({"user_id": "admin"}, {"_id": 0}).sort("created_at", -1).limit(200)
     return [Notification(**n) async for n in cursor]
+
+
+# ---------------------------------------------------------------------------
+# Returns
+# ---------------------------------------------------------------------------
+def _is_within_return_window(order: dict) -> bool:
+    """Return True if the order is delivered and still within the 7-day window."""
+    if order.get("status") != "delivered":
+        return False
+    deadline = order.get("return_window_until") or (
+        (order.get("delivered_at") or now_utc()) + timedelta(days=RETURN_WINDOW_DAYS)
+    )
+    if isinstance(deadline, datetime) and deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return now_utc() <= deadline
+
+
+def _compute_refund(items: List[dict], reason: str) -> tuple[float, float, bool]:
+    """Return (refund_amount_nzd, restocking_fee_nzd, buyer_pays_shipping)."""
+    gross = round(sum(it["price_nzd"] * it["quantity"] for it in items), 2)
+    if reason in SELLER_PAID_REASONS:
+        return gross, 0.0, False
+    # change_my_mind → 15% restocking fee, buyer pays return shipping
+    fee = round(gross * RESTOCKING_FEE_PCT, 2)
+    return max(0.0, round(gross - fee, 2)), fee, True
+
+
+@api.post("/returns/request", response_model=List[ReturnRequest])
+async def create_return_requests(body: ReturnRequestCreate, current=Depends(get_current_user)):
+    """Buyer creates one or more return requests for their order.
+
+    Multi-seller orders generate one ReturnRequest per seller so each seller
+    can independently approve/reject their portion.
+    """
+    if body.reason not in RETURN_REASONS:
+        raise HTTPException(status_code=400, detail=f"reason must be one of {RETURN_REASONS}")
+    if len(body.photos) > 4:
+        raise HTTPException(status_code=400, detail="Maximum 4 photos")
+
+    order = await db.orders.find_one({"id": body.order_id, "user_id": current["id"]}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not _is_within_return_window(order):
+        raise HTTPException(
+            status_code=400,
+            detail="This order is not eligible for return (must be delivered within the last 7 days).",
+        )
+
+    # Filter to selected items (or all items if not specified)
+    all_items = order.get("items", [])
+    chosen_ids = set(body.product_ids) if body.product_ids else {it["product_id"] for it in all_items}
+    chosen_items = [it for it in all_items if it["product_id"] in chosen_ids]
+    if not chosen_items:
+        raise HTTPException(status_code=400, detail="No matching items in this order")
+
+    # Reject if any item is in a non-returnable category — categories are denormalised
+    # onto products; we look them up.
+    product_ids = [it["product_id"] for it in chosen_items]
+    products_cur = db.products.find({"id": {"$in": product_ids}}, {"_id": 0})
+    NON_RETURNABLE = {
+        "Food & Groceries",
+        "Wellness",
+        "Personal Care",
+    }
+    async for p in products_cur:
+        if p.get("category") in NON_RETURNABLE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"\"{p['name']}\" is in a non-returnable category ({p['category']}).",
+            )
+
+    # One request per unique seller in the chosen items
+    by_seller: dict[str, list[dict]] = {}
+    for it in chosen_items:
+        sid = it.get("seller_id") or "unknown"
+        by_seller.setdefault(sid, []).append(it)
+
+    short_order = body.order_id.replace("order_", "")[:8].upper()
+    created: list[ReturnRequest] = []
+    for sid, sitems in by_seller.items():
+        refund_amount, fee, buyer_pays = _compute_refund(sitems, body.reason)
+        doc = {
+            "id": f"rtn_{uuid.uuid4().hex[:12]}",
+            "order_id": body.order_id,
+            "user_id": current["id"],
+            "seller_id": sid,
+            "items": [
+                {
+                    "product_id": it["product_id"],
+                    "name": it["name"],
+                    "image": it["image"],
+                    "price_nzd": it["price_nzd"],
+                    "quantity": it["quantity"],
+                }
+                for it in sitems
+            ],
+            "reason": body.reason,
+            "note": (body.note or "").strip()[:600] or None,
+            "photos": body.photos[:4],
+            "status": "pending_seller",
+            "buyer_pays_shipping": buyer_pays,
+            "restocking_fee_nzd": fee,
+            "refund_amount_nzd": refund_amount,
+            "created_at": now_utc(),
+        }
+        await db.returns.insert_one(doc)
+        created.append(ReturnRequest(**doc))
+
+        # Notify seller + admin + buyer
+        await create_notification(
+            user_id=sid,
+            role="seller",
+            n_type="return_requested",
+            title=f"Return request for #{short_order}",
+            body=f"Buyer requested a return ({body.reason.replace('_', ' ')}). Please review within 48h.",
+            order_id=body.order_id,
+        )
+        await notify_admins(
+            n_type="return_requested",
+            title=f"Return request #{doc['id']}",
+            body=f"Order #{short_order} · ${refund_amount:.2f} NZD · {body.reason}",
+            order_id=body.order_id,
+        )
+
+    await create_notification(
+        user_id=current["id"],
+        role="buyer",
+        n_type="return_requested",
+        title=f"Return submitted for #{short_order}",
+        body="The seller has been notified and will review within 48 hours.",
+        order_id=body.order_id,
+    )
+
+    # Mark on the order doc so the UI can disable the button.
+    await db.orders.update_one(
+        {"id": body.order_id}, {"$set": {"return_requested_at": now_utc()}}
+    )
+    return created
+
+
+@api.get("/returns/me", response_model=List[ReturnRequest])
+async def my_returns(current=Depends(get_current_user)):
+    cursor = db.returns.find({"user_id": current["id"]}, {"_id": 0}).sort("created_at", -1)
+    return [ReturnRequest(**r) async for r in cursor]
+
+
+@api.get("/returns/order/{order_id}", response_model=List[ReturnRequest])
+async def returns_for_order(order_id: str, current=Depends(get_current_user)):
+    # User must own the order, OR be the seller of items in it.
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    is_buyer = order.get("user_id") == current["id"]
+    is_seller_on_order = any(it.get("seller_id") == current["id"] for it in order.get("items", []))
+    if not (is_buyer or is_seller_on_order):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    query: dict = {"order_id": order_id}
+    if is_seller_on_order and not is_buyer:
+        query["seller_id"] = current["id"]
+    cursor = db.returns.find(query, {"_id": 0}).sort("created_at", -1)
+    return [ReturnRequest(**r) async for r in cursor]
+
+
+@api.get("/seller/returns", response_model=List[ReturnRequest])
+async def list_seller_returns(seller=Depends(get_current_user)):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    cursor = db.returns.find({"seller_id": seller["id"]}, {"_id": 0}).sort("created_at", -1)
+    return [ReturnRequest(**r) async for r in cursor]
+
+
+async def _decide_return(return_id: str, seller_id: str, approve: bool, note: Optional[str]) -> ReturnRequest:
+    rtn = await db.returns.find_one({"id": return_id, "seller_id": seller_id}, {"_id": 0})
+    if not rtn:
+        raise HTTPException(status_code=404, detail="Return not found")
+    if rtn["status"] != "pending_seller":
+        raise HTTPException(status_code=400, detail=f"Return is already {rtn['status']}")
+
+    order = await db.orders.find_one({"id": rtn["order_id"]}, {"_id": 0})
+    refund_id: Optional[str] = None
+    new_status = "approved" if approve else "rejected"
+
+    if approve and order:
+        # Issue a partial Stripe refund matching this seller's portion.
+        # Stripe refund amount is in cents.
+        import stripe as stripe_sdk
+
+        stripe_sdk.api_key = STRIPE_API_KEY
+        session_id = order.get("session_id")
+        amount_cents = int(round(float(rtn["refund_amount_nzd"]) * 100))
+        if session_id and amount_cents > 0:
+            try:
+                session = stripe_sdk.checkout.Session.retrieve(session_id)
+                pi = session.get("payment_intent") if isinstance(session, dict) else getattr(session, "payment_intent", None)
+                if pi:
+                    refund = stripe_sdk.Refund.create(payment_intent=pi, amount=amount_cents)
+                    refund_id = refund.get("id") if isinstance(refund, dict) else getattr(refund, "id", None)
+            except Exception as e:
+                logger.warning("partial refund failed for return %s: %s", return_id, e)
+        new_status = "refunded" if refund_id else "approved"
+
+    updated = await db.returns.find_one_and_update(
+        {"id": return_id},
+        {
+            "$set": {
+                "status": new_status,
+                "decided_at": now_utc(),
+                "decision_note": (note or "").strip()[:300] or None,
+                "refund_id": refund_id,
+            }
+        },
+        return_document=True,
+    )
+    updated.pop("_id", None)
+
+    short = rtn["order_id"].replace("order_", "")[:8].upper()
+    if approve:
+        await create_notification(
+            user_id=rtn["user_id"],
+            role="buyer",
+            n_type="return_approved",
+            title=f"Return for #{short} approved",
+            body=(
+                f"Your refund of ${rtn['refund_amount_nzd']:.2f} NZD is on the way "
+                "and will appear within 5–10 business days."
+            ),
+            order_id=rtn["order_id"],
+        )
+    else:
+        await create_notification(
+            user_id=rtn["user_id"],
+            role="buyer",
+            n_type="return_rejected",
+            title=f"Return for #{short} declined",
+            body=(note or "The seller couldn't accept this return.")[:200],
+            order_id=rtn["order_id"],
+        )
+
+    await notify_admins(
+        n_type=f"return_{new_status}",
+        title=f"Return {new_status} #{return_id}",
+        body=f"Order #{short} · ${rtn['refund_amount_nzd']:.2f} NZD",
+        order_id=rtn["order_id"],
+    )
+    return ReturnRequest(**updated)
+
+
+@api.post("/returns/{return_id}/approve", response_model=ReturnRequest)
+async def approve_return(return_id: str, body: ReturnDecision, seller=Depends(get_current_user)):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    return await _decide_return(return_id, seller["id"], approve=True, note=body.note)
+
+
+@api.post("/returns/{return_id}/reject", response_model=ReturnRequest)
+async def reject_return(return_id: str, body: ReturnDecision, seller=Depends(get_current_user)):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    return await _decide_return(return_id, seller["id"], approve=False, note=body.note)
 
 
 def _orig_create_payouts_for_order_marker():
@@ -1805,6 +2345,10 @@ async def on_startup():
     await db.notifications.create_index("id", unique=True)
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
+    await db.returns.create_index("id", unique=True)
+    await db.returns.create_index([("user_id", 1), ("created_at", -1)])
+    await db.returns.create_index([("seller_id", 1), ("status", 1)])
+    await db.returns.create_index("order_id")
     await seed_products()
 
 

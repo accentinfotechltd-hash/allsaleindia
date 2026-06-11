@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { CheckCircle2, ChevronLeft, Package, Plus, Store, Trash2, Wallet } from "lucide-react-native";
+import { CheckCircle2, ChevronLeft, Package, Plus, RefreshCcw, Store, Trash2, Wallet } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -136,6 +136,17 @@ export default function SellerDashboard() {
                   </View>
                   <Text style={styles.quickTitle}>Payouts</Text>
                   <Text style={styles.quickSubtitle}>Earnings after 15% platform fee</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-returns-link"
+                  onPress={() => router.push("/seller/returns")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <RefreshCcw size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Returns</Text>
+                  <Text style={styles.quickSubtitle}>Approve or decline buyer returns</Text>
                 </Pressable>
               </View>
 

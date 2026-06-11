@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, MapPin, Package, ShieldCheck, XCircle } from "lucide-react-native";
+import * as Linking from "expo-linking";
+import { ChevronLeft, ExternalLink, MapPin, Package, RefreshCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -45,6 +46,31 @@ type Order = {
   cancel_reason?: string | null;
   refund_id?: string | null;
   refund_amount_nzd?: number | null;
+  awb_code?: string | null;
+  tracking_status?: string | null;
+};
+
+type Shipment = {
+  id: string;
+  order_id: string;
+  carrier: string;
+  awb_code: string;
+  tracking_url: string;
+  status: string;
+  estimated_delivery: string;
+  is_mocked: boolean;
+};
+
+type ReturnRequest = {
+  id: string;
+  order_id: string;
+  reason: string;
+  status: string; // pending_seller | approved | rejected | refunded
+  refund_amount_nzd: number;
+  restocking_fee_nzd: number;
+  buyer_pays_shipping: boolean;
+  decision_note?: string | null;
+  created_at: string;
 };
 
 const TIMELINE = [
@@ -75,6 +101,8 @@ export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
+  const [shipment, setShipment] = useState<Shipment | null>(null);
+  const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCancel, setShowCancel] = useState(false);
   const [reason, setReason] = useState("");
@@ -91,8 +119,16 @@ export default function OrderDetail() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const o = await api<Order>(`/orders/${id}`);
-      if (mounted.current) setOrder(o);
+      const [o, shp, rts] = await Promise.all([
+        api<Order>(`/orders/${id}`),
+        api<Shipment | null>(`/orders/${id}/shipment`).catch(() => null),
+        api<ReturnRequest[]>(`/returns/order/${id}`).catch(() => [] as ReturnRequest[]),
+      ]);
+      if (mounted.current) {
+        setOrder(o);
+        setShipment(shp);
+        setReturns(rts || []);
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -233,21 +269,84 @@ export default function OrderDetail() {
           </View>
         ) : null}
 
+        {returns.length > 0 ? (
+          <View style={styles.returnsCard} testID="order-returns-card">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <RefreshCcw size={16} color={colors.primary} />
+              <Text style={styles.returnsTitle}>Return request</Text>
+              <View style={[styles.statusPill, statusPillStyle(returns[0].status)]}>
+                <Text style={styles.statusPillText}>{formatReturnStatus(returns[0].status)}</Text>
+              </View>
+            </View>
+            <Text style={styles.returnsBody}>
+              {returns[0].status === "pending_seller"
+                ? `Awaiting seller — refund of ${formatNZD(returns[0].refund_amount_nzd)} pending approval.`
+                : returns[0].status === "approved"
+                  ? `Approved — refund of ${formatNZD(returns[0].refund_amount_nzd)} being processed.`
+                  : returns[0].status === "refunded"
+                    ? `Refunded ${formatNZD(returns[0].refund_amount_nzd)} to your card.`
+                    : `Declined: ${returns[0].decision_note || "Please contact support if you disagree."}`}
+            </Text>
+            {returns[0].restocking_fee_nzd > 0 ? (
+              <Text style={styles.returnsMeta}>
+                Restocking fee (15%): {formatNZD(returns[0].restocking_fee_nzd)}
+              </Text>
+            ) : null}
+          </View>
+        ) : order.status === "delivered" && !isCancelled ? (
+          <View style={styles.returnPromptCard} testID="order-return-prompt">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <RefreshCcw size={16} color={colors.text} />
+              <Text style={styles.returnPromptTitle}>Need to return something?</Text>
+            </View>
+            <Text style={styles.returnPromptBody}>
+              You have 7 days from delivery to request a return.
+            </Text>
+            <Pressable
+              testID="order-request-return-btn"
+              onPress={() => router.push(`/order/${order.id}/return`)}
+              style={({ pressed }) => [styles.returnBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.returnBtnText}>Request return</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         {!isCancelled ? (
           <>
             <Text style={styles.sectionTitle}>Tracking</Text>
-            {order.payment_status === "paid" ? (
-              <View style={styles.trackingCard} testID="order-tracking-card">
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text style={styles.trackingCarrier}>Shiprocket X · India → NZ</Text>
-                  <Text style={styles.trackingMock}>via courier</Text>
+            {shipment ? (
+              <Pressable
+                testID="order-tracking-card"
+                onPress={() =>
+                  shipment.tracking_url ? Linking.openURL(shipment.tracking_url) : null
+                }
+                style={({ pressed }) => [styles.trackingCard, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.trackingTopRow}>
+                  <View style={styles.trackingIcon}>
+                    <Truck size={16} color={colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.trackingCarrier}>
+                      {shipment.carrier.replace(" (mock)", "")} · India → NZ
+                    </Text>
+                    <Text style={styles.trackingAwb}>
+                      AWB <Text style={styles.trackingAwbCode}>{shipment.awb_code}</Text>
+                    </Text>
+                  </View>
+                  <ExternalLink size={14} color={colors.textMuted} />
                 </View>
+                {order.tracking_status ? (
+                  <Text style={styles.trackingLatest} numberOfLines={1}>
+                    {order.tracking_status}
+                  </Text>
+                ) : null}
+                <Text style={styles.trackingTap}>Tap to open live tracking</Text>
+              </Pressable>
+            ) : order.payment_status === "paid" ? (
+              <View style={styles.trackingCard} testID="order-tracking-card">
+                <Text style={styles.trackingCarrier}>Shiprocket X · India → NZ</Text>
                 <Text style={styles.trackingAwb}>
                   AWB pending · check back once shipment is dispatched
                 </Text>
@@ -408,6 +507,35 @@ function Line({
   );
 }
 
+function formatReturnStatus(s: string): string {
+  switch (s) {
+    case "pending_seller":
+      return "Awaiting seller";
+    case "approved":
+      return "Approved";
+    case "refunded":
+      return "Refunded";
+    case "rejected":
+      return "Declined";
+    default:
+      return s;
+  }
+}
+
+function statusPillStyle(s: string) {
+  switch (s) {
+    case "pending_seller":
+      return { backgroundColor: "#FEF3C7" };
+    case "approved":
+    case "refunded":
+      return { backgroundColor: colors.successSoft };
+    case "rejected":
+      return { backgroundColor: "#FEE2E2" };
+    default:
+      return { backgroundColor: colors.surface };
+  }
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { alignItems: "center", justifyContent: "center" },
@@ -492,6 +620,44 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   cancelBtnText: { color: colors.error, fontWeight: "800", fontSize: 13 },
+  returnsCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  returnsTitle: { fontSize: 13, fontWeight: "800", color: colors.text, flex: 1 },
+  returnsBody: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  returnsMeta: { fontSize: 11, color: colors.textFaint, fontStyle: "italic" },
+  returnPromptCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    gap: 6,
+  },
+  returnPromptTitle: { fontSize: 13, fontWeight: "800", color: colors.text },
+  returnPromptBody: { fontSize: 12, color: colors.textMuted },
+  returnBtn: {
+    marginTop: spacing.sm,
+    height: 40,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.text,
+    backgroundColor: colors.text,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  returnBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  statusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+  },
+  statusPillText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.3, color: colors.text },
   sectionTitle: { fontSize: 14, fontWeight: "800", color: colors.text, marginTop: spacing.lg, marginBottom: 8 },
   timeline: { padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, gap: 12 },
   trackingCard: {
@@ -501,10 +667,35 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: "#fff",
     marginBottom: spacing.sm,
+    gap: 8,
+  },
+  trackingTopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  trackingIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
   trackingCarrier: { fontSize: 13, fontWeight: "800", color: colors.text },
-  trackingMock: { fontSize: 10, fontWeight: "700", color: colors.textFaint, letterSpacing: 0.5 },
-  trackingAwb: { fontSize: 12, color: colors.textMuted, marginTop: 6 },
+  trackingAwb: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  trackingAwbCode: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    color: colors.text,
+    fontWeight: "700",
+  },
+  trackingLatest: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: "600",
+    backgroundColor: colors.surface,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    alignSelf: "flex-start",
+  },
+  trackingTap: { fontSize: 11, color: colors.primary, fontWeight: "700" },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 12, height: 12, borderRadius: 999, backgroundColor: colors.border },
   dotDone: { backgroundColor: colors.primary },

@@ -1,0 +1,56 @@
+{
+  "summary": "Iter-9 Shiprocket webhook + Return Request flow is green end-to-end. Backend: ran iter-9 suites = 24/24 pass (test_shiprocket_webhook.py 11/11: AWB validation, status + status_id mapping, full paid→shipped→out_for_delivery→delivered lifecycle, idempotency, unknown-status no-op with ignored:true, never-regresses-delivered, GET /api/orders/{id}/shipment ownership 200/404, and the regression that book_shiprocket_shipment never sets order.status='shipped'; test_returns.py 13/13: 7-day window, multi-seller fan-out, restocking 15% for changed_my_mind w/ buyer-paid shipping, 0% + seller-paid for defective/wrong/damaged/not_as_described, invalid reason 400, /returns/me, /seller/returns (403 if not seller), per-order visibility, approve→approved/refunded + return_approved notif for buyer + admin, reject→rejected + return_rejected notif with note, 400 on double-decide, 404 on wrong-seller approve). Full backend regression: 137/139 (2 flakes both pass in isolation — see flaky_tests). Frontend (390x844 Expo web): /order/[id] for a delivered+shipment-having order renders order-tracking-card with 'Shiprocket X · India → NZ', monospaced AWB 'SR_UI_…' and 'Tap to open live tracking' opener; renders order-return-prompt with order-request-return-btn. /order/[id]/return shows all 5 reason cards (rtn-reason-defective/wrong_item/damaged_on_arrival/not_as_described/changed_my_mind), item checkbox (rtn-item-<pid>), rtn-note-input, and rtn-summary-card whose text switches between 'Seller-paid return — Full refund. Allsale will send a prepaid return label…' (defective) and 'Buyer-paid return — You pay return shipping back to our NZ hub. A 15% restocking fee will be deducted…' (changed_my_mind). rtn-submit-btn fires POST /api/returns/request successfully and navigates back to /order/[id] which now shows order-returns-card with 'Awaiting seller' pill, 'refund of $42.49 pending approval.', and 'Restocking fee (15%): $7.50' for the change-of-mind variant; order-return-prompt is correctly hidden after submission. /seller/dashboard renders 3 quick-action tiles (Orders, Payouts, Returns) including the new seller-returns-link; tapping it navigates to /seller/returns which lists the pending return (seller-rtn-<id>) with 'Order #212256E3 · Action needed · Defective / not working · Won't power on · Qty 1 · Refund $49.99 · Return shipping: You pay (prepaid label)' plus Decline (seller-rtn-reject-<id>) and Approve (seller-rtn-approve-<id>) buttons. Direct POST /api/returns/{id}/approve returns full updated doc with status='approved' and decision_note persisted. ONE WEB-ONLY UX ISSUE (won't affect iOS/Android): Approve/Decline buttons wire through React Native's Alert.alert which is largely inert on react-native-web for multi-button confirmations — on the device this opens a native confirmation, on web preview tapping Approve never reaches /api/returns/{id}/approve. The backend approval works perfectly when called directly (proven via curl and pytest).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Seller approves/rejects a return from /seller/returns",
+        "issue": "Approve & Reject buttons use react-native Alert.alert for 2-button confirmation. On iOS/Android this fires a native dialog and proceeds to POST /api/returns/{id}/{approve|reject}. On the Expo Web preview, react-native-web's Alert is inert for multi-button confirmations so the network call never fires (manually overriding window.confirm did NOT help either). API itself works end-to-end (verified via curl: status flips to 'approved', decision_note persisted, refund_amount_nzd=49.99). Consider replacing with a small in-app modal (mirroring the cancel-order modal in /order/[id].tsx) to make the flow testable on web and consistent with iter-8 style. Reference: /app/frontend/app/seller/returns.tsx:178-204",
+        "affected_testIDs": ["seller-rtn-approve-<id>", "seller-rtn-reject-<id>"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_shiprocket_webhook.py",
+    "/app/backend/tests/test_returns.py",
+    "/app/test_reports/pytest/iter9_results.xml",
+    "/app/test_reports/pytest/iter9_full_results.xml",
+    "/app/test_reports/_ui_setup_delivered_order.py",
+    "/app/test_reports/_ui_setup_seller_return.py"
+  ],
+  "action_items": [
+    "Optional (web preview testability): replace the Alert.alert confirmation in /app/frontend/app/seller/returns.tsx (lines 178 + 196) with an inline modal similar to order-cancel-modal in /app/frontend/app/order/[id].tsx so the seller-side approve/reject also works on the Expo web preview. Not blocking on iOS/Android.",
+    "Consider a long-term split of backend/server.py (still >1800 LOC) — returns + shiprocket logic is a natural module boundary."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py is now ~1800+ lines — extracting returns.py, shipments.py, notifications.py would significantly improve maintainability. Not blocking.",
+    "The returns 'changed_my_mind' restocking_fee=15% and refund_amount=gross-fee are computed correctly per item, but rely on price_nzd at request-time — make sure refund settlement also references the snapshot in ReturnRequest.items so price changes after delivery don't change the refund (verified by inspection: ReturnRequestItem includes a snapshot of price_nzd at creation).",
+    "Shiprocket webhook correctly never regresses a delivered order back to shipped, and unknown statuses return 200 with ignored:true — both verified in tests.",
+    "Frontend's /order/[id]/return.tsx 'rtn-summary-card' only renders after a reason is selected — initial visibility check returned False but content shows up immediately after picking any reason, which is the correct UX."
+  ],
+  "updated_files": [
+    "/app/test_reports/_ui_setup_delivered_order.py (new — registers a buyer + paid order, flips it to delivered/in-return-window, and inserts a Shiprocket shipment so /order/[id] renders the Tracking + Return-prompt cards)",
+    "/app/test_reports/_ui_setup_seller_return.py (new — registers a fresh buyer + seller, promotes seller in Mongo with sellers doc containing required created_at + GSTIN unique key, re-points product seller_id + order item seller_id, then buyer files a defective return — produces SELLER_TOKEN + RETURN_ID for UI tests)",
+    "/app/test_reports/pytest/iter9_results.xml (24/24 from iter-9 suites)",
+    "/app/test_reports/pytest/iter9_full_results.xml (full regression 137/139, 2 flakes pass in isolation)"
+  ],
+  "success_rate": {
+    "backend": "100% (24/24 iter-9; 137/139 full regression — 2 flakes both green in isolation, see flaky_tests)",
+    "frontend": "~95% (tracking card, return prompt, full return-request screen w/ live summary, post-submit returns card on order page, seller dashboard 3-tile row + Returns link, /seller/returns list cards all verified). Seller approve/reject button only inert on Expo WEB preview because of react-native Alert.alert; backend endpoint itself verified via curl."
+  },
+  "flaky_tests": [
+    "backend/tests/test_seller.py::TestSellerRegister::test_register_auto_verifies — FAILED in full-suite run, PASSED in isolation. Likely GSTIN unique-index collision from test_returns.py's seed sellers running in the same session.",
+    "backend/tests/test_seller_payouts.py::TestSellerOrders::test_orders_filtered_per_seller — same pattern: FAILED in full-suite, PASSED in isolation. Suggestion: have test_returns.py mint a more entropy-rich GSTIN (include time-suffix) and/or delete its TEST_ sellers in a teardown."
+  ],
+  "seed_data_creation": "Two ephemeral users + delivered order via _ui_setup_delivered_order.py (buyer flow), and one extra buyer + seller + product re-link + filed return via _ui_setup_seller_return.py (seller flow). No mutation of seeded production data. All test users prefixed with TEST_.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Web preview testability gotcha: react-native Alert.alert with >1 button is INERT on react-native-web. The cancel-order flow (iter-8) used a custom inline modal and is testable; the seller-return approve/reject flow (iter-9) uses Alert.alert and is NOT testable on web. Always verify backend behavior with a direct curl/requests call (e.g., POST /api/returns/{id}/approve with the seller's Bearer) in addition to UI taps. For the seller seed: when promoting a user to seller directly via Mongo, the sellers doc MUST include 'created_at' (datetime) or GET /api/seller/me returns 500 (Pydantic ValidationError on SellerProfile). The two seed helpers in /app/test_reports/ print the tokens + ids needed for further UI runs.",
+  "rca_of_issue": "Seller approve/reject UI not firing on web preview RCA: /app/frontend/app/seller/returns.tsx:178 and 196 use react-native's Alert.alert with a Cancel + action button. react-native-web does not render multi-button Alert.alert reliably (no window.confirm fallback for ['Cancel','Approve']-shape buttons in this RN version), so the onPress handler that posts to /api/returns/{id}/approve|reject never executes on web. Fix: replace both Alert.alert calls with the same custom modal pattern used by order-cancel-modal in /app/frontend/app/order/[id].tsx. The backend route itself is fully functional — verified via direct POST returning {status:'approved', decision_note:'Approved via API', refund_amount_nzd:49.99}. Mobile (iOS/Android) is unaffected."
+}
