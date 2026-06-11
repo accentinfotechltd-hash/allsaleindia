@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
-import { colors, formatINR, formatNZD, radius, spacing } from "@/src/lib/theme";
+import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export default function Cart() {
   const router = useRouter();
@@ -76,7 +76,7 @@ export default function Cart() {
               </Text>
               <View style={styles.priceRow}>
                 <Text style={styles.priceNzd}>{formatNZD(item.price_nzd)}</Text>
-                <Text style={styles.priceInr}>{formatINR(item.price_inr)}</Text>
+                <Text style={styles.priceLabel}>NZD</Text>
               </View>
               <View style={styles.qtyRow}>
                 <View style={styles.qtyBox}>
@@ -134,7 +134,6 @@ export default function Cart() {
         />
         <View style={styles.divider} />
         <SummaryRow label="Total (NZD)" value={formatNZD(cart.total_nzd)} bold />
-        <Text style={styles.inrEquiv}>≈ {formatINR(cart.subtotal_inr)}</Text>
 
         <Pressable
           testID="cart-checkout-btn"
@@ -203,7 +202,7 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 14, color: colors.text, fontWeight: "600", marginTop: 2, lineHeight: 18 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 4 },
   priceNzd: { fontSize: 15, fontWeight: "800", color: colors.text },
-  priceInr: { fontSize: 11, color: colors.textFaint },
+  priceLabel: { fontSize: 10, color: colors.textFaint, fontWeight: "700", letterSpacing: 0.5 },
   qtyRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 10 },
   qtyBox: {
     flexDirection: "row",
@@ -245,7 +244,6 @@ const styles = StyleSheet.create({
   },
   shippingText: { fontSize: 12, color: colors.success, fontWeight: "600" },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 8 },
-  inrEquiv: { fontSize: 12, color: colors.textFaint, marginTop: 2, textAlign: "right" },
   cta: {
     backgroundColor: colors.primary,
     height: 56,

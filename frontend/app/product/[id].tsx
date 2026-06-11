@@ -113,7 +113,7 @@ export default function ProductDetail() {
           <View style={styles.priceCard}>
             <View>
               <Text style={styles.priceNzd}>{formatNZD(product.price_nzd)} NZD</Text>
-              <Text style={styles.priceInr}>≈ {formatINR(product.price_inr)} INR</Text>
+              <Text style={styles.priceInr}>Inclusive of seller pricing</Text>
             </View>
             <View style={styles.discountTag}>
               <Text style={styles.discountText}>Direct import</Text>

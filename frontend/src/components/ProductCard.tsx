@@ -1,6 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { colors, formatINR, formatNZD, radius, spacing } from "@/src/lib/theme";
+import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export type ProductLite = {
   id: string;
@@ -40,7 +40,7 @@ export function ProductCard({
         </Text>
         <View style={styles.priceRow}>
           <Text style={styles.priceNzd}>{formatNZD(product.price_nzd)}</Text>
-          <Text style={styles.priceInr}>{formatINR(product.price_inr)}</Text>
+          <Text style={styles.priceLabel}>NZD</Text>
         </View>
       </View>
     </Pressable>
@@ -62,5 +62,5 @@ const styles = StyleSheet.create({
   name: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 18, minHeight: 36 },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginTop: 4 },
   priceNzd: { fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
-  priceInr: { fontSize: 11, color: colors.textFaint },
+  priceLabel: { fontSize: 10, color: colors.textFaint, fontWeight: "700", letterSpacing: 0.5 },
 });

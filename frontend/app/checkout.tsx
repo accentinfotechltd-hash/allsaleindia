@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
 import { api, ORIGIN_URL } from "@/src/lib/api";
-import { colors, formatINR, formatNZD, radius, spacing } from "@/src/lib/theme";
+import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export default function Checkout() {
   const router = useRouter();
@@ -138,7 +138,6 @@ export default function Checkout() {
             />
             <View style={styles.lineDivider} />
             <Line label="Total (NZD)" value={formatNZD(cart.total_nzd)} bold />
-            <Text style={styles.inr}>≈ {formatINR(cart.subtotal_inr)}</Text>
           </View>
 
           {err ? <Text style={styles.error} testID="checkout-error">{err}</Text> : null}
@@ -271,7 +270,6 @@ const styles = StyleSheet.create({
   lineValue: { fontSize: 13, color: colors.text, fontWeight: "600" },
   lineBold: { fontSize: 16, fontWeight: "800", color: colors.text },
   lineDivider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
-  inr: { fontSize: 11, color: colors.textFaint, textAlign: "right", marginTop: 2 },
   error: { color: colors.error, fontSize: 13, marginTop: spacing.sm },
   cta: {
     backgroundColor: colors.primary,
