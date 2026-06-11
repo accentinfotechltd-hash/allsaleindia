@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronRight, Globe2, LogOut, MapPin, Package, Settings, ShieldCheck, Store } from "lucide-react-native";
+import { ChevronRight, Globe2, LogOut, MapPin, Package, Settings, ShieldCheck, ShieldAlert, Store } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -68,6 +68,13 @@ export default function Account() {
             onPress={() => {}}
             testID="account-addresses-btn"
             subtitle="Set up at checkout"
+          />
+          <Row
+            icon={<ShieldAlert size={18} color={colors.primary} />}
+            label="Allowed in NZ?"
+            subtitle="Check prohibited items before you ship"
+            onPress={() => router.push("/help/prohibited-checker")}
+            testID="account-prohibited-checker-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.text} />}

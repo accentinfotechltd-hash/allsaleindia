@@ -68,6 +68,80 @@ FREE_SHIPPING_THRESHOLD_NZD = 100.0
 FLAT_SHIPPING_NZD = 12.0
 PLATFORM_COMMISSION = 0.15  # 15% of gross to the platform
 
+# NZ Customs / IRD: GST 15% on every personal-import order. If the goods
+# value exceeds NZD 1000 a 10% tariff is also applied (simplified MVP rule).
+NZ_GST_RATE = 0.15
+NZ_DUTY_THRESHOLD_NZD = 1000.0
+NZ_DUTY_RATE = 0.10
+
+# Categories: 2-level taxonomy. Display name → list of subcategories.
+TAXONOMY: list[dict] = [
+    {
+        "key": "ethnic_fashion",
+        "name": "Ethnic Fashion",
+        "blurb": "Sarees, lehengas and kurtis hand-picked from across India.",
+        "subcategories": ["Sarees", "Lehengas", "Kurtis", "Mens Wear", "Kids Wear"],
+    },
+    {
+        "key": "jewelry_accessories",
+        "name": "Jewelry & Accessories",
+        "blurb": "Imitation, silver, juttis and bags — heritage craft, modern shipping.",
+        "subcategories": ["Imitation Jewelry", "Silver Jewelry", "Juttis", "Bags"],
+    },
+    {
+        "key": "food_groceries",
+        "name": "Food & Groceries",
+        "blurb": "Sealed, branded Indian groceries that clear NZ biosecurity.",
+        "subcategories": ["Spices", "Snacks", "Sweets", "Tea & Coffee", "Pickles"],
+    },
+    {
+        "key": "wellness",
+        "name": "Wellness",
+        "blurb": "Authentic ayurveda, herbs and oils from Indian wellness houses.",
+        "subcategories": ["Ayurvedic Medicines", "Herbal Supplements", "Essential Oils"],
+    },
+    {
+        "key": "home_puja",
+        "name": "Home & Puja",
+        "blurb": "Brassware, decor and pooja essentials made in India.",
+        "subcategories": ["Brass Items", "Wall Decor", "Kitchenware", "Idols", "Incense"],
+    },
+    {
+        "key": "books_gifts",
+        "name": "Books & Gifts",
+        "blurb": "Festive gifts, books and wedding favours ready to ship.",
+        "subcategories": ["Books", "Rakhis", "Diwali Gifts", "Wedding Favors"],
+    },
+    {
+        "key": "electronics",
+        "name": "Electronics",
+        "blurb": "Small gadgets and accessories that meet NZ import rules.",
+        "subcategories": ["Mobile Accessories", "Small Gadgets"],
+    },
+]
+
+# NZ MPI / Customs prohibited keywords (simplified, case-insensitive matching).
+PROHIBITED_KEYWORDS: list[dict] = [
+    {"term": "homemade", "reason": "NZ MPI bans homemade food items."},
+    {"term": "home-made", "reason": "NZ MPI bans homemade food items."},
+    {"term": "fresh fruit", "reason": "Fresh fruit is banned by NZ MPI."},
+    {"term": "fresh vegetable", "reason": "Fresh vegetables are banned by NZ MPI."},
+    {"term": "dairy", "reason": "Dairy is restricted by NZ MPI."},
+    {"term": "milk powder", "reason": "Dairy (milk powder) is restricted by NZ MPI."},
+    {"term": "ghee", "reason": "Dairy (ghee) is restricted by NZ MPI."},
+    {"term": "cheese", "reason": "Dairy (cheese) is restricted by NZ MPI."},
+    {"term": "butter", "reason": "Dairy (butter) is restricted by NZ MPI."},
+    {"term": "meat", "reason": "Meat products are banned by NZ MPI."},
+    {"term": "beef", "reason": "Meat products are banned by NZ MPI."},
+    {"term": "chicken", "reason": "Meat products are banned by NZ MPI."},
+    {"term": "mutton", "reason": "Meat products are banned by NZ MPI."},
+    {"term": "fish", "reason": "Fresh fish is banned by NZ MPI."},
+    {"term": "seed", "reason": "Seeds are banned by NZ MPI."},
+    {"term": "honey", "reason": "Honey is banned by NZ MPI."},
+    {"term": "plant", "reason": "Live plants are banned by NZ MPI."},
+    {"term": "soil", "reason": "Soil and earth are banned by NZ MPI."},
+]
+
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
@@ -173,6 +247,7 @@ class Product(BaseModel):
     name: str
     description: str
     category: str
+    subcategory: Optional[str] = None
     price_nzd: float
     price_inr: float
     image: str
@@ -181,10 +256,49 @@ class Product(BaseModel):
     reviews_count: int = 0
     in_stock: bool = True
     shipping_days_min: int = 7
-    shipping_days_max: int = 14
+    shipping_days_max: int = 12
     origin: str = "India"
     seller_id: Optional[str] = None
     seller_name: Optional[str] = None
+
+
+class TaxonomyNode(BaseModel):
+    key: str
+    name: str
+    blurb: str
+    subcategories: List[str]
+
+
+class DutyItem(BaseModel):
+    price_nzd: float
+    quantity: int = 1
+
+
+class DutyEstimateRequest(BaseModel):
+    items: List[DutyItem]
+    shipping_nzd: float = 0.0
+
+
+class DutyEstimateResponse(BaseModel):
+    goods_nzd: float
+    shipping_nzd: float
+    gst_nzd: float
+    duty_nzd: float
+    customs_total_nzd: float  # gst + duty
+    grand_total_nzd: float    # goods + shipping + gst + duty
+    threshold_nzd: float
+    over_threshold: bool
+
+
+class ProhibitedCheckRequest(BaseModel):
+    text: str
+
+
+class ProhibitedCheckResponse(BaseModel):
+    allowed: bool
+    matched_term: Optional[str] = None
+    reason: Optional[str] = None
+    advice: str
 
 
 class CartItem(BaseModel):
@@ -422,97 +536,106 @@ def compute_cart_totals(items_with_products: List[dict]) -> CartView:
 # Seed data
 # ---------------------------------------------------------------------------
 SEED_PRODUCTS: list[dict] = [
-    # Ethnic wear
+    # Ethnic Fashion → Sarees
     {
         "name": "Handwoven Silk Saree — Royal Maroon",
         "description": "Authentic Banarasi silk saree handwoven by artisans in Varanasi. Comes with matching blouse piece. Perfect for weddings and festive occasions.",
-        "category": "Ethnic Wear",
+        "category": "Ethnic Fashion", "subcategory": "Sarees",
         "price_nzd": 89.00,
         "image": "https://images.unsplash.com/photo-1717585679395-bbe39b5fb6bc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBldGhuaWMlMjB3ZWFyJTIwZmFzaGlvbnxlbnwwfHx8fDE3ODExMzIyNjl8MA&ixlib=rb-4.1.0&q=85",
-        "rating": 4.8,
-        "reviews_count": 312,
+        "rating": 4.8, "reviews_count": 312,
     },
+    # Ethnic Fashion → Kurtis
     {
         "name": "Embroidered Anarkali Suit Set",
         "description": "Three-piece Anarkali suit with intricate zari embroidery. Includes dupatta and bottoms. Imported directly from Jaipur.",
-        "category": "Ethnic Wear",
+        "category": "Ethnic Fashion", "subcategory": "Kurtis",
         "price_nzd": 65.50,
         "image": "https://images.unsplash.com/photo-1503160865267-af4660ce7bf2?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBldGhuaWMlMjB3ZWFyJTIwZmFzaGlvbnxlbnwwfHx8fDE3ODExMzIyNjl8MA&ixlib=rb-4.1.0&q=85",
-        "rating": 4.7,
-        "reviews_count": 184,
+        "rating": 4.7, "reviews_count": 184,
     },
+    # Ethnic Fashion → Lehengas
     {
         "name": "Designer Lehenga Choli — Pastel Pink",
         "description": "Bridal-grade lehenga with mirror work and sequins. Three-piece set. Custom alterations available on request.",
-        "category": "Ethnic Wear",
+        "category": "Ethnic Fashion", "subcategory": "Lehengas",
         "price_nzd": 149.00,
         "image": "https://images.pexels.com/photos/14928074/pexels-photo-14928074.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "rating": 4.9,
-        "reviews_count": 92,
+        "rating": 4.9, "reviews_count": 92,
     },
-    # Brass / handicrafts
+    # Home & Puja → Idols
     {
         "name": "Brass Ganesha Idol — 6 inch",
         "description": "Hand-cast brass Ganesha idol from Moradabad. Polished finish, weighs 850g. Perfect for home temple or as a gift.",
-        "category": "Home & Decor",
+        "category": "Home & Puja", "subcategory": "Idols",
         "price_nzd": 42.00,
         "image": "https://images.unsplash.com/photo-1650383044645-5d32141ad1a3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBoYW5kaWNyYWZ0cyUyMGJyYXNzfGVufDB8fHx8MTc4MTEzMjI2OXww&ixlib=rb-4.1.0&q=85",
-        "rating": 4.9,
-        "reviews_count": 207,
+        "rating": 4.9, "reviews_count": 207,
     },
+    # Home & Puja → Brass Items
     {
         "name": "Antique Brass Diya Set (Pack of 5)",
         "description": "Traditional oil lamps for Diwali and daily worship. Hand-engraved with floral motifs.",
-        "category": "Home & Decor",
+        "category": "Home & Puja", "subcategory": "Brass Items",
         "price_nzd": 28.50,
         "image": "https://images.unsplash.com/photo-1652960018678-1f19799996c5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBoYW5kaWNyYWZ0cyUyMGJyYXNzfGVufDB8fHx8MTc4MTEzMjI2OXww&ixlib=rb-4.1.0&q=85",
-        "rating": 4.6,
-        "reviews_count": 145,
+        "rating": 4.6, "reviews_count": 145,
     },
+    # Home & Puja → Kitchenware (pooja set)
     {
         "name": "Brass Pooja Thali Complete Set",
         "description": "Full pooja kit: thali, bell, incense holder, kalash and diya. Wedding gift favourite.",
-        "category": "Home & Decor",
+        "category": "Home & Puja", "subcategory": "Kitchenware",
         "price_nzd": 56.00,
         "image": "https://images.pexels.com/photos/15755947/pexels-photo-15755947.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
-        "rating": 4.8,
-        "reviews_count": 78,
+        "rating": 4.8, "reviews_count": 78,
     },
-    # Spices & tea
+    # Food & Groceries → Tea & Coffee
     {
         "name": "Premium Darjeeling Tea — 250g",
-        "description": "First-flush Darjeeling loose-leaf tea, sourced directly from Makaibari estate. Smooth muscatel flavour.",
-        "category": "Spices & Tea",
+        "description": "First-flush Darjeeling loose-leaf tea, sourced directly from Makaibari estate. Sealed, branded — MPI-compliant.",
+        "category": "Food & Groceries", "subcategory": "Tea & Coffee",
         "price_nzd": 18.90,
         "image": "https://images.unsplash.com/photo-1623193893878-656ec0391ea1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwyfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85",
-        "rating": 4.9,
-        "reviews_count": 524,
+        "rating": 4.9, "reviews_count": 524,
     },
+    # Food & Groceries → Spices
     {
         "name": "Whole Spice Collection — 12 jars",
-        "description": "Cardamom, cloves, turmeric, cumin, coriander, fenugreek and more. Air-tight glass jars. Fresh-ground.",
-        "category": "Spices & Tea",
+        "description": "Cardamom, cloves, turmeric, cumin, coriander, fenugreek and more. Air-tight commercial packs — MPI-compliant.",
+        "category": "Food & Groceries", "subcategory": "Spices",
         "price_nzd": 47.00,
         "image": "https://images.unsplash.com/photo-1589536677029-c0aa1808fba6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwxfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85",
-        "rating": 4.8,
-        "reviews_count": 263,
+        "rating": 4.8, "reviews_count": 263,
     },
+    # Food & Groceries → Tea & Coffee
     {
         "name": "Masala Chai Blend — 500g",
-        "description": "Strong Assam black tea blended with cardamom, ginger, clove and cinnamon. Brew NZ winter warmer.",
-        "category": "Spices & Tea",
+        "description": "Strong Assam black tea blended with cardamom, ginger, clove and cinnamon. Sealed, branded.",
+        "category": "Food & Groceries", "subcategory": "Tea & Coffee",
         "price_nzd": 22.50,
         "image": "https://images.unsplash.com/photo-1683533698664-12ee473e8c9d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTN8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBzcGljZXMlMjB0ZWF8ZW58MHx8fHwxNzgxMTMyMjY5fDA&ixlib=rb-4.1.0&q=85",
-        "rating": 4.7,
-        "reviews_count": 318,
+        "rating": 4.7, "reviews_count": 318,
     },
 ]
 
 
 async def seed_products() -> None:
-    count = await db.products.count_documents({})
-    if count > 0:
+    """Idempotent reseed of platform-owned (no seller) products."""
+    expected = len(SEED_PRODUCTS)
+    existing = await db.products.count_documents({"seller_id": None})
+    # Always sync platform catalog to the latest taxonomy. Seller-created
+    # listings are never touched.
+    if existing == expected:
+        # Make sure category/subcategory match the latest mapping in case the
+        # seed shape changed.
+        for p in SEED_PRODUCTS:
+            await db.products.update_many(
+                {"seller_id": None, "name": p["name"]},
+                {"$set": {"category": p["category"], "subcategory": p["subcategory"]}},
+            )
         return
+    await db.products.delete_many({"seller_id": None})
     docs = []
     for p in SEED_PRODUCTS:
         pid = str(uuid.uuid4())
@@ -522,6 +645,7 @@ async def seed_products() -> None:
                 "name": p["name"],
                 "description": p["description"],
                 "category": p["category"],
+                "subcategory": p["subcategory"],
                 "price_nzd": p["price_nzd"],
                 "price_inr": round(p["price_nzd"] * INR_PER_NZD, 0),
                 "image": p["image"],
@@ -530,12 +654,14 @@ async def seed_products() -> None:
                 "reviews_count": p.get("reviews_count", 0),
                 "in_stock": True,
                 "shipping_days_min": 7,
-                "shipping_days_max": 14,
+                "shipping_days_max": 12,
                 "origin": "India",
+                "seller_id": None,
+                "seller_name": None,
             }
         )
     await db.products.insert_many(docs)
-    logger.info("seeded %d products", len(docs))
+    logger.info("seeded %d products across new taxonomy", len(docs))
 
 
 # ---------------------------------------------------------------------------
@@ -637,10 +763,16 @@ async def me(current=Depends(get_current_user)):
 # Product routes
 # ---------------------------------------------------------------------------
 @api.get("/products", response_model=List[Product])
-async def list_products(category: Optional[str] = None, q: Optional[str] = None):
+async def list_products(
+    category: Optional[str] = None,
+    subcategory: Optional[str] = None,
+    q: Optional[str] = None,
+):
     query: dict = {}
     if category and category.lower() != "all":
         query["category"] = category
+    if subcategory and subcategory.lower() != "all":
+        query["subcategory"] = subcategory
     if q:
         query["name"] = {"$regex": q, "$options": "i"}
     cursor = db.products.find(query, {"_id": 0})
@@ -651,6 +783,57 @@ async def list_products(category: Optional[str] = None, q: Optional[str] = None)
 async def list_categories():
     cats = await db.products.distinct("category")
     return sorted(cats)
+
+
+@api.get("/taxonomy", response_model=List[TaxonomyNode])
+async def get_taxonomy():
+    """The 2-level Allsale catalog (7 mains × subcategories)."""
+    return [TaxonomyNode(**node) for node in TAXONOMY]
+
+
+@api.post("/duty/estimate", response_model=DutyEstimateResponse)
+async def duty_estimate(body: DutyEstimateRequest):
+    """NZ GST + duty estimate. Simplified rule used at checkout."""
+    goods = round(sum(it.price_nzd * it.quantity for it in body.items), 2)
+    shipping = round(max(0.0, body.shipping_nzd), 2)
+    over = goods > NZ_DUTY_THRESHOLD_NZD
+    gst = round((goods + shipping) * NZ_GST_RATE, 2)
+    duty = round(goods * NZ_DUTY_RATE, 2) if over else 0.0
+    customs = round(gst + duty, 2)
+    grand = round(goods + shipping + gst + duty, 2)
+    return DutyEstimateResponse(
+        goods_nzd=goods,
+        shipping_nzd=shipping,
+        gst_nzd=gst,
+        duty_nzd=duty,
+        customs_total_nzd=customs,
+        grand_total_nzd=grand,
+        threshold_nzd=NZ_DUTY_THRESHOLD_NZD,
+        over_threshold=over,
+    )
+
+
+@api.post("/prohibited/check", response_model=ProhibitedCheckResponse)
+async def check_prohibited(body: ProhibitedCheckRequest):
+    """Case-insensitive substring match against the NZ MPI keyword ban list."""
+    text = (body.text or "").lower()
+    if not text.strip():
+        return ProhibitedCheckResponse(
+            allowed=True,
+            advice="Type a product name above to check if NZ MPI will allow it.",
+        )
+    for entry in PROHIBITED_KEYWORDS:
+        if entry["term"] in text:
+            return ProhibitedCheckResponse(
+                allowed=False,
+                matched_term=entry["term"],
+                reason=entry["reason"],
+                advice="This item cannot be shipped to NZ via Allsale. Please choose a sealed, branded alternative.",
+            )
+    return ProhibitedCheckResponse(
+        allowed=True,
+        advice="Looks fine for NZ import. Make sure your packaging is sealed & branded.",
+    )
 
 
 @api.get("/products/{product_id}", response_model=Product)
@@ -1215,6 +1398,7 @@ async def on_startup():
     await db.users.create_index("id", unique=True)
     await db.products.create_index("id", unique=True)
     await db.products.create_index("category")
+    await db.products.create_index("subcategory")
     await db.carts.create_index("user_id", unique=True)
     await db.orders.create_index("id", unique=True)
     await db.orders.create_index("user_id")

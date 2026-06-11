@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronUp, ShieldCheck, Truck } from "lucide-react-native";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,7 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
 import { api } from "@/src/lib/api";
-import { colors, spacing } from "@/src/lib/theme";
+import { fetchTaxonomy, NZ_FAQS, TRUST_POINTS, TaxonomyNode } from "@/src/lib/nz";
+import { colors, radius, spacing } from "@/src/lib/theme";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 const GUTTER = 12;
@@ -24,15 +26,19 @@ export default function CategoryDetail() {
   const { name } = useLocalSearchParams<{ name: string }>();
   const router = useRouter();
   const [items, setItems] = useState<ProductLite[]>([]);
+  const [taxonomy, setTaxonomy] = useState<TaxonomyNode | null>(null);
+  const [subcat, setSubcat] = useState<string>("All");
   const [loading, setLoading] = useState(true);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const list = await api<ProductLite[]>(
-          `/products?category=${encodeURIComponent(name as string)}`,
-          { auth: false },
-        );
+        const [tax, list] = await Promise.all([
+          fetchTaxonomy(),
+          api<ProductLite[]>(`/products?category=${encodeURIComponent(name as string)}`, { auth: false }),
+        ]);
+        setTaxonomy(tax.find((t) => t.name === name) || null);
         setItems(list);
       } finally {
         setLoading(false);
@@ -40,59 +46,167 @@ export default function CategoryDetail() {
     })();
   }, [name]);
 
+  const filtered = useMemo(() => {
+    if (subcat === "All") return items;
+    return items.filter((p: any) => p.subcategory === subcat);
+  }, [items, subcat]);
+
+  const chips = ["All", ...(taxonomy?.subcategories ?? [])];
+
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.topBar}>
-        <Pressable testID="category-back-btn" onPress={() => router.back()} style={styles.backBtn}>
-          <ChevronLeft size={22} color={colors.text} />
-        </Pressable>
-        <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text style={styles.title}>{name}</Text>
-          <Text style={styles.subtitle}>From India · to NZ</Text>
-        </View>
-      </View>
+      <FlatList
+        data={filtered}
+        keyExtractor={(p) => p.id}
+        numColumns={2}
+        columnWrapperStyle={{ gap: GUTTER, paddingHorizontal: spacing.lg }}
+        contentContainerStyle={{ gap: GUTTER, paddingBottom: spacing.xxl, paddingTop: spacing.md }}
+        renderItem={({ item }) => (
+          <ProductCard product={item} width={CARD_W} onPress={() => router.push(`/product/${item.id}`)} />
+        )}
+        ListHeaderComponent={
+          <View>
+            <View style={styles.topBar}>
+              <Pressable testID="category-back-btn" onPress={() => router.back()} style={styles.backBtn}>
+                <ChevronLeft size={22} color={colors.text} />
+              </Pressable>
+              <View style={{ flex: 1, marginLeft: spacing.md }}>
+                <Text style={styles.title}>{name}</Text>
+                <Text style={styles.subtitle}>From India → to NZ</Text>
+              </View>
+            </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(p) => p.id}
-          numColumns={2}
-          columnWrapperStyle={{ gap: GUTTER, paddingHorizontal: spacing.lg }}
-          contentContainerStyle={{ gap: GUTTER, paddingBottom: spacing.xxl, paddingTop: spacing.md }}
-          renderItem={({ item }) => (
-            <ProductCard
-              product={item}
-              width={CARD_W}
-              onPress={() => router.push(`/product/${item.id}`)}
-            />
-          )}
-        />
-      )}
+            {/* Hero */}
+            <View style={styles.hero}>
+              <Text style={styles.heroEyebrow}>INDIA → NEW ZEALAND</Text>
+              <Text style={styles.heroTitle}>
+                {taxonomy?.name || name}
+              </Text>
+              <Text style={styles.heroSub}>Courier from India to NZ in 7-12 days</Text>
+              {taxonomy?.blurb ? <Text style={styles.heroBlurb}>{taxonomy.blurb}</Text> : null}
+            </View>
+
+            {/* Trust */}
+            <View style={styles.trustGrid}>
+              {TRUST_POINTS.map((p, i) => (
+                <View key={i} style={styles.trustCell}>
+                  <ShieldCheck size={14} color={colors.success} />
+                  <Text style={styles.trustText}>{p}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Prohibited callout */}
+            <Pressable
+              testID="category-prohibited-link"
+              onPress={() => router.push("/help/prohibited-checker")}
+              style={styles.prohibited}
+            >
+              <AlertTriangle size={16} color="#92400E" />
+              <Text style={styles.prohibitedText}>
+                We can&apos;t ship: fresh food, dairy, meat, seeds, homemade items. <Text style={styles.prohibitedLink}>Check yours →</Text>
+              </Text>
+            </Pressable>
+
+            {/* Subcategory chips */}
+            {chips.length > 1 ? (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+                {chips.map((c) => {
+                  const active = c === subcat;
+                  return (
+                    <Pressable
+                      key={c}
+                      testID={`subcat-chip-${c.toLowerCase().replace(/\s+/g, "-").replace(/&/g, "and")}`}
+                      onPress={() => setSubcat(c)}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            ) : null}
+
+            <View style={styles.shippingRow}>
+              <Truck size={14} color={colors.primary} />
+              <Text style={styles.shippingText}>Auckland 7-10 days · Wellington 8-11 · Christchurch 9-12</Text>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          loading ? (
+            <ActivityIndicator color={colors.primary} style={{ marginVertical: 40 }} />
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>No listings here yet. Verified sellers will appear here soon.</Text>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
+            <Text style={styles.faqTitle}>NZ shipping FAQ</Text>
+            {NZ_FAQS.map((f, i) => {
+              const open = openFaq === i;
+              return (
+                <Pressable
+                  key={i}
+                  testID={`faq-row-${i}`}
+                  onPress={() => setOpenFaq(open ? null : i)}
+                  style={styles.faqRow}
+                >
+                  <View style={styles.faqQuestionRow}>
+                    <Text style={styles.faqQuestion}>{f.q}</Text>
+                    {open ? <ChevronUp size={16} color={colors.text} /> : <ChevronDown size={16} color={colors.text} />}
+                  </View>
+                  {open ? <Text style={styles.faqAnswer}>{f.a}</Text> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  topBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  backBtn: { width: 40, height: 40, borderRadius: 999, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 22, fontWeight: "800", color: colors.text, letterSpacing: -0.6 },
   subtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  hero: { marginHorizontal: spacing.lg, padding: spacing.lg, backgroundColor: colors.text, borderRadius: radius.lg },
+  heroEyebrow: { color: colors.primary, fontSize: 11, fontWeight: "800", letterSpacing: 2 },
+  heroTitle: { color: "#fff", fontSize: 24, fontWeight: "800", letterSpacing: -0.6, marginTop: 6 },
+  heroSub: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600", marginTop: 4 },
+  heroBlurb: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 10, lineHeight: 18 },
+  trustGrid: { flexDirection: "row", marginHorizontal: spacing.lg, marginTop: spacing.md, gap: 8 },
+  trustCell: { flex: 1, padding: 8, borderRadius: radius.sm, backgroundColor: colors.successSoft, gap: 4, alignItems: "flex-start" },
+  trustText: { color: colors.success, fontSize: 11, fontWeight: "700", lineHeight: 14 },
+  prohibited: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: "#FEF3C7",
+    borderRadius: radius.md,
+  },
+  prohibitedText: { fontSize: 12, color: "#78350F", flex: 1, lineHeight: 17 },
+  prohibitedLink: { color: "#92400E", fontWeight: "800" },
+  chipsRow: { gap: 8, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  chip: { height: 36, paddingHorizontal: 14, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center", flexShrink: 0 },
+  chipActive: { backgroundColor: colors.text, borderColor: colors.text },
+  chipText: { fontSize: 13, color: colors.text, fontWeight: "600" },
+  chipTextActive: { color: "#fff" },
+  shippingRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  shippingText: { color: colors.textMuted, fontSize: 11 },
+  empty: { paddingHorizontal: spacing.lg, paddingVertical: spacing.xl, alignItems: "center" },
+  emptyText: { color: colors.textMuted, textAlign: "center", fontSize: 13 },
+  faqTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginBottom: spacing.sm, letterSpacing: -0.3 },
+  faqRow: { padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, marginBottom: 8, backgroundColor: "#fff" },
+  faqQuestionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  faqQuestion: { fontSize: 13, fontWeight: "700", color: colors.text, flex: 1 },
+  faqAnswer: { fontSize: 12, color: colors.textMuted, marginTop: 8, lineHeight: 18 },
 });

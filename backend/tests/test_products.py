@@ -6,8 +6,10 @@ def test_list_products_returns_seeded(api_client, base_url):
     assert r.status_code == 200
     items = r.json()
     assert isinstance(items, list)
-    assert len(items) == 9, f"expected 9 seeded products, got {len(items)}"
-    p = items[0]
+    # Only count platform-owned (seed) products. Seller listings from prior iters may persist.
+    platform = [p for p in items if not p.get("seller_id")]
+    assert len(platform) == 9, f"expected 9 platform-seeded products, got {len(platform)}"
+    p = platform[0]
     for key in ("id", "name", "price_nzd", "price_inr", "category", "image"):
         assert key in p
     assert p["price_inr"] > p["price_nzd"]  # INR should be ~51x
@@ -19,15 +21,16 @@ def test_list_categories(api_client, base_url):
     cats = r.json()
     assert isinstance(cats, list)
     assert cats == sorted(cats)
-    assert {"Ethnic Wear", "Home & Decor", "Spices & Tea"} <= set(cats)
+    # New iter-7 taxonomy: at least these 3 main categories are seeded.
+    assert {"Ethnic Fashion", "Home & Puja", "Food & Groceries"} <= set(cats)
 
 
 def test_products_category_filter(api_client, base_url):
-    r = api_client.get(f"{base_url}/api/products", params={"category": "Ethnic Wear"})
+    r = api_client.get(f"{base_url}/api/products", params={"category": "Ethnic Fashion"})
     assert r.status_code == 200
     items = r.json()
     assert len(items) >= 1
-    assert all(p["category"] == "Ethnic Wear" for p in items)
+    assert all(p["category"] == "Ethnic Fashion" for p in items)
 
 
 def test_products_search_q(api_client, base_url):

@@ -124,6 +124,14 @@ export default function Cart() {
           value={cart.shipping_nzd === 0 ? "FREE" : formatNZD(cart.shipping_nzd)}
           highlight={cart.shipping_nzd === 0}
         />
+        <SummaryRow
+          label={cart.subtotal_nzd > 1000 ? "NZ GST 15% + 10% duty (est.)" : "NZ GST 15% (est.)"}
+          value={formatNZD(
+            cart.subtotal_nzd > 1000
+              ? (cart.subtotal_nzd + cart.shipping_nzd) * 0.15 + cart.subtotal_nzd * 0.1
+              : (cart.subtotal_nzd + cart.shipping_nzd) * 0.15,
+          )}
+        />
         <View style={styles.divider} />
         <SummaryRow label="Total (NZD)" value={formatNZD(cart.total_nzd)} bold />
         <Text style={styles.inrEquiv}>≈ {formatINR(cart.subtotal_inr)}</Text>

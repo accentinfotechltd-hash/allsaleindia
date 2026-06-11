@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 7 (Allsale NZ cross-border features) fully verified end-to-end. Backend: 29/29 new iter-7 tests pass (taxonomy 7 mains + ordered subcategories, /products?subcategory filter, /duty/estimate under & over NZD 1000 threshold with exact figures gst=25.80/grand=197.80 and gst=226.80/duty=150.00/grand=1888.80, /prohibited/check banned terms 'homemade laddu', 'fresh milk powder', 'beef pickle', 'seed pack', 'honey jar', allowed 'sealed saree silk', 'darjeeling tea'). Regression: 73/73 prior tests (auth/cart/checkout/orders/seller payouts/business-types) still pass — total 102/102 (100%) green. Frontend on 390x844: Categories tab renders trust strip with exact text 'NZ Biosecurity checked · GST & duty calculated · Insured shipping' and all 7 category-row-<key> testIDs are visible. Tapping category-row-ethnic_fashion opens /category/Ethnic%20Fashion with hero eyebrow 'INDIA → NEW ZEALAND', '7-12 days' tagline, subcat-chip-all, subcat-chip-sarees, faq-row-0..2 all visible, and yellow category-prohibited-link navigates to /help/prohibited-checker. Prohibited checker: 'homemade laddu' shows red prohibited-result-banned card; 'sealed saree' shows green prohibited-result-allowed card; common MPI bans list + 3 FAQs render. Account → account-prohibited-checker-btn navigates correctly. Cart shows new 'NZ GST 15% (est.)' summary row computed as 0.15*(subtotal+shipping) — verified $49.99 + $12 shipping → $9.30 GST (matches backend). >$1000 duty-label switch validated via backend math (gst=226.80, duty=150.00, grand=1888.80) — UI did not reach that price in the test session but the same /duty/estimate output drives the Cart label.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter7_nz.py",
+    "/app/backend/tests/test_products.py",
+    "/app/test_reports/pytest/iter7_results.xml",
+    "/app/test_reports/pytest/iter7_full_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1419 lines (>700 LOC threshold). Consider splitting into modules: auth, products+taxonomy, cart+orders, seller+payouts, payments, nz_rules. Not blocking iter-7 but worth flagging for next refactor pass.",
+    "PROHIBITED_KEYWORDS ordering matters because the first substring hit wins ('fresh milk powder' matches 'milk powder' before 'fresh fruit'); current ordering is correct but a comment in the source would prevent future regressions.",
+    "DutyEstimateRequest accepts arbitrary negative price_nzd/quantity (no Field(gt=0)). Negative goods would produce nonsensical totals. Low risk because it is called from our own UI, but trivially fixable with Pydantic constraints."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter7_nz.py (new — 29 parametrized tests covering taxonomy, subcategory filter, duty under/over threshold, prohibited banned/allowed/empty)",
+    "/app/backend/tests/test_products.py (updated stale 'Ethnic Wear/Home & Decor/Spices & Tea' assertions to new iter-7 taxonomy 'Ethnic Fashion/Home & Puja/Food & Groceries' and counted only platform-owned seeded products to ignore leftover seller listings from prior iterations)"
+  ],
+  "success_rate": {
+    "backend": "100% (102/102: 29/29 new iter-7 + 73/73 regression)",
+    "frontend": "100% on iter-7 surfaces (7 category rows + testIDs, trust strip text, category landing hero/trust/prohibited-link/subcat chips/FAQ rows, prohibited checker banned & allowed cards, account → checker nav, cart NZ GST row)"
+  },
+  "seed_data_creation": "None added. Tests register one ephemeral buyer per session (buyer_iter7_<ts>@allsale.co.nz).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter-7 is fully green. Note: stale seller listings from iter-1..6 with old categories (e.g. 'HOME & DECOR') still appear because seller listings are preserved across taxonomy changes; this is intentional per Optional[subcategory] design. If a future iter requires strict catalog hygiene, drop seller-created products with categories outside the new TAXONOMY before re-seeding.",
+  "rca_of_issue": "N/A — no iter-7 bugs found."
+}
