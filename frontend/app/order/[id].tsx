@@ -198,7 +198,7 @@ export default function OrderDetail() {
               <Text style={styles.cancelledBody}>
                 {order.refund_id
                   ? `Refund of ${formatNZD(order.refund_amount_nzd || order.total_nzd)} is being processed to your card (5–10 business days).`
-                  : "Your refund is being processed."}
+                  : `Refund of ${formatNZD(order.refund_amount_nzd || order.total_nzd)} is being processed and will appear on your card within 5–10 business days.`}
               </Text>
               {order.cancel_reason ? (
                 <Text style={styles.cancelledReason}>Reason: {order.cancel_reason}</Text>
