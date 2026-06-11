@@ -214,3 +214,15 @@ Buyers were reporting that the Cancel option vanished after 12 hours even though
 - Orders list (`/orders`): inline "Cancel order · before dispatch" link shows on every pre-shipped paid order, not just for 12 hours.
 - Test `test_cancel_outside_window_rejected` renamed to `test_cancel_outside_window_now_allowed` and inverted — verifies that a `cancellable_until` set in the past no longer prevents cancellation.
 - 164 backend tests still pass.
+
+## 7/30-day analytics chart (June 2026)
+
+**Backend**
+- New collection `analytics_events` with rows `{type: "view"|"cart_add", product_id, seller_id, at}` — written from existing `/products/{id}/track-view` and `/products/{id}/track-cart-add` endpoints (now look up the seller_id of the product before bumping counters). Indexed `(seller_id, at desc)` and `(seller_id, type, at desc)`.
+- New endpoint `GET /api/seller/analytics/timeseries?days=7|30` returns zero-filled per-day buckets `{date, views, cart_adds, sold, revenue_nzd}` for the requested window. `days` is clamped to `[1, 30]`. Sold/revenue derived from paid orders' `paid_at` (falls back to `created_at`) and aggregated by `items.seller_id`.
+- 5 new pytest cases covering default 7-day shape, explicit 30-day, clamping to 30, 403 for non-sellers, and the track-view → timeseries pipeline.
+
+**Frontend**
+- New reusable `src/components/TimeseriesChart.tsx` — pure `react-native-svg` bar chart (no chart libs added). Per-day bars, tappable for value tooltip, sparse x-axis ticks on 30-day mode, today highlighted with brighter fill.
+- `/seller/analytics`: now starts with a **7d / 30d range toggle** + 4-way metric chip strip (Views · Carts · Sold · Revenue) above the chart. Defaults to 7 days · Views.
+- All 169 backend tests pass (up from 164).

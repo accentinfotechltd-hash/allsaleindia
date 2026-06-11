@@ -54,3 +54,6 @@ async def ensure_indexes() -> None:
     await db.returns.create_index([("user_id", 1), ("created_at", -1)])
     await db.returns.create_index([("seller_id", 1), ("status", 1)])
     await db.returns.create_index("order_id")
+    # analytics_events: per-day aggregation by seller for the 7/30-day chart.
+    await db.analytics_events.create_index([("seller_id", 1), ("at", -1)])
+    await db.analytics_events.create_index([("seller_id", 1), ("type", 1), ("at", -1)])

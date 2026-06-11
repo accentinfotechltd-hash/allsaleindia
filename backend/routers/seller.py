@@ -501,19 +501,47 @@ async def bulk_listings_op(
 # ---------------------------------------------------------------------------
 @router.post("/products/{product_id}/track-view")
 async def track_product_view(product_id: str):
-    """Anonymous product-view counter. Fire-and-forget from the buyer client."""
-    await db.products.update_one(
-        {"id": product_id}, {"$inc": {"view_count": 1}}
+    """Anonymous product-view counter. Fire-and-forget from the buyer client.
+
+    Bumps the lifetime counter on the product doc AND writes a tiny event row
+    in `analytics_events` so the seller dashboard can plot a 7/30-day chart.
+    """
+    prod = await db.products.find_one(
+        {"id": product_id}, {"_id": 0, "seller_id": 1, "price_nzd": 1}
     )
+    if not prod:
+        return {"ok": False}
+    await db.products.update_one({"id": product_id}, {"$inc": {"view_count": 1}})
+    if prod.get("seller_id"):
+        await db.analytics_events.insert_one(
+            {
+                "type": "view",
+                "product_id": product_id,
+                "seller_id": prod["seller_id"],
+                "at": now_utc(),
+            }
+        )
     return {"ok": True}
 
 
 @router.post("/products/{product_id}/track-cart-add")
 async def track_cart_add(product_id: str):
-    """Anonymous add-to-cart counter."""
-    await db.products.update_one(
-        {"id": product_id}, {"$inc": {"cart_add_count": 1}}
+    """Anonymous add-to-cart counter (with event row for time-series)."""
+    prod = await db.products.find_one(
+        {"id": product_id}, {"_id": 0, "seller_id": 1, "price_nzd": 1}
     )
+    if not prod:
+        return {"ok": False}
+    await db.products.update_one({"id": product_id}, {"$inc": {"cart_add_count": 1}})
+    if prod.get("seller_id"):
+        await db.analytics_events.insert_one(
+            {
+                "type": "cart_add",
+                "product_id": product_id,
+                "seller_id": prod["seller_id"],
+                "at": now_utc(),
+            }
+        )
     return {"ok": True}
 
 
@@ -615,6 +643,101 @@ async def seller_analytics(seller=Depends(get_current_user)):
         },
         "top_by_views": top_by_views,
         "top_by_sold": top_by_sold,
+    }
+
+
+@router.get("/seller/analytics/timeseries")
+async def seller_analytics_timeseries(
+    days: int = 7,
+    seller=Depends(get_current_user),
+):
+    """Per-day buckets of views / cart-adds / sold / revenue for this seller.
+
+    Returns the last `days` calendar days (inclusive of today) in UTC.
+    Supported values: 7 or 30. Larger values are clamped to 30.
+    """
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+
+    from datetime import datetime, timedelta, timezone
+
+    days = max(1, min(int(days), 30))
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start = today - timedelta(days=days - 1)
+
+    # 1) Views / cart-adds from analytics_events
+    pipeline = [
+        {"$match": {"seller_id": seller["id"], "at": {"$gte": start}}},
+        {
+            "$group": {
+                "_id": {
+                    "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$at"}},
+                    "type": "$type",
+                },
+                "count": {"$sum": 1},
+            }
+        },
+    ]
+    by_day_type: dict[str, dict[str, int]] = {}
+    async for row in db.analytics_events.aggregate(pipeline):
+        d = row["_id"]["date"]
+        t = row["_id"]["type"]
+        by_day_type.setdefault(d, {})[t] = int(row["count"])
+
+    # 2) Sold / revenue from paid orders (use paid_at when present, else created_at)
+    orders_cursor = db.orders.find(
+        {
+            "items.seller_id": seller["id"],
+            "payment_status": "paid",
+            "status": {"$nin": ["cancelled", "refunded"]},
+            "$or": [
+                {"paid_at": {"$gte": start}},
+                {"$and": [{"paid_at": None}, {"created_at": {"$gte": start}}]},
+                {"paid_at": {"$exists": False}, "created_at": {"$gte": start}},
+            ],
+        },
+        {"_id": 0, "items": 1, "paid_at": 1, "created_at": 1},
+    )
+    sold_by_day: dict[str, dict[str, float]] = {}
+    async for o in orders_cursor:
+        when = o.get("paid_at") or o.get("created_at")
+        if not when:
+            continue
+        if isinstance(when, datetime) and when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if when < start:
+            continue
+        d = when.strftime("%Y-%m-%d")
+        bucket = sold_by_day.setdefault(d, {"sold": 0, "revenue": 0.0})
+        for it in o.get("items", []):
+            if it.get("seller_id") != seller["id"]:
+                continue
+            qty = int(it.get("quantity", 0))
+            bucket["sold"] += qty
+            bucket["revenue"] += float(it.get("price_nzd", 0)) * qty
+
+    # 3) Stitch per-day buckets for the whole range (zero-filled).
+    buckets: list[dict] = []
+    for i in range(days):
+        d = start + timedelta(days=i)
+        key = d.strftime("%Y-%m-%d")
+        ev = by_day_type.get(key, {})
+        sb = sold_by_day.get(key, {"sold": 0, "revenue": 0.0})
+        buckets.append(
+            {
+                "date": key,
+                "views": int(ev.get("view", 0)),
+                "cart_adds": int(ev.get("cart_add", 0)),
+                "sold": int(sb["sold"]),
+                "revenue_nzd": round(float(sb["revenue"]), 2),
+            }
+        )
+
+    return {
+        "days": days,
+        "start": start.isoformat(),
+        "end": today.isoformat(),
+        "buckets": buckets,
     }
 
 

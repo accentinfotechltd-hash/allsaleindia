@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { TimeseriesChart, type Metric } from "@/src/components/TimeseriesChart";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -57,20 +58,39 @@ type Data = {
   top_by_sold: ListingRow[];
 };
 
+type Timeseries = {
+  days: number;
+  buckets: { date: string; views: number; cart_adds: number; sold: number; revenue_nzd: number }[];
+};
+
+const METRICS: { key: Metric; label: string }[] = [
+  { key: "views", label: "Views" },
+  { key: "cart_adds", label: "Carts" },
+  { key: "sold", label: "Sold" },
+  { key: "revenue_nzd", label: "Revenue" },
+];
+
 export default function SellerAnalyticsScreen() {
   const router = useRouter();
   const [data, setData] = useState<Data | null>(null);
+  const [series, setSeries] = useState<Timeseries | null>(null);
+  const [days, setDays] = useState<7 | 30>(7);
+  const [metric, setMetric] = useState<Metric>("views");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const d = await api<Data>("/seller/analytics");
+      const [d, ts] = await Promise.all([
+        api<Data>("/seller/analytics"),
+        api<Timeseries>(`/seller/analytics/timeseries?days=${days}`),
+      ]);
       setData(d);
+      setSeries(ts);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [days]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -127,6 +147,46 @@ export default function SellerAnalyticsScreen() {
                 </Text>
               </View>
 
+              {/* Range + metric toggle + chart */}
+              <View style={styles.rangeRow}>
+                {[7, 30].map((d) => {
+                  const active = days === d;
+                  return (
+                    <Pressable
+                      key={d}
+                      testID={`range-${d}d`}
+                      onPress={() => setDays(d as 7 | 30)}
+                      style={[styles.rangePill, active && styles.rangePillActive]}
+                    >
+                      <Text style={[styles.rangeText, active && styles.rangeTextActive]}>
+                        {d} days
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+                <View style={{ flex: 1 }} />
+              </View>
+              <View style={styles.metricRow}>
+                {METRICS.map((m) => {
+                  const active = m.key === metric;
+                  return (
+                    <Pressable
+                      key={m.key}
+                      testID={`metric-${m.key}`}
+                      onPress={() => setMetric(m.key)}
+                      style={[styles.metricChip, active && styles.metricChipActive]}
+                    >
+                      <Text style={[styles.metricChipText, active && styles.metricChipTextActive]}>
+                        {m.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              {series ? (
+                <TimeseriesChart buckets={series.buckets} metric={metric} />
+              ) : null}
+
               {/* Top 5 by views */}
               {data.top_by_views.length > 0 ? (
                 <View style={styles.section}>
@@ -165,10 +225,10 @@ export default function SellerAnalyticsScreen() {
                 <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
                 <Text style={styles.rowPrice}>{formatNZD(item.price_nzd)} · stock {item.stock_count}</Text>
                 <View style={styles.metricsRow}>
-                  <Metric label="Views" value={item.views} />
-                  <Metric label="Carts" value={item.cart_adds} />
-                  <Metric label="Sold" value={item.sold} />
-                  <Metric label="Conv" value={`${item.conversion_pct}%`} highlight />
+                  <MetricCell label="Views" value={item.views} />
+                  <MetricCell label="Carts" value={item.cart_adds} />
+                  <MetricCell label="Sold" value={item.sold} />
+                  <MetricCell label="Conv" value={`${item.conversion_pct}%`} highlight />
                 </View>
               </View>
             </Pressable>
@@ -196,7 +256,7 @@ function SummaryCard({ icon, label, value }: { icon: React.ReactNode; label: str
   );
 }
 
-function Metric({ label, value, highlight }: { label: string; value: number | string; highlight?: boolean }) {
+function MetricCell({ label, value, highlight }: { label: string; value: number | string; highlight?: boolean }) {
   return (
     <View style={styles.metric}>
       <Text style={styles.metricValue} testID={`metric-${label.toLowerCase()}`}>
@@ -237,6 +297,30 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 20, color: colors.text, fontWeight: "800", marginTop: 4, letterSpacing: -0.3 },
   conversionPill: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: radius.md, backgroundColor: colors.successSoft, marginTop: spacing.md },
   conversionText: { color: colors.success, fontSize: 12, flex: 1 },
+  rangeRow: { flexDirection: "row", gap: 8, marginTop: spacing.lg },
+  rangePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  rangePillActive: { backgroundColor: colors.text, borderColor: colors.text },
+  rangeText: { fontSize: 12, color: colors.text, fontWeight: "700" },
+  rangeTextActive: { color: "#fff" },
+  metricRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: spacing.sm },
+  metricChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  metricChipActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  metricChipText: { fontSize: 12, color: colors.textMuted, fontWeight: "700" },
+  metricChipTextActive: { color: colors.primary },
   section: { marginTop: spacing.xl },
   sectionTitle: { fontSize: 14, color: colors.text, fontWeight: "800", letterSpacing: -0.2, marginBottom: spacing.sm },
   topRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
