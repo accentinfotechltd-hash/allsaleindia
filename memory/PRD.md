@@ -87,11 +87,34 @@ with INR reference, shipping to NZ).
 - Frontend: seller dashboard now has Orders + Payouts quick cards;
   `/seller/orders` and `/seller/payouts` screens with rich summary card.
 
+## Iteration 5 — Indian business types (DONE)
+Seller signup/upgrade now requires picking one of the 7 Indian business
+entity types. Validation is conditional on the type:
+
+| Type | Key | MCA? | Required ID |
+| --- | --- | --- | --- |
+| Sole Proprietorship | `sole_proprietorship` | No | – |
+| Partnership Firm | `partnership_firm` | No | – |
+| LLP | `llp` | Yes | LLPIN (`AAA-1234` / `AAA1234`) |
+| Private Limited | `private_limited` | Yes | CIN (21 chars) |
+| Public Limited | `public_limited` | Yes | CIN (21 chars) |
+| OPC | `opc` | Yes | CIN (21 chars) |
+| Section 8 | `section_8` | Yes | CIN (21 chars) |
+
+GSTIN + PAN remain required for all types (PAN must equal GSTIN[2:12]).
+Backend: 400 if an MCA id is supplied for a non-MCA type, missing for an
+MCA-required type, or wrong format. Unknown business_type returns 400.
+
+Frontend `BusinessFields` now starts with a horizontal chip picker
+(7 chips) and a hint box describing the active type. The CIN / LLPIN
+input is rendered conditionally; non-MCA types show no MCA ID input at
+all.
+
 ### Test data shortcuts
-- Valid sample docs: GSTIN `27ABCDE1234F1Z5`, PAN `ABCDE1234F`,
-  CIN `U74999MH2020PTC123456`, pincode `400001`.
-- Admin secret: `ADMIN_SECRET=allsale-admin-dev-secret` (in backend `.env`).
-- Platform commission: `PLATFORM_COMMISSION = 0.15` (15%).
+- Pvt/Public/OPC/Section 8 sample: GSTIN `27ABCDE1234F1Z5`, PAN
+  `ABCDE1234F`, CIN `U74999MH2020PTC123456`.
+- LLP sample: GSTIN `27ACDEF1234F1Z5`, PAN `ACDEF1234F`,
+  LLPIN `AAB-1234` (or `AAB1234`).
 
 ## Smart business enhancement
 Free-shipping unlock progress bar on cart — encourages users to add more items
