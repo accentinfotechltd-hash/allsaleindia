@@ -227,6 +227,21 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Iter-12: Edit listings + swipeable multi-image gallery. (1) New
+      PATCH /api/seller/products/{id} for partial-edit of a listing the
+      authenticated seller owns. Supports name/description/category/price/
+      images/colors/sizes/stock_count. Empty body = no-op. Replacing images
+      re-runs the at-least-one-photo guard and per-image size cap.
+      stock_count → auto-flips in_stock. Cross-seller PATCH attempts → 404.
+      (2) Product detail screen now renders a horizontal pager (testID
+      product-gallery) over `product.images`, with paging-snap, position
+      dots, and "n / total" badge — falls back to the single image when
+      legacy listings only have `image`. 8 new pytest cases. Backend
+      suite: 162/163 pass (1 pre-existing asyncio teardown flake unrelated
+      to my changes — passes in isolation).
+
+  - agent: "main"
+    message: |
       Iter-11: GSTIN-optional sole-prop sellers + multi-photo upload + test
       fixture hardening. (1) `gstin` is now OPTIONAL in SellerBusiness when
       business_type='sole_proprietorship'; all other entity types still

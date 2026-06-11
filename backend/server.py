@@ -1359,6 +1359,88 @@ async def delete_listing(product_id: str, seller=Depends(require_verified_seller
     return {"deleted": True}
 
 
+class ListingUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    price_nzd: Optional[float] = Field(default=None, gt=0)
+    images: Optional[List[str]] = None
+    colors: Optional[List[str]] = None
+    sizes: Optional[List[str]] = None
+    stock_count: Optional[int] = Field(default=None, ge=0)
+
+
+@api.patch("/seller/products/{product_id}", response_model=Product)
+async def update_listing(
+    product_id: str,
+    body: ListingUpdate,
+    seller=Depends(require_verified_seller),
+):
+    """Partial update of a listing the current seller owns. Only the fields
+    set on the body are touched; other fields are left as-is."""
+    existing = await db.products.find_one(
+        {"id": product_id, "seller_id": seller["id"]}, {"_id": 0}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+
+    update: dict = {}
+    if body.name is not None:
+        update["name"] = body.name.strip()
+    if body.description is not None:
+        update["description"] = body.description.strip()
+    if body.category is not None:
+        update["category"] = body.category.strip()
+    if body.price_nzd is not None:
+        update["price_nzd"] = float(body.price_nzd)
+        update["price_inr"] = round(body.price_nzd * INR_PER_NZD, 0)
+    if body.images is not None:
+        imgs = [s.strip() for s in body.images if s and s.strip()][:10]
+        if not imgs:
+            raise HTTPException(status_code=400, detail="At least one product photo is required")
+        for s in imgs:
+            if s.startswith("data:") and len(s) > 2_400_000:
+                raise HTTPException(
+                    status_code=413,
+                    detail="One of the photos is too large (please use images under ~1.5 MB).",
+                )
+        update["images"] = imgs
+        update["image"] = imgs[0]
+
+    def _clean(values: List[str], limit: int) -> List[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for v in values or []:
+            t = (v or "").strip()
+            if not t:
+                continue
+            k = t.lower()
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(t)
+            if len(out) >= limit:
+                break
+        return out
+
+    if body.colors is not None:
+        update["colors"] = _clean(body.colors, 10)
+    if body.sizes is not None:
+        update["sizes"] = _clean(body.sizes, 12)
+    if body.stock_count is not None:
+        update["stock_count"] = int(body.stock_count)
+        update["in_stock"] = int(body.stock_count) > 0
+
+    if not update:
+        # No-op patch — return current product as-is.
+        return Product(**{k: v for k, v in existing.items() if k != "created_at"})
+
+    update["updated_at"] = now_utc()
+    await db.products.update_one({"id": product_id}, {"$set": update})
+    merged = {**existing, **update}
+    return Product(**{k: v for k, v in merged.items() if k not in {"created_at", "updated_at"}})
+
+
 @api.get("/seller/orders", response_model=List[SellerOrder])
 async def list_seller_orders(seller=Depends(get_current_user)):
     """Orders containing at least one item this seller owns.

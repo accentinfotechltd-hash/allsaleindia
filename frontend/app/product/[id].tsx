@@ -1,16 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Globe2, PackageX, Ruler, ShieldCheck, ShoppingBag, Star, Truck } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Dimensions, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicator, Image, Pressable, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import SizeGuideModal from "@/src/components/SizeGuideModal";
@@ -28,6 +19,7 @@ type Product = {
   price_nzd: number;
   price_inr: number;
   image: string;
+  images?: string[];
   rating: number;
   reviews_count: number;
   shipping_days_min: number;
@@ -65,6 +57,21 @@ export default function ProductDetail() {
     })();
   }, [id]);
 
+  const [galleryIdx, setGalleryIdx] = useState(0);
+  const galleryWidth = Dimensions.get("window").width;
+  const gallery = useMemo(() => {
+    const imgs = (product?.images && product.images.length > 0)
+      ? product.images
+      : product?.image
+        ? [product.image]
+        : [];
+    return imgs.slice(0, 10);
+  }, [product]);
+
+  const onGalleryScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const x = e.nativeEvent.contentOffset.x;
+    setGalleryIdx(Math.round(x / Math.max(1, galleryWidth)));
+  };
   const hasSizeChart = useMemo(
     () => product ? chartsForCategory(product.category, product.subcategory).length > 0 : false,
     [product]
@@ -107,7 +114,40 @@ export default function ProductDetail() {
     <View style={styles.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
         <View style={styles.heroWrap}>
-          <Image source={{ uri: product.image }} style={styles.hero} />
+          <ScrollView
+            testID="product-gallery"
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={onGalleryScroll}
+            style={{ width: galleryWidth }}
+          >
+            {gallery.map((uri, i) => (
+              <Image
+                key={i}
+                source={{ uri }}
+                style={[styles.hero, { width: galleryWidth }]}
+                testID={`product-gallery-img-${i}`}
+              />
+            ))}
+          </ScrollView>
+          {gallery.length > 1 ? (
+            <View style={styles.heroDots}>
+              {gallery.map((_, i) => (
+                <View
+                  key={i}
+                  style={[styles.heroDot, i === galleryIdx && styles.heroDotActive]}
+                />
+              ))}
+            </View>
+          ) : null}
+          {gallery.length > 1 ? (
+            <View style={styles.heroCount} testID="product-gallery-count">
+              <Text style={styles.heroCountText}>
+                {galleryIdx + 1} / {gallery.length}
+              </Text>
+            </View>
+          ) : null}
           <SafeAreaView edges={["top"]} style={styles.heroOverlay}>
             <Pressable
               testID="product-back-btn"
@@ -506,4 +546,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   standaloneSizeGuideText: { color: colors.primary, fontWeight: "800", fontSize: 13 },
+  heroDots: {
+    position: "absolute",
+    bottom: 16,
+    alignSelf: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  heroDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.5)",
+  },
+  heroDotActive: {
+    backgroundColor: "#fff",
+    width: 18,
+  },
+  heroCount: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(0,0,0,0.55)",
+  },
+  heroCountText: { color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 0.4 },
 });
