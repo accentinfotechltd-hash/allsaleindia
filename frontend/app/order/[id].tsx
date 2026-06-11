@@ -142,13 +142,13 @@ export default function OrderDetail() {
 
   const canCancel = useMemo(() => {
     if (!order) return false;
+    // Cancel is allowed any time before the parcel ships from India.
     if (["cancelled", "refunded", "shipped", "out_for_delivery", "delivered"].includes(order.status)) {
       return false;
     }
     if (order.payment_status !== "paid") return false;
-    if (!order.cancellable_until) return false;
-    return msLeft > 0;
-  }, [order, msLeft]);
+    return true;
+  }, [order]);
 
   const onCancel = useCallback(async () => {
     if (!order) return;
@@ -255,8 +255,12 @@ export default function OrderDetail() {
               <Text style={styles.cancelWindowTitle}>Free cancellation available</Text>
             </View>
             <Text style={styles.cancelWindowBody}>
-              You can cancel this order for a full refund within the next{" "}
-              <Text style={styles.cancelCountdown}>{countdown}</Text>.
+              Your parcel hasn&apos;t shipped from India yet. You can still cancel for a full refund.
+              {msLeft > 0 ? (
+                <Text>
+                  {" "}Estimated dispatch in <Text style={styles.cancelCountdown}>{countdown}</Text>.
+                </Text>
+              ) : null}
             </Text>
             <Pressable
               testID="order-cancel-btn"

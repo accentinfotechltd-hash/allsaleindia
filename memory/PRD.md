@@ -204,3 +204,13 @@ Test suite: 162 backend tests pass (up from 158).
 - Return request screen: new "Add video" tile in the proof grid (uses `expo-image-picker` with `MediaTypeOptions.Videos` and `videoMaxDuration: 30`). Shows duration limit hint, upload spinner, and a remove button. Uploads via the new `/api/uploads/video` endpoint and stores Cloudinary URL.
 - Seller-side returns view: video proof renders as a dark tile with film + play badge; tap opens the Cloudinary URL.
 - 164 backend tests pass (up from 162).
+
+## Cancellation policy relaxed (June 2026)
+Buyers were reporting that the Cancel option vanished after 12 hours even though the parcel hadn't shipped from India yet.
+
+- **New rule**: cancel is allowed any time the order status is `paid` / `pending`. Once it transitions to `shipped` / `out_for_delivery` / `delivered`, the buyer must use the returns flow.
+- Backend (`routers/orders.py`): removed the `cancellable_until` time check; only blocks on status transitions and unconfirmed payment.
+- Frontend order detail (`/order/[id]`): `canCancel` no longer depends on the 12-hour countdown. Banner copy updated to "Your parcel hasn't shipped from India yet" and continues showing the optional estimated-dispatch countdown when available.
+- Orders list (`/orders`): inline "Cancel order · before dispatch" link shows on every pre-shipped paid order, not just for 12 hours.
+- Test `test_cancel_outside_window_rejected` renamed to `test_cancel_outside_window_now_allowed` and inverted — verifies that a `cancellable_until` set in the past no longer prevents cancellation.
+- 164 backend tests still pass.

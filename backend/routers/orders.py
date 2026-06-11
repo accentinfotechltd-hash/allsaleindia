@@ -27,7 +27,12 @@ async def cancel_order(
     body: CancelOrderRequest,
     current=Depends(get_current_user),
 ):
-    """Buyer cancels an order within the 12-hour window."""
+    """Buyer cancels an order any time before it ships from India.
+
+    Cancellation is allowed while the order status is ``paid`` or
+    ``pending``. Once it transitions to ``shipped`` / ``out_for_delivery`` /
+    ``delivered`` the buyer must use the returns flow instead.
+    """
     order = await db.orders.find_one(
         {"id": order_id, "user_id": current["id"]}, {"_id": 0}
     )
@@ -43,18 +48,11 @@ async def cancel_order(
             detail="Order has already been dispatched and cannot be cancelled. Please request a return after delivery.",
         )
 
-    cancellable_until = order.get("cancellable_until")
-    if not cancellable_until:
+    # Payment must be confirmed for a refund path to exist.
+    if order.get("payment_status") not in {"paid", "refund_pending"}:
         raise HTTPException(
             status_code=400,
             detail="This order cannot be cancelled yet (payment not confirmed).",
-        )
-    if isinstance(cancellable_until, datetime) and cancellable_until.tzinfo is None:
-        cancellable_until = cancellable_until.replace(tzinfo=timezone.utc)
-    if now_utc() > cancellable_until:
-        raise HTTPException(
-            status_code=400,
-            detail="The 12-hour cancellation window has passed. Please request a return after delivery.",
         )
 
     refund_id, refund_amount = await issue_stripe_refund(order)

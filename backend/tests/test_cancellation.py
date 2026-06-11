@@ -105,11 +105,13 @@ def test_cancel_within_window_succeeds(api_client, base_url, fresh_user):
     assert body["cancel_reason"] == "Ordered by mistake"
 
 
-def test_cancel_outside_window_rejected(api_client, base_url, fresh_user):
+def test_cancel_outside_window_now_allowed(api_client, base_url, fresh_user):
+    """After relaxing the 12-hour rule, cancel is allowed any time the order
+    is still pre-shipped, even if `cancellable_until` is in the past."""
     headers = fresh_user["headers"]
     order_id = _make_paid_order(api_client, base_url, headers, fresh_user["user_id"])
 
-    # Expire the window directly in Mongo
+    # Move cancellable_until into the past — should still succeed.
     import asyncio
     from datetime import datetime, timezone, timedelta
 
@@ -118,7 +120,7 @@ def test_cancel_outside_window_rejected(api_client, base_url, fresh_user):
         db = cli[DB_NAME]
         await db.orders.update_one(
             {"id": order_id},
-            {"$set": {"cancellable_until": datetime.now(timezone.utc) - timedelta(minutes=1)}},
+            {"$set": {"cancellable_until": datetime.now(timezone.utc) - timedelta(hours=48)}},
         )
         cli.close()
 
@@ -129,8 +131,8 @@ def test_cancel_outside_window_rejected(api_client, base_url, fresh_user):
         headers=headers,
         json={},
     )
-    assert r.status_code == 400, r.text
-    assert "12-hour" in r.json()["detail"] or "cancellation" in r.json()["detail"].lower()
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "cancelled"
 
 
 def test_cannot_cancel_shipped_order(api_client, base_url, fresh_user):

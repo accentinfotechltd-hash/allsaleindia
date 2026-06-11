@@ -149,14 +149,11 @@ export default function Orders() {
                     <Text style={styles.returnLinkText}>Request return</Text>
                   </Pressable>
                 ) : (() => {
-                  // Show "Cancel order" link while still inside the 12-hour window.
-                  const undisp = ["paid", "pending"].includes(item.status);
-                  const cu = item.cancellable_until ? new Date(item.cancellable_until) : null;
-                  const canCancel = undisp && cu instanceof Date && !isNaN(cu.getTime()) && cu.getTime() > Date.now();
+                  // Cancel allowed while order is still pre-shipped.
+                  const canCancel =
+                    ["paid", "pending"].includes(item.status) &&
+                    item.payment_status === "paid";
                   if (!canCancel) return null;
-                  // Mins left for a friendly hint
-                  const mins = Math.max(0, Math.floor(((cu as Date).getTime() - Date.now()) / 60000));
-                  const hint = mins >= 60 ? `${Math.floor(mins / 60)}h left` : `${mins}m left`;
                   return (
                     <Pressable
                       testID={`orders-cancel-link-${item.id}`}
@@ -168,7 +165,7 @@ export default function Orders() {
                     >
                       <XCircle size={13} color={colors.error} />
                       <Text style={styles.cancelLinkText}>Cancel order</Text>
-                      <Text style={styles.cancelHint}> · {hint}</Text>
+                      <Text style={styles.cancelHint}> · before dispatch</Text>
                     </Pressable>
                   );
                 })()}
