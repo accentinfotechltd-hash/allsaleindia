@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { CheckCircle2, ChevronLeft, Plus, Store, Trash2 } from "lucide-react-native";
+import { CheckCircle2, ChevronLeft, Package, Plus, Store, Trash2, Wallet } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -114,6 +114,31 @@ export default function SellerDashboard() {
                 </Text>
               </View>
 
+              <View style={styles.quickActions}>
+                <Pressable
+                  testID="seller-orders-link"
+                  onPress={() => router.push("/seller/orders")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <Package size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Orders</Text>
+                  <Text style={styles.quickSubtitle}>Buyer purchases of your listings</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-payouts-link"
+                  onPress={() => router.push("/seller/payouts")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <Wallet size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Payouts</Text>
+                  <Text style={styles.quickSubtitle}>Earnings after 15% platform fee</Text>
+                </Pressable>
+              </View>
+
               <View style={styles.listingsHeader}>
                 <Text style={styles.sectionTitle}>My listings ({listings.length})</Text>
               </View>
@@ -212,6 +237,26 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   verifiedText: { color: colors.success, fontSize: 13, fontWeight: "700", flex: 1 },
+  quickActions: { flexDirection: "row", gap: 10, marginTop: spacing.md },
+  quickCard: {
+    flex: 1,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+    gap: 6,
+  },
+  quickIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quickTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  quickSubtitle: { fontSize: 11, color: colors.textMuted, lineHeight: 15 },
   listingsHeader: { marginTop: spacing.xl, marginBottom: spacing.sm },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
   emptyList: {

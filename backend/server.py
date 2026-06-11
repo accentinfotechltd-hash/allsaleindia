@@ -57,6 +57,7 @@ INR_PER_NZD = 51.0
 # Shipping rule: free over NZD 100, else NZD 12 flat.
 FREE_SHIPPING_THRESHOLD_NZD = 100.0
 FLAT_SHIPPING_NZD = 12.0
+PLATFORM_COMMISSION = 0.15  # 15% of gross to the platform
 
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
@@ -217,6 +218,49 @@ class OrderItem(BaseModel):
     image: str
     price_nzd: float
     quantity: int
+    seller_id: Optional[str] = None
+    seller_name: Optional[str] = None
+
+
+class Payout(BaseModel):
+    id: str
+    order_id: str
+    seller_id: str
+    company_name: str
+    items_count: int
+    gross_nzd: float
+    commission_nzd: float
+    net_payable_nzd: float
+    status: str  # pending | paid_out
+    created_at: datetime
+    paid_out_at: Optional[datetime] = None
+
+
+class SellerOrderItem(BaseModel):
+    product_id: str
+    name: str
+    image: str
+    price_nzd: float
+    quantity: int
+
+
+class SellerOrder(BaseModel):
+    order_id: str
+    buyer_name: str
+    buyer_city: str
+    buyer_region: str
+    items: List[SellerOrderItem]
+    seller_subtotal_nzd: float
+    status: str
+    created_at: datetime
+    estimated_delivery: str
+
+
+class SellerPayoutSummary(BaseModel):
+    payouts: List[Payout]
+    lifetime_earnings_nzd: float
+    pending_nzd: float
+    paid_out_nzd: float
 
 
 class Order(BaseModel):
@@ -794,6 +838,81 @@ async def delete_listing(product_id: str, seller=Depends(require_verified_seller
     return {"deleted": True}
 
 
+@api.get("/seller/orders", response_model=List[SellerOrder])
+async def list_seller_orders(seller=Depends(get_current_user)):
+    """Orders containing at least one item this seller owns.
+
+    Each order is filtered to only the seller's items so other sellers in the
+    same order are not exposed (privacy + simplicity).
+    """
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    cursor = db.orders.find(
+        {"items.seller_id": seller["id"]},
+        {"_id": 0},
+    ).sort("created_at", -1)
+    out: list[SellerOrder] = []
+    async for order in cursor:
+        my_items = [it for it in order.get("items", []) if it.get("seller_id") == seller["id"]]
+        if not my_items:
+            continue
+        subtotal = round(sum(it["price_nzd"] * it["quantity"] for it in my_items), 2)
+        addr = order.get("address") or {}
+        out.append(
+            SellerOrder(
+                order_id=order["id"],
+                buyer_name=addr.get("full_name", "Customer"),
+                buyer_city=addr.get("city", ""),
+                buyer_region=addr.get("region", ""),
+                items=[SellerOrderItem(**{k: it[k] for k in ("product_id", "name", "image", "price_nzd", "quantity")}) for it in my_items],
+                seller_subtotal_nzd=subtotal,
+                status=order.get("status", "pending"),
+                created_at=order.get("created_at"),
+                estimated_delivery=order.get("estimated_delivery", ""),
+            )
+        )
+    return out
+
+
+@api.get("/seller/payouts", response_model=SellerPayoutSummary)
+async def list_seller_payouts(seller=Depends(get_current_user)):
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    cursor = db.payouts.find({"seller_id": seller["id"]}, {"_id": 0}).sort("created_at", -1)
+    payouts = [Payout(**p) async for p in cursor]
+    pending = round(sum(p.net_payable_nzd for p in payouts if p.status == "pending"), 2)
+    paid_out = round(sum(p.net_payable_nzd for p in payouts if p.status == "paid_out"), 2)
+    return SellerPayoutSummary(
+        payouts=payouts,
+        lifetime_earnings_nzd=round(pending + paid_out, 2),
+        pending_nzd=pending,
+        paid_out_nzd=paid_out,
+    )
+
+
+@api.post("/admin/payouts/{payout_id}/mark-paid", response_model=Payout)
+async def admin_mark_payout_paid(
+    payout_id: str,
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    if x_admin_secret != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    po = await db.payouts.find_one({"id": payout_id}, {"_id": 0})
+    if not po:
+        raise HTTPException(status_code=404, detail="Payout not found")
+    if po.get("status") == "paid_out":
+        return Payout(**po)
+    await db.payouts.update_one(
+        {"id": payout_id},
+        {"$set": {"status": "paid_out", "paid_out_at": now_utc()}},
+    )
+    fresh = await db.payouts.find_one({"id": payout_id}, {"_id": 0})
+    return Payout(**fresh)
+
+
+
+
+
 @api.post("/admin/sellers/{user_id}/approve")
 async def admin_approve_seller(
     user_id: str,
@@ -824,6 +943,58 @@ def get_stripe(request_origin: str) -> StripeCheckout:
     return StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
 
 
+async def create_payouts_for_order(order_id: str) -> None:
+    """Idempotently materialize one Payout per seller present in the order.
+
+    Items without a `seller_id` are platform-owned (seeded catalog) and
+    generate no payout. Safe to call multiple times — duplicate (order_id,
+    seller_id) inserts are absorbed.
+    """
+    existing = await db.payouts.find_one({"order_id": order_id}, {"_id": 0})
+    if existing:
+        return
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        return
+    by_seller: dict[str, dict] = {}
+    for it in order.get("items", []):
+        sid = it.get("seller_id")
+        if not sid:
+            continue
+        bucket = by_seller.setdefault(
+            sid,
+            {
+                "seller_name": it.get("seller_name") or "Seller",
+                "items_count": 0,
+                "gross": 0.0,
+            },
+        )
+        bucket["items_count"] += int(it["quantity"])
+        bucket["gross"] += float(it["price_nzd"]) * int(it["quantity"])
+    docs = []
+    for sid, agg in by_seller.items():
+        gross = round(agg["gross"], 2)
+        commission = round(gross * PLATFORM_COMMISSION, 2)
+        net = round(gross - commission, 2)
+        docs.append(
+            {
+                "id": f"po_{uuid.uuid4().hex[:12]}",
+                "order_id": order_id,
+                "seller_id": sid,
+                "company_name": agg["seller_name"],
+                "items_count": agg["items_count"],
+                "gross_nzd": gross,
+                "commission_nzd": commission,
+                "net_payable_nzd": net,
+                "status": "pending",
+                "created_at": now_utc(),
+                "paid_out_at": None,
+            }
+        )
+    if docs:
+        await db.payouts.insert_many(docs)
+
+
 @api.post("/checkout/session")
 async def create_checkout_session(body: CheckoutRequest, current=Depends(get_current_user)):
     cart = await hydrate_cart(current["id"])
@@ -831,16 +1002,23 @@ async def create_checkout_session(body: CheckoutRequest, current=Depends(get_cur
         raise HTTPException(status_code=400, detail="Cart is empty")
 
     order_id = f"order_{uuid.uuid4().hex[:12]}"
-    order_items = [
-        OrderItem(
-            product_id=it["product_id"],
-            name=it["name"],
-            image=it["image"],
-            price_nzd=it["price_nzd"],
-            quantity=it["quantity"],
+    # Enrich each item with seller_id/seller_name from the product doc so we can
+    # later route orders to sellers and create payouts even if the product is
+    # later edited or deleted.
+    order_items: list[OrderItem] = []
+    for it in cart.items:
+        prod = await db.products.find_one({"id": it["product_id"]}, {"_id": 0})
+        order_items.append(
+            OrderItem(
+                product_id=it["product_id"],
+                name=it["name"],
+                image=it["image"],
+                price_nzd=it["price_nzd"],
+                quantity=it["quantity"],
+                seller_id=(prod or {}).get("seller_id"),
+                seller_name=(prod or {}).get("seller_name"),
+            )
         )
-        for it in cart.items
-    ]
 
     success_url = f"{body.origin_url.rstrip('/')}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}"
     cancel_url = f"{body.origin_url.rstrip('/')}/checkout/cancel"
@@ -910,6 +1088,7 @@ async def checkout_status(session_id: str, request: Request, current=Depends(get
                 {"id": tx["order_id"]},
                 {"$set": {"payment_status": "paid", "status": "paid"}},
             )
+            await create_payouts_for_order(tx["order_id"])
             # Clear cart on successful payment.
             await db.carts.update_one(
                 {"user_id": current["id"]},
@@ -949,6 +1128,7 @@ async def stripe_webhook(request: Request):
                 {"id": tx["order_id"]},
                 {"$set": {"payment_status": "paid", "status": "paid"}},
             )
+            await create_payouts_for_order(tx["order_id"])
             await db.carts.update_one(
                 {"user_id": tx["user_id"]},
                 {"$set": {"items": [], "updated_at": now_utc()}},
@@ -1009,6 +1189,10 @@ async def on_startup():
     await db.sellers.create_index("user_id", unique=True)
     await db.sellers.create_index("gstin", unique=True)
     await db.products.create_index("seller_id")
+    await db.payouts.create_index("id", unique=True)
+    await db.payouts.create_index([("seller_id", 1), ("status", 1)])
+    await db.payouts.create_index([("order_id", 1), ("seller_id", 1)], unique=True)
+    await db.orders.create_index("items.seller_id")
     await seed_products()
 
 

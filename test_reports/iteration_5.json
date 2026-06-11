@@ -1,0 +1,42 @@
+{
+  "summary": "Iteration 5 (per-seller order routing + payout tracking) — backend 52/54 pytest pass; both failures are pre-existing test-data contamination, NOT iter5 regressions. Frontend 100% pass for the new flows. All 6 iter5-specific backend tests in tests/test_seller_payouts.py PASS: (1) /api/seller/orders 403 for non-seller, (2) /api/seller/orders [] for new seller, (3) /api/seller/orders correctly filters per-seller — A only sees A's items (subtotal 30.0), B only sees B's items (subtotal 20.0), other sellers' items NOT exposed inside the same order, (4) /api/seller/payouts 403 for non-seller, (5) /api/seller/payouts empty-summary {payouts:[], lifetime:0, pending:0, paid_out:0} for new seller, (6) create_payouts_for_order: drove a paid 2-seller order — produced exactly 1 payout per seller with gross 100/60, commission 15/9 (15%), net 85/51, status='pending'; second call is a no-op (still 2 payouts). Admin mark-paid: 403 no-secret, 403 wrong-secret, 404 unknown-id, 200 right-secret flips status='paid_out' and sets paid_out_at; second call returns 200 with same payout id and status (idempotent). All 44 iter4-area tests still pass on isolated reruns. Frontend (390x844): dashboard shows seller-verified-badge AND both seller-orders-link + seller-payouts-link quick-action cards alongside the existing Add-listing FAB. /seller/orders: 'No orders yet' empty state visible, seller-orders-back works (returns to dashboard with badge). /seller/payouts: hero card with payouts-lifetime ($0.00), stats row with payouts-pending ($0.00) + payouts-paid ($0.00), 'No payouts yet' empty state, seller-payouts-back works. No deprecated Expo packages. No React Native red-screen errors.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/products", "issue": "test_products.py::test_list_products_returns_seeded expects exactly 9 seeded products but assertion fails because the unfiltered /api/products endpoint returns seeded + all seller-created listings from previous test runs (saw 10 then 18). Pre-existing data-contamination problem; not introduced by iter5. Either the test should query a no-seller_id filter or seller listings should be cleaned up between runs."},
+      {"endpoint": "/api/seller/register", "issue": "test_seller.py::TestSellerRegister::test_duplicate_gstin_returns_409 occasionally flakes when the random GSTIN helper picks a value that already exists in DB from prior runs (passes in isolation). Helper varies only 2 chars of the 15-char GSTIN — entropy is low. Recommend widening randomness or scoping a per-test cleanup."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seller_payouts.py",
+    "/app/backend/tests/test_seller.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Optional: add a `no-seller_id` filter to test_products.py::test_list_products_returns_seeded (or filter the response by `seller_id is None`) so it remains accurate once seller listings exist in the DB.",
+    "Optional: increase entropy in the _gstin() helper in test_seller.py (vary more than the 13th + 15th characters) to keep the duplicate-GSTIN flake rate at zero.",
+    "Optional carry-over from iter 4: extract seller/admin/payout block from server.py (~1200 lines now) into routers/seller.py + routers/admin.py."
+  ],
+  "critical_code_review_comments": [
+    "create_payouts_for_order() is correctly idempotent (first-line `existing = find_one({order_id}); if existing: return`) AND additionally protected by a compound unique index on (order_id, seller_id) — belt-and-braces. Verified directly: second call after first inserts produces no extra docs.",
+    "OrderItem.seller_id/seller_name are snapshotted at /checkout/session time from the product doc, so later edits/deletes to the product don't break payout routing — confirmed in code (server.py L1010-1021) and exercised in test_orders_filtered_per_seller.",
+    "/api/seller/orders correctly hides cross-seller items via `my_items = [it for it in order.items if it.seller_id == seller.id]` then computes seller_subtotal_nzd from `my_items` only — privacy boundary verified by assertion that A's response contains no B product_id and vice versa.",
+    "/api/seller/payouts sums net_payable_nzd (not gross) into lifetime/pending/paid — correct (seller never sees the 15% the platform keeps).",
+    "Admin mark-paid early-returns the same Payout if status is already 'paid_out' (no DB write, no error) — safe to call repeatedly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_seller_payouts.py (NEW — 11 iter5 test cases covering /seller/orders, /seller/payouts, create_payouts_for_order helper, /admin/payouts/{id}/mark-paid)"
+  ],
+  "success_rate": {"backend": "96% (52/54 pytest; 11/11 new iter5 cases pass — the 2 remaining failures are pre-existing test-data contamination, not iter5 functionality)", "frontend": "100% (dashboard quick-actions render, /seller/orders empty state + back nav, /seller/payouts lifetime/pending/paid stats + empty state + back nav all verified at 390x844)"},
+  "seed_data_creation": "Created several TEST_pseller_* / TEST_pbuyer_* / TEST_uiseller* accounts plus a handful of TEST_PA_item / TEST_PB_item listings and seller-payout docs to exercise the full payment→payout pipeline. Leaving the data in place; safe to wipe via the seller tokens. No mutation of seeded catalog products.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter5 changes are isolated to: (a) server.py Payout/SellerOrder/SellerPayoutSummary models, create_payouts_for_order() helper, /seller/orders, /seller/payouts, /admin/payouts/{id}/mark-paid endpoints, the create_payouts_for_order calls inside checkout_status + stripe_webhook on payment_status==paid, and the new mongo indexes (payouts.id unique, payouts(seller_id,status), payouts(order_id,seller_id) unique, orders.items.seller_id); (b) frontend app/seller/orders.tsx + app/seller/payouts.tsx + the two new quick-action Pressables in app/seller/dashboard.tsx. To exercise the paid-state flow without real Stripe payment, set the order's payment_status='paid' directly in Mongo and call create_payouts_for_order(order_id) — both checkout_status (poll) and stripe_webhook (push) call the same idempotent helper. New testIDs: seller-orders-link, seller-payouts-link, seller-orders-back, seller-payouts-back, payouts-lifetime, payouts-pending, payouts-paid, seller-order-row-<id>, payout-row-<id>.",
+  "rca_of_issue": "N/A — no new bugs detected. The 2 failing pre-existing tests are data-state issues that surface only when run as part of the full suite because catalog and seller pollution accumulates; both pass in isolation and they have no functional impact on iter5 work."
+}
