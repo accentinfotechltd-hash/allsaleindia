@@ -286,3 +286,10 @@ Allow buyers from 5 countries (NZ / AU / US / GB / CA) to use one Allsale mobile
 - ProductCard, product detail, cart, and orders list now use `RegionContext.formatPrice()` to show the local currency. ProductCard shows `NZ$xx.xx` reference underneath when not NZD.
 - Cart summary line now says "Total (AUD/USD/GBP/CAD/NZD)" and shows "In NZD" reference when the buyer's currency isn't NZD.
 - Refund / restocking-fee text on order detail intentionally stays in NZD (refunds still settle in NZD — to be revisited if buyer refunds need to be currency-aware later).
+
+## Cancel button always visible (June 2026)
+Buyer report: on mobile, the "Cancel this order" banner sat below the fold and was hard to find.
+
+- Order detail screen (`/app/frontend/app/order/[id].tsx`): when `canCancel` is true, a red pill **"× Cancel"** now renders inside the sticky top bar (right side, where the empty placeholder used to be). Tapping it opens the existing cancel confirmation modal.
+- The detailed `cancelWindowCard` (with copy + countdown) remains in the scroll area for context, but the top-bar pill makes the action discoverable without scrolling on any device size.
+- Pure UI change — no API / data-model changes; all 169 backend tests still pass.

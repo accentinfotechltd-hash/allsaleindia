@@ -203,7 +203,19 @@ export default function OrderDetail() {
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>Order details</Text>
-        <View style={{ width: 40 }} />
+        {canCancel ? (
+          <Pressable
+            testID="order-cancel-topbar-btn"
+            onPress={() => setShowCancel(true)}
+            style={styles.cancelHeaderBtn}
+            hitSlop={8}
+          >
+            <XCircle size={14} color="#fff" />
+            <Text style={styles.cancelHeaderText}>Cancel</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
 
       <ScrollView
@@ -587,6 +599,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: { fontSize: 18, fontWeight: "800", color: colors.text },
+  cancelHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.error,
+  },
+  cancelHeaderText: { color: "#fff", fontSize: 12, fontWeight: "800" },
   headerCard: {
     flexDirection: "row",
     alignItems: "center",
