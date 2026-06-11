@@ -76,6 +76,13 @@ export default function Account() {
             onPress={() => router.push("/orders")}
             testID="account-orders-btn"
           />
+          <Row
+            icon={<RefreshCcw size={18} color={colors.text} />}
+            label="My returns"
+            subtitle="Track refund requests & seller responses"
+            onPress={() => router.push("/returns")}
+            testID="account-returns-btn"
+          />
           {user?.is_seller ? (
             <Row
               icon={<Store size={18} color={colors.primary} />}

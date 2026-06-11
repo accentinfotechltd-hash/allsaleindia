@@ -310,6 +310,33 @@ export default function OrderDetail() {
               <Text style={styles.returnBtnText}>Request return</Text>
             </Pressable>
           </View>
+        ) : !isCancelled ? (
+          // Not delivered yet — show a disabled hint so the option is always discoverable.
+          <View style={styles.returnHintCard} testID="order-return-hint">
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <RefreshCcw size={16} color={colors.textMuted} />
+              <Text style={styles.returnHintTitle}>Returns</Text>
+            </View>
+            <Text style={styles.returnHintBody}>
+              {order.status === "out_for_delivery"
+                ? "Returns will be available once your parcel is delivered. You'll have 7 days from then."
+                : order.status === "shipped"
+                  ? "Once your parcel is delivered you'll have 7 days to request a return from this screen."
+                  : "Returns become available within 7 days of delivery. You can cancel this order in the first 12 hours instead."}
+            </Text>
+            <View style={styles.returnHintFooter}>
+              <Text style={styles.returnHintFooterText}>
+                Read our{" "}
+                <Text
+                  testID="order-return-policy-link"
+                  onPress={() => router.push("/help/return-policy")}
+                  style={styles.returnHintLink}
+                >
+                  return policy
+                </Text>
+              </Text>
+            </View>
+          </View>
         ) : null}
 
         {!isCancelled ? (
@@ -652,6 +679,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   returnBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+  returnHintCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    gap: 8,
+  },
+  returnHintTitle: { fontSize: 13, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.3 },
+  returnHintBody: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  returnHintFooter: { marginTop: 2 },
+  returnHintFooterText: { fontSize: 11, color: colors.textFaint },
+  returnHintLink: { color: colors.primary, fontWeight: "700" },
   statusPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,

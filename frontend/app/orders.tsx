@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { ChevronLeft, Package } from "lucide-react-native";
+import { ChevronLeft, Package, RefreshCcw } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -110,6 +110,20 @@ export default function Orders() {
                   <Text style={styles.deliveryText}>Est. delivery: {item.estimated_delivery}</Text>
                   <Text style={styles.totalText}>{formatNZD(item.total_nzd)}</Text>
                 </View>
+
+                {item.status === "delivered" ? (
+                  <Pressable
+                    testID={`orders-return-link-${item.id}`}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      router.push(`/order/${item.id}/return`);
+                    }}
+                    style={styles.returnLink}
+                  >
+                    <RefreshCcw size={13} color={colors.primary} />
+                    <Text style={styles.returnLinkText}>Request return</Text>
+                  </Pressable>
+                ) : null}
               </Pressable>
             );
           }}
@@ -176,4 +190,14 @@ const styles = StyleSheet.create({
   },
   deliveryText: { fontSize: 12, color: colors.textMuted, flex: 1 },
   totalText: { fontSize: 15, fontWeight: "800", color: colors.text },
+  returnLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  returnLinkText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
 });

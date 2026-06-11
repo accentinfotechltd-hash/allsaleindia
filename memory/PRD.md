@@ -168,3 +168,10 @@ teardown flake when run together).
 **Seller-side: CSV export of orders**
 - `GET /api/seller/orders.csv` streams a CSV (one row per item) with columns: order_id, created_at, buyer_name, buyer_city, buyer_region, product_id, product_name, quantity, unit_price_nzd, item_subtotal_nzd, order_status, awb_code.
 - Frontend: download button in seller orders header. On web, blob-download via anchor click; on native, write to cache + share sheet via `expo-file-system` + `expo-sharing`.
+
+## Returns visibility (June 2026)
+Made returns option discoverable from anywhere a buyer might look:
+- **Account tab**: New `My returns` row (just under `My orders`) routes to `/returns`.
+- **My Returns screen** (`/app/frontend/app/returns.tsx`): lists every return the user has submitted from `GET /api/returns/me` with status pill, reason, refund amount, and a friendly empty state with a `Go to my orders` CTA.
+- **Order detail screen**: returns section is now ALWAYS shown when relevant — when the order is `delivered` it shows the "Request return" CTA (existing); when the order is in any pre-delivered state (paid/shipped/out_for_delivery) it shows a subtle disabled hint card explaining when returns become available and a link to the return policy.
+- **Orders list**: delivered rows now show a `↻ Request return` inline link below the row footer (uses `e.stopPropagation()` so it doesn't navigate to order detail).
