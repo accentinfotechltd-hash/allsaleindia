@@ -68,10 +68,30 @@ with INR reference, shipping to NZ).
 - Duplicate GSTIN returns 409 (not 500) — `pymongo.DuplicateKeyError` wrapped
   cleanly.
 
+## Iteration 4 — Seller order routing + payouts (DONE)
+- `OrderItem` snapshots `seller_id`/`seller_name` at order creation so the
+  payout ledger is stable even if a listing is later edited or deleted.
+- `GET /api/seller/orders` returns orders containing the current seller's
+  items only — and within each order **filters to that seller's items**, so
+  one seller never sees another seller's items in a shared order.
+- `create_payouts_for_order(order_id)` runs on every payment-paid event
+  (both `/api/checkout/status` poll AND `/api/webhooks/stripe`). It groups
+  the order by `seller_id`, applies the 15% platform commission, and
+  inserts one `Payout` per seller with status=`pending`. Idempotent — both
+  via an early-return and a compound unique index on
+  `(order_id, seller_id)`.
+- `GET /api/seller/payouts` returns the seller's payout list plus
+  lifetime/pending/paid_out NZD summary.
+- `POST /api/admin/payouts/{payout_id}/mark-paid` (X-Admin-Secret) flips
+  a payout to `paid_out` and stamps `paid_out_at`. Safe to retry.
+- Frontend: seller dashboard now has Orders + Payouts quick cards;
+  `/seller/orders` and `/seller/payouts` screens with rich summary card.
+
 ### Test data shortcuts
 - Valid sample docs: GSTIN `27ABCDE1234F1Z5`, PAN `ABCDE1234F`,
   CIN `U74999MH2020PTC123456`, pincode `400001`.
 - Admin secret: `ADMIN_SECRET=allsale-admin-dev-secret` (in backend `.env`).
+- Platform commission: `PLATFORM_COMMISSION = 0.15` (15%).
 
 ## Smart business enhancement
 Free-shipping unlock progress bar on cart — encourages users to add more items
