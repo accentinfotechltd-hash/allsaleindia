@@ -1211,6 +1211,65 @@ async def create_payouts_for_order(order_id: str) -> None:
         await db.payouts.insert_many(docs)
 
 
+# ---------------------------------------------------------------------------
+# Shiprocket X (cross-border courier) — MOCKED until real credentials wired.
+#
+# To go live, set in /app/backend/.env:
+#   SHIPROCKET_EMAIL=...
+#   SHIPROCKET_PASSWORD=...
+# and replace the stub in `book_shiprocket_shipment` with a real call to
+# https://apiv2.shiprocket.in/v1/external/shipments/create/forward-shipment
+# ---------------------------------------------------------------------------
+SHIPROCKET_LIVE = bool(os.environ.get("SHIPROCKET_EMAIL") and os.environ.get("SHIPROCKET_PASSWORD"))
+
+
+async def book_shiprocket_shipment(order_id: str) -> Optional[dict]:
+    """Idempotent: one shipment per order. Currently returns a MOCKED AWB."""
+    existing = await db.shipments.find_one({"order_id": order_id}, {"_id": 0})
+    if existing:
+        return existing
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        return None
+    # MOCK — generate fake AWB + tracking URL.
+    awb = f"SR{uuid.uuid4().hex[:10].upper()}"
+    shipment = {
+        "id": f"shp_{uuid.uuid4().hex[:12]}",
+        "order_id": order_id,
+        "user_id": order.get("user_id"),
+        "carrier": "Shiprocket X (mock)" if not SHIPROCKET_LIVE else "Shiprocket X",
+        "awb_code": awb,
+        "tracking_url": f"https://shiprocket.co/tracking/{awb}",
+        "status": "label_created",
+        "pickup_scheduled_at": now_utc(),
+        "estimated_delivery": order.get("estimated_delivery", ""),
+        "is_mocked": not SHIPROCKET_LIVE,
+        "created_at": now_utc(),
+    }
+    await db.shipments.insert_one(shipment)
+    await db.orders.update_one(
+        {"id": order_id},
+        {"$set": {"status": "shipped", "shipment_id": shipment["id"], "awb_code": awb}},
+    )
+    logger.info("shipment booked %s for %s (mocked=%s)", awb, order_id, not SHIPROCKET_LIVE)
+    return shipment
+
+
+class Shipment(BaseModel):
+    id: str
+    order_id: str
+    carrier: str
+    awb_code: str
+    tracking_url: str
+    status: str
+    estimated_delivery: str
+    is_mocked: bool
+
+
+def _orig_create_payouts_for_order_marker():
+    pass
+
+
 @api.post("/checkout/session")
 async def create_checkout_session(body: CheckoutRequest, current=Depends(get_current_user)):
     cart = await hydrate_cart(current["id"])
@@ -1305,6 +1364,7 @@ async def checkout_status(session_id: str, request: Request, current=Depends(get
                 {"$set": {"payment_status": "paid", "status": "paid"}},
             )
             await create_payouts_for_order(tx["order_id"])
+            await book_shiprocket_shipment(tx["order_id"])
             # Clear cart on successful payment.
             await db.carts.update_one(
                 {"user_id": current["id"]},
@@ -1345,6 +1405,7 @@ async def stripe_webhook(request: Request):
                 {"$set": {"payment_status": "paid", "status": "paid"}},
             )
             await create_payouts_for_order(tx["order_id"])
+            await book_shiprocket_shipment(tx["order_id"])
             await db.carts.update_one(
                 {"user_id": tx["user_id"]},
                 {"$set": {"items": [], "updated_at": now_utc()}},
@@ -1368,6 +1429,17 @@ async def get_order(order_id: str, current=Depends(get_current_user)):
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
     return Order(**o)
+
+
+@api.get("/shipments/{order_id}", response_model=Shipment)
+async def get_shipment(order_id: str, current=Depends(get_current_user)):
+    o = await db.orders.find_one({"id": order_id, "user_id": current["id"]}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+    s = await db.shipments.find_one({"order_id": order_id}, {"_id": 0})
+    if not s:
+        raise HTTPException(status_code=404, detail="Shipment not yet created")
+    return Shipment(**{k: s[k] for k in Shipment.model_fields.keys() if k in s})
 
 
 # ---------------------------------------------------------------------------
@@ -1410,6 +1482,8 @@ async def on_startup():
     await db.payouts.create_index([("seller_id", 1), ("status", 1)])
     await db.payouts.create_index([("order_id", 1), ("seller_id", 1)], unique=True)
     await db.orders.create_index("items.seller_id")
+    await db.shipments.create_index("order_id", unique=True)
+    await db.shipments.create_index("awb_code", unique=True)
     await seed_products()
 
 

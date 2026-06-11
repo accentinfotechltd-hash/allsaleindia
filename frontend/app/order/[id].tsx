@@ -110,6 +110,15 @@ export default function OrderDetail() {
         </View>
 
         <Text style={styles.sectionTitle}>Tracking</Text>
+        {order.payment_status === "paid" ? (
+          <View style={styles.trackingCard} testID="order-tracking-card">
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.trackingCarrier}>Shiprocket X · India → NZ</Text>
+              <Text style={styles.trackingMock}>via courier</Text>
+            </View>
+            <Text style={styles.trackingAwb}>AWB pending · check back once shipment is dispatched</Text>
+          </View>
+        ) : null}
         <View style={styles.timeline}>
           {TIMELINE.map((t, i) => {
             const done = i <= currentIdx;
@@ -226,6 +235,10 @@ const styles = StyleSheet.create({
   deliveryDate: { color: "#fff", fontSize: 18, fontWeight: "800", marginTop: 4, letterSpacing: -0.3 },
   sectionTitle: { fontSize: 14, fontWeight: "800", color: colors.text, marginTop: spacing.lg, marginBottom: 8 },
   timeline: { padding: spacing.md, backgroundColor: colors.surface, borderRadius: radius.lg, gap: 12 },
+  trackingCard: { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: "#fff", marginBottom: spacing.sm },
+  trackingCarrier: { fontSize: 13, fontWeight: "800", color: colors.text },
+  trackingMock: { fontSize: 10, fontWeight: "700", color: colors.textFaint, letterSpacing: 0.5 },
+  trackingAwb: { fontSize: 12, color: colors.textMuted, marginTop: 6 },
   timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: { width: 12, height: 12, borderRadius: 999, backgroundColor: colors.border },
   dotDone: { backgroundColor: colors.primary },
