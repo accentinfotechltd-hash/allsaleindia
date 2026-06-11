@@ -227,6 +227,21 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
+      Iter-10: Product variants + NZ↔India Size guide. Added `colors`,
+      `sizes`, `stock_count` fields to Product/ListingCreate. Stock-aware
+      add-to-cart and update-cart with friendly 400s. Stock decrement on
+      payment success, restock on cancellation. Seed catalogue gets
+      sensible colors/sizes per category. New NZ↔India size chart modal
+      opens from product detail for clothing/footwear (Women's, Men's,
+      Women's & Men's footwear). Seller new-listing form gets color chips,
+      size chips and stock count fields with sanitisation/dedup/caps (10
+      colors, 12 sizes). Product detail shows In stock / Only N left /
+      Out of stock states; Add-to-cart disabled when OOS. 6 new pytest
+      cases — backend total 145/145 passing. Verified visually: product
+      detail + size guide render cleanly.
+
+  - agent: "main"
+    message: |
       Iter-9: Added Shiprocket webhook (POST /api/shiprocket/webhook) that maps
       Shiprocket statuses to internal order statuses (paid → shipped →
       out_for_delivery → delivered) and fans out buyer notifications. Mock

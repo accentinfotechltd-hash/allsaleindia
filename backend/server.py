@@ -249,6 +249,9 @@ class ListingCreate(BaseModel):
     image: str = Field(..., min_length=8)
     shipping_days_min: int = 7
     shipping_days_max: int = 14
+    colors: List[str] = Field(default_factory=list, description="Available colors (max 10)")
+    stock_count: int = Field(99, ge=0, description="Total stock on hand")
+    sizes: List[str] = Field(default_factory=list, description="Available sizes, e.g. ['S','M','L']")
 
 
 class Product(BaseModel):
@@ -264,6 +267,9 @@ class Product(BaseModel):
     rating: float = 4.5
     reviews_count: int = 0
     in_stock: bool = True
+    stock_count: int = 0
+    colors: List[str] = []
+    sizes: List[str] = []
     shipping_days_min: int = 7
     shipping_days_max: int = 12
     origin: str = "India"
@@ -558,6 +564,49 @@ def cancellable_until_from(paid_at: datetime) -> datetime:
     return paid_at + timedelta(hours=CANCELLATION_WINDOW_HOURS)
 
 
+async def decrement_stock_for_order(order_id: str) -> None:
+    """Decrement stock_count for each ordered product. Idempotent via a flag
+    on the order doc so a double-call (webhook + polling) does not double-debit."""
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order or order.get("stock_decremented"):
+        return
+    for it in order.get("items", []):
+        pid = it.get("product_id")
+        qty = int(it.get("quantity", 0))
+        if not pid or qty <= 0:
+            continue
+        # Conditional update — only decrement if there's enough stock and the
+        # field exists. Sets in_stock=false when we hit 0.
+        await db.products.update_one(
+            {"id": pid, "stock_count": {"$gte": qty}},
+            [
+                {"$set": {"stock_count": {"$subtract": ["$stock_count", qty]}}},
+                {"$set": {"in_stock": {"$gt": ["$stock_count", 0]}}},
+            ],
+        )
+    await db.orders.update_one({"id": order_id}, {"$set": {"stock_decremented": True}})
+
+
+async def restock_for_order(order_id: str) -> None:
+    """Restore stock_count when an order is cancelled."""
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order or not order.get("stock_decremented") or order.get("stock_restocked"):
+        return
+    for it in order.get("items", []):
+        pid = it.get("product_id")
+        qty = int(it.get("quantity", 0))
+        if not pid or qty <= 0:
+            continue
+        await db.products.update_one(
+            {"id": pid},
+            [
+                {"$set": {"stock_count": {"$add": [{"$ifNull": ["$stock_count", 0]}, qty]}}},
+                {"$set": {"in_stock": {"$gt": ["$stock_count", 0]}}},
+            ],
+        )
+    await db.orders.update_one({"id": order_id}, {"$set": {"stock_restocked": True}})
+
+
 def public_user(doc: dict) -> "UserPublic":
     return UserPublic(
         id=doc["id"],
@@ -742,23 +791,55 @@ SEED_PRODUCTS: list[dict] = [
 
 async def seed_products() -> None:
     """Idempotent reseed of platform-owned (no seller) products."""
+
+    # Sample colors / sizes / stock based on category, just for the demo
+    # catalogue.
+    def _demo_extras(p: dict) -> dict:
+        cat = (p.get("category") or "").lower()
+        name = (p.get("name") or "").lower()
+        if "fashion" in cat or "saree" in name or "kurti" in name or "kurta" in name or "shirt" in name:
+            colors = ["Indigo", "Maroon", "Saffron", "Emerald"]
+            sizes = ["Free Size"] if "saree" in name else ["S", "M", "L", "XL"]
+            return {"colors": colors, "sizes": sizes, "stock_count": 24}
+        if "jewell" in cat or "jewelry" in cat:
+            return {"colors": ["Gold", "Rose Gold", "Silver"], "sizes": [], "stock_count": 12}
+        if "home" in cat or "puja" in cat or "brass" in name:
+            return {"colors": ["Brass", "Antique Brass"], "sizes": [], "stock_count": 30}
+        if "food" in cat or "grocer" in cat or "spice" in name or "tea" in name:
+            return {"colors": [], "sizes": [], "stock_count": 100}
+        return {"colors": [], "sizes": [], "stock_count": 25}
+
     expected = len(SEED_PRODUCTS)
     existing = await db.products.count_documents({"seller_id": None})
     # Always sync platform catalog to the latest taxonomy. Seller-created
     # listings are never touched.
     if existing == expected:
-        # Make sure category/subcategory match the latest mapping in case the
-        # seed shape changed.
+        # Make sure category/subcategory + demo extras match the latest mapping.
         for p in SEED_PRODUCTS:
+            extras = _demo_extras(p)
             await db.products.update_many(
                 {"seller_id": None, "name": p["name"]},
-                {"$set": {"category": p["category"], "subcategory": p["subcategory"]}},
+                {
+                    "$set": {
+                        "category": p["category"],
+                        "subcategory": p["subcategory"],
+                        "colors": extras["colors"],
+                        "sizes": extras["sizes"],
+                        # Only initialise stock_count if absent so we don't
+                        # clobber any inventory mutations.
+                    }
+                },
+            )
+            await db.products.update_many(
+                {"seller_id": None, "name": p["name"], "stock_count": {"$exists": False}},
+                {"$set": {"stock_count": extras["stock_count"], "in_stock": True}},
             )
         return
     await db.products.delete_many({"seller_id": None})
     docs = []
     for p in SEED_PRODUCTS:
         pid = str(uuid.uuid4())
+        extras = _demo_extras(p)
         docs.append(
             {
                 "id": pid,
@@ -773,6 +854,9 @@ async def seed_products() -> None:
                 "rating": p.get("rating", 4.5),
                 "reviews_count": p.get("reviews_count", 0),
                 "in_stock": True,
+                "stock_count": extras["stock_count"],
+                "colors": extras["colors"],
+                "sizes": extras["sizes"],
                 "shipping_days_min": 7,
                 "shipping_days_max": 12,
                 "origin": "India",
@@ -1002,6 +1086,25 @@ async def add_to_cart(body: CartAddRequest, current=Depends(get_current_user)):
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     qty = max(1, body.quantity)
+
+    # Stock guard — products with stock_count==0 are out of stock.
+    # Legacy / seeded products without a stock_count field are treated as
+    # "in_stock" (back-compat).
+    stock_count = prod.get("stock_count")
+    if stock_count is not None and not prod.get("in_stock", True):
+        raise HTTPException(status_code=400, detail="This product is currently out of stock.")
+    if isinstance(stock_count, int) and stock_count > 0:
+        cart = await db.carts.find_one({"user_id": current["id"]}, {"_id": 0})
+        existing = next(
+            (it["quantity"] for it in (cart or {}).get("items", []) if it["product_id"] == body.product_id),
+            0,
+        )
+        if existing + qty > stock_count:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Only {stock_count - existing} more available in stock.",
+            )
+
     cart = await db.carts.find_one({"user_id": current["id"]}, {"_id": 0})
     items: list[dict] = cart.get("items", []) if cart else []
     found = False
@@ -1027,6 +1130,17 @@ async def update_cart_item(product_id: str, body: CartUpdateRequest, current=Dep
     if body.quantity <= 0:
         items = [it for it in items if it["product_id"] != product_id]
     else:
+        # Stock guard
+        prod = await db.products.find_one({"id": product_id}, {"_id": 0})
+        if prod:
+            stock_count = prod.get("stock_count")
+            if isinstance(stock_count, int) and stock_count > 0 and body.quantity > stock_count:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Only {stock_count} available in stock.",
+                )
+            if stock_count is not None and not prod.get("in_stock", True):
+                raise HTTPException(status_code=400, detail="This product is currently out of stock.")
         found = False
         for it in items:
             if it["product_id"] == product_id:
@@ -1135,6 +1249,27 @@ async def create_listing(body: ListingCreate, seller=Depends(require_verified_se
     pid = str(uuid.uuid4())
     profile = await db.sellers.find_one({"user_id": seller["id"]}, {"_id": 0})
     company = (profile or {}).get("company_name", seller.get("full_name"))
+
+    # Sanitize colors / sizes — dedupe (preserve order), trim, drop empty.
+    def _clean(values: List[str], limit: int) -> List[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for v in values or []:
+            t = (v or "").strip()
+            if not t:
+                continue
+            k = t.lower()
+            if k in seen:
+                continue
+            seen.add(k)
+            out.append(t)
+            if len(out) >= limit:
+                break
+        return out
+
+    colors = _clean(body.colors, 10)
+    sizes = _clean(body.sizes, 12)
+
     doc = {
         "id": pid,
         "name": body.name.strip(),
@@ -1146,7 +1281,10 @@ async def create_listing(body: ListingCreate, seller=Depends(require_verified_se
         "images": [body.image.strip()],
         "rating": 0.0,
         "reviews_count": 0,
-        "in_stock": True,
+        "in_stock": int(body.stock_count) > 0,
+        "stock_count": int(body.stock_count),
+        "colors": colors,
+        "sizes": sizes,
         "shipping_days_min": int(body.shipping_days_min),
         "shipping_days_max": int(body.shipping_days_max),
         "origin": "India",
@@ -1733,6 +1871,9 @@ async def cancel_order(
         {"$set": {"status": "void", "voided_at": now_utc()}},
     )
 
+    # Restore stock — buyer cancelled within the 12-hour window.
+    await restock_for_order(order_id)
+
     new_status = "cancelled"
     await db.orders.update_one(
         {"id": order_id},
@@ -2214,6 +2355,7 @@ async def checkout_status(session_id: str, request: Request, current=Depends(get
             await create_payouts_for_order(tx["order_id"])
             await book_shiprocket_shipment(tx["order_id"])
             await notify_order_placed(tx["order_id"])
+            await decrement_stock_for_order(tx["order_id"])
             # Clear cart on successful payment.
             await db.carts.update_one(
                 {"user_id": current["id"]},
@@ -2264,6 +2406,7 @@ async def stripe_webhook(request: Request):
             await create_payouts_for_order(tx["order_id"])
             await book_shiprocket_shipment(tx["order_id"])
             await notify_order_placed(tx["order_id"])
+            await decrement_stock_for_order(tx["order_id"])
             await db.carts.update_one(
                 {"user_id": tx["user_id"]},
                 {"$set": {"items": [], "updated_at": now_utc()}},

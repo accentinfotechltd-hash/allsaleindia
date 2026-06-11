@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { ChevronLeft, Plus, X } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -31,6 +31,39 @@ export default function NewListing() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // New: colors, sizes, stock
+  const [colorsList, setColorsList] = useState<string[]>([]);
+  const [colorDraft, setColorDraft] = useState("");
+  const [sizesList, setSizesList] = useState<string[]>([]);
+  const [sizeDraft, setSizeDraft] = useState("");
+  const [stockCount, setStockCount] = useState("25");
+
+  const addColor = () => {
+    const v = colorDraft.trim();
+    if (!v) return;
+    if (colorsList.find((c) => c.toLowerCase() === v.toLowerCase())) {
+      setColorDraft("");
+      return;
+    }
+    if (colorsList.length >= 10) return;
+    setColorsList([...colorsList, v]);
+    setColorDraft("");
+  };
+  const removeColor = (c: string) => setColorsList(colorsList.filter((x) => x !== c));
+
+  const addSize = () => {
+    const v = sizeDraft.trim();
+    if (!v) return;
+    if (sizesList.find((s) => s.toLowerCase() === v.toLowerCase())) {
+      setSizeDraft("");
+      return;
+    }
+    if (sizesList.length >= 12) return;
+    setSizesList([...sizesList, v]);
+    setSizeDraft("");
+  };
+  const removeSize = (s: string) => setSizesList(sizesList.filter((x) => x !== s));
+
   useEffect(() => {
     (async () => {
       try {
@@ -56,6 +89,7 @@ export default function NewListing() {
     }
     setBusy(true);
     try {
+      const stock = Math.max(0, parseInt(stockCount, 10) || 0);
       await api("/seller/products", {
         method: "POST",
         body: {
@@ -64,6 +98,9 @@ export default function NewListing() {
           category,
           price_nzd: price,
           image: image.trim(),
+          colors: colorsList,
+          sizes: sizesList,
+          stock_count: stock,
         },
       });
       router.replace("/seller/dashboard");
@@ -127,6 +164,94 @@ export default function NewListing() {
             placeholder="49.00"
             keyboardType="decimal-pad"
           />
+
+          <Field
+            label="Stock count"
+            testID="new-listing-stock"
+            value={stockCount}
+            onChangeText={setStockCount}
+            placeholder="25"
+            keyboardType="decimal-pad"
+          />
+          {parseInt(stockCount, 10) === 0 ? (
+            <Text style={styles.stockHint}>
+              0 stock means buyers will see this as &ldquo;Out of stock&rdquo;.
+            </Text>
+          ) : null}
+
+          <View style={{ marginBottom: spacing.md }}>
+            <Text style={styles.label}>Colors available</Text>
+            <View style={styles.tokenRow}>
+              <TextInput
+                testID="new-listing-color-input"
+                value={colorDraft}
+                onChangeText={setColorDraft}
+                placeholder="e.g. Indigo"
+                placeholderTextColor={colors.textFaint}
+                onSubmitEditing={addColor}
+                returnKeyType="done"
+                style={[styles.input, { flex: 1 }]}
+              />
+              <Pressable
+                testID="new-listing-color-add"
+                onPress={addColor}
+                style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Plus size={16} color="#fff" />
+              </Pressable>
+            </View>
+            {colorsList.length > 0 ? (
+              <View style={[styles.chipsRow, { marginTop: 8, paddingHorizontal: 0, flexWrap: "wrap" }]}>
+                {colorsList.map((c) => (
+                  <View key={c} style={styles.tokenChip} testID={`new-listing-color-token-${c.toLowerCase().replace(/\s/g, "-")}`}>
+                    <Text style={styles.tokenChipText}>{c}</Text>
+                    <Pressable onPress={() => removeColor(c)} hitSlop={8}>
+                      <X size={14} color={colors.text} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.stockHint}>Optional. Up to 10 colors.</Text>
+            )}
+          </View>
+
+          <View style={{ marginBottom: spacing.md }}>
+            <Text style={styles.label}>Sizes available</Text>
+            <View style={styles.tokenRow}>
+              <TextInput
+                testID="new-listing-size-input"
+                value={sizeDraft}
+                onChangeText={setSizeDraft}
+                placeholder="e.g. S, M, L, XL or Free Size"
+                placeholderTextColor={colors.textFaint}
+                onSubmitEditing={addSize}
+                returnKeyType="done"
+                style={[styles.input, { flex: 1 }]}
+              />
+              <Pressable
+                testID="new-listing-size-add"
+                onPress={addSize}
+                style={({ pressed }) => [styles.addBtn, pressed && { opacity: 0.85 }]}
+              >
+                <Plus size={16} color="#fff" />
+              </Pressable>
+            </View>
+            {sizesList.length > 0 ? (
+              <View style={[styles.chipsRow, { marginTop: 8, paddingHorizontal: 0, flexWrap: "wrap" }]}>
+                {sizesList.map((s) => (
+                  <View key={s} style={styles.tokenChip} testID={`new-listing-size-token-${s.toLowerCase().replace(/\s/g, "-")}`}>
+                    <Text style={styles.tokenChipText}>{s}</Text>
+                    <Pressable onPress={() => removeSize(s)} hitSlop={8}>
+                      <X size={14} color={colors.text} />
+                    </Pressable>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.stockHint}>Optional. Leave empty for one-size items.</Text>
+            )}
+          </View>
 
           <View style={{ marginBottom: spacing.md }}>
             <Text style={styles.label}>Description</Text>
@@ -245,6 +370,26 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.text, borderColor: colors.text },
   chipText: { fontSize: 13, color: colors.text, fontWeight: "600" },
   chipTextActive: { color: "#fff" },
+  tokenRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  addBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.md,
+    backgroundColor: colors.text,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tokenChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+  },
+  tokenChipText: { fontSize: 12, color: colors.text, fontWeight: "700" },
+  stockHint: { fontSize: 11, color: colors.textFaint, marginTop: -spacing.sm, marginBottom: spacing.md },
   error: { color: colors.error, fontSize: 13, marginTop: spacing.sm },
   cta: {
     backgroundColor: colors.primary,

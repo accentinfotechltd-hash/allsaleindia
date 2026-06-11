@@ -1,0 +1,47 @@
+{
+  "summary": "Iter-10 (NZ↔India size chart + colors/sizes/stock_count + OOS gating + decrement-on-paid + restock-on-cancel) verified end-to-end. Backend: ran 12/12 iter-10 tests (test_product_variants.py 6/6 already present + test_product_variants_extra.py 6/6 new) — covers (a) PUT /api/cart over-stock returns 400 'available', (b) PUT cart on OOS product returns 400 'out of stock', (c) sizes cap=12, (d) seeded Saree has colors=[Indigo,Maroon,Saffron,Emerald] + sizes=[Free Size] + stock_count=24 + in_stock=true, (e) decrement_stock_for_order helper decrements once and is idempotent on double-call (stock_decremented flag), (f) restock_for_order returns stock to original and is idempotent (stock_restocked flag), (g) /api/orders/{id}/cancel end-to-end restocks the products. Full regression: 148 passed / 1 flaky (test_seller_payouts::test_payouts_created_per_seller_idempotent — known iter-9 GSTIN unique-index issue, passes in isolation) / 1 error (test_returns::test_seller_returns_visibility — same GSTIN collision pattern, also passes in isolation). Frontend (390x844): /product/{saree-id} renders product-in-stock pill, 4 color chips (product-color-indigo/maroon/saffron/emerald) with Indigo preselected, 1 size chip (product-size-free-size) with Free Size selected, and product-size-guide-btn; tapping opens size-guide-modal with women's chart visible (headers 'NZ / AU','India','Bust (cm)','Waist (cm)','Hip (cm)' all present, 8 rows visible, footnote shown); size-guide-close dismisses (modal.is_visible→false). Tea product (/product/358d…) shows NO size-guide button, NO color/size chips, in-stock pill present. OOS listing (stock_count=0) shows red product-out-of-stock banner, CTA text becomes 'Out of stock', Pressable's disabled prop translates to aria-disabled / pointerEvents=none on react-native-web (HTML 'disabled' attribute is NOT set — this is RN-web behaviour; runtime onPress is correctly blocked). Low-stock listing (stock_count=3) shows yellow product-low-stock card 'Only 3 left in stock — order soon'. /seller/new-listing renders new-listing-stock defaulting to '25', new-listing-color-input + new-listing-color-add (added 'Royal Blue' produced new-listing-color-token-royal-blue with X remove), same for new-listing-size-input/add/token-m.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_product_variants.py",
+    "/app/backend/tests/test_product_variants_extra.py",
+    "/app/test_reports/pytest/iter10_results.xml",
+    "/app/test_reports/pytest/iter10_full_results.xml",
+    "/app/test_reports/_ui_setup_stock.py"
+  ],
+  "action_items": [
+    "(Optional, non-blocking) Two flaky regression failures remain from earlier iterations: test_seller_payouts::test_payouts_created_per_seller_idempotent and test_returns::test_seller_returns_visibility — both pass in isolation; root cause is GSTIN unique-index collision when multiple test suites seed sellers in the same second. Suggest adding a high-entropy time suffix (uuid4 hex) to the GSTIN generator across seed helpers, or pytest fixture teardown to delete TEST_ sellers. Noted in iter-9 report too.",
+    "(Optional) On react-native-web, the add-to-cart Pressable doesn't expose HTML 'disabled' — only aria-disabled / styles. If you want to make e2e disabled-state checks more straightforward on web, consider also setting accessibilityState={{disabled: true}} explicitly or rendering a <button disabled> on web — current behaviour is functionally correct (onPress doesn't fire)."
+  ],
+  "critical_code_review_comments": [
+    "decrement_stock_for_order and restock_for_order both correctly use the stock_decremented/stock_restocked order flags for idempotency — verified with double-call assertions.",
+    "decrement update is conditional ({id, stock_count: $gte qty}) so an under-stocked product silently no-ops; consider logging a warning if the matched_count is 0 for any item so over-sells don't go unnoticed. Not a blocker.",
+    "POST /api/seller/products sanitises colors (cap 10) and sizes (cap 12) correctly with case-insensitive dedupe, trim, and empty-drop — verified via test_create_listing_with_colors_sizes_stock + test_colors_capped_at_10 + test_sizes_capped_at_12.",
+    "backend/server.py is at 2500 LOC — refactor into modules (products.py / cart.py / orders.py / returns.py / shipments.py) is overdue but doesn't impact functionality.",
+    "SizeGuideModal correctly switches charts via chartsForCategory(category, subcategory). The 'Sarees' subcategory and 'Ethnic Fashion' category both correctly resolve to WOMENS_CLOTHING. Food & Groceries / Tea & Coffee correctly returns [] → no size-guide button rendered.",
+    "Seeded Saree has the exact iter-10 spec values: colors=['Indigo','Maroon','Saffron','Emerald'], sizes=['Free Size'], stock_count=24."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_product_variants_extra.py (NEW — 6 tests covering PUT cart guard, sizes cap, seeded saree, decrement/restock helpers, /api/orders/{id}/cancel restock)",
+    "/app/test_reports/_ui_setup_stock.py (NEW — creates two listings (stock_count=0 OOS + stock_count=3 low-stock) for UI verification)",
+    "/app/test_reports/pytest/iter10_results.xml (12 iter-10 tests, all pass)",
+    "/app/test_reports/pytest/iter10_full_results.xml (full regression: 148 pass / 1 flaky / 1 GSTIN error — both known)"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12 iter-10 tests; full regression 148/150 with 2 known flakes from iter-9 that pass in isolation)",
+    "frontend": "100% (saree in-stock pill, 4 color chips, Free Size chip, size-guide button, modal headers + close all pass; tea product correctly has no size guide; OOS banner + CTA text 'Out of stock'; low-stock card 'Only N left'; new-listing stock default 25 + color/size add+token chips all work)"
+  },
+  "seed_data_creation": "Created a fresh seller (TEST_ui_sl_*) and two listings via _ui_setup_stock.py — TEST_OOS_UI (stock_count=0) and TEST_low-stock_UI (stock_count=3) — plus ephemeral users/orders inside test_product_variants_extra.py with TEST_ prefix and inline cleanup. No mutation of seeded production data.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "GSTIN unique-index in db.sellers continues to cause flaky regression failures when multiple suites seed sellers within the same second — when in doubt re-run the failing test in isolation. Pattern for inserting a 'paid' Order doc directly into Mongo (used by test_cancel_endpoint_restocks_product): must include items[].image, shipping_nzd, address, estimated_delivery (full required fields list at server.py:408-426) else /api/orders/{id}/cancel returns 500 on the response_model Order(**updated) re-serialisation. SizeGuideModal uses category+subcategory → chartsForCategory() to decide which chart to show; categories without a match return [] and the size-guide button is not rendered on /product/{id}.",
+  "rca_of_issue": "N/A — no bugs found in iter-10."
+}

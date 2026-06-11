@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="12" time="5.530" timestamp="2026-06-11T02:43:30.324879+00:00" hostname="agent-env-ce6bf082-33a8-45f7-a27d-0f853e2f6b82"><testcase classname="backend.tests.test_product_variants" name="test_create_listing_with_colors_sizes_stock" time="0.542" /><testcase classname="backend.tests.test_product_variants" name="test_listing_zero_stock_is_out_of_stock" time="0.323" /><testcase classname="backend.tests.test_product_variants" name="test_add_to_cart_blocked_when_out_of_stock" time="0.651" /><testcase classname="backend.tests.test_product_variants" name="test_add_to_cart_blocked_when_over_stock" time="0.692" /><testcase classname="backend.tests.test_product_variants" name="test_colors_capped_at_10" time="0.328" /><testcase classname="backend.tests.test_product_variants" name="test_default_stock_count_listing" time="0.369" /><testcase classname="backend.tests.test_product_variants_extra" name="test_put_cart_blocked_when_quantity_over_stock" time="0.707" /><testcase classname="backend.tests.test_product_variants_extra" name="test_put_cart_zero_stock_returns_400" time="0.693" /><testcase classname="backend.tests.test_product_variants_extra" name="test_sizes_capped_at_12" time="0.375" /><testcase classname="backend.tests.test_product_variants_extra" name="test_seeded_saree_has_colors_sizes_and_stock" time="0.062" /><testcase classname="backend.tests.test_product_variants_extra" name="test_decrement_and_restock_helpers_idempotent" time="0.292" /><testcase classname="backend.tests.test_product_variants_extra" name="test_cancel_endpoint_restocks_product" time="0.277"><failure message="pymongo.errors.DuplicateKeyError: E11000 duplicate key error collection: allsale_database.sellers index: gstin_1 dup key: { gstin: &quot;07AAAAFF1234A1Z&quot; }, full error: {'index': 0, 'code': 11000, 'errmsg': 'E11000 duplicate key error collection: allsale_database.sellers index: gstin_1 dup key: { gstin: &quot;07AAAAFF1234A1Z&quot; }', 'keyPattern': {'gstin': 1}, 'keyValue': {'gstin': '07AAAAFF1234A1Z'}}">backend/tests/test_product_variants_extra.py:262: in test_cancel_endpoint_restocks_product
+    p = _make_listing(
+backend/tests/test_product_variants_extra.py:70: in _make_listing
+    _promote_seller(user_id)
+backend/tests/test_product_variants_extra.py:66: in _promote_seller
+    asyncio.run(go())
+/usr/local/lib/python3.11/asyncio/runners.py:190: in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/usr/local/lib/python3.11/asyncio/base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+backend/tests/test_product_variants_extra.py:43: in go
+    await db.sellers.update_one(
+/usr/local/lib/python3.11/concurrent/futures/thread.py:58: in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:1088: in update_one
+    self._update_retryable(
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:883: in _update_retryable
+    return self.__database.client._retryable_write(
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:1568: in _retryable_write
+    return self._retry_with_session(retryable, func, s, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:1413: in _retry_with_session
+    return self._retry_internal(retryable, func, session, bulk)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/_csot.py:108: in csot_wrapper
+    return func(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/mongo_client.py:1460: in _retry_internal
+    return func(session, conn, retryable)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:864: in _update
+    return self._update(
+/root/.venv/lib/python3.11/site-packages/pymongo/collection.py:827: in _update
+    _check_write_command_response(result)
+/root/.venv/lib/python3.11/site-packages/pymongo/helpers.py:259: in _check_write_command_response
+    _raise_last_write_error(write_errors)
+/root/.venv/lib/python3.11/site-packages/pymongo/helpers.py:231: in _raise_last_write_error
+    raise DuplicateKeyError(error.get("errmsg"), 11000, error)
+E   pymongo.errors.DuplicateKeyError: E11000 duplicate key error collection: allsale_database.sellers index: gstin_1 dup key: { gstin: "07AAAAFF1234A1Z" }, full error: {'index': 0, 'code': 11000, 'errmsg': 'E11000 duplicate key error collection: allsale_database.sellers index: gstin_1 dup key: { gstin: "07AAAAFF1234A1Z" }', 'keyPattern': {'gstin': 1}, 'keyValue': {'gstin': '07AAAAFF1234A1Z'}}</failure></testcase></testsuite></testsuites>
