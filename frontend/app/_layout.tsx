@@ -9,6 +9,7 @@ import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/contexts/AuthContext";
 import { CartProvider } from "@/src/contexts/CartContext";
 import { RegionProvider } from "@/src/contexts/RegionContext";
+import { WishlistProvider } from "@/src/contexts/WishlistContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,8 +30,10 @@ export default function RootLayout() {
         <AuthProvider>
           <RegionProvider>
             <CartProvider>
-              <StatusBar style="dark" />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
+              <WishlistProvider>
+                <StatusBar style="dark" />
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
+              </WishlistProvider>
             </CartProvider>
           </RegionProvider>
         </AuthProvider>

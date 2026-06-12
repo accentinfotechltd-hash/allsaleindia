@@ -1,11 +1,12 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, ChevronRight, FileText, Globe2, LogOut, MapPin, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Store, XCircle } from "lucide-react-native";
+import { Bell, ChevronRight, FileText, Globe2, Heart, LogOut, MapPin, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Store, XCircle } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useRegion } from "@/src/contexts/RegionContext";
+import { useWishlist } from "@/src/contexts/WishlistContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -13,6 +14,7 @@ export default function Account() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { country, info, countries, setCountry } = useRegion();
+  const { count: wishlistCount } = useWishlist();
   const [unread, setUnread] = useState(0);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
   const regionFlag = info.flag;
@@ -81,6 +83,13 @@ export default function Account() {
             label="My orders"
             onPress={() => router.push("/orders")}
             testID="account-orders-btn"
+          />
+          <Row
+            icon={<Heart size={18} color={colors.text} />}
+            label="My wishlist"
+            subtitle={wishlistCount > 0 ? `${wishlistCount} saved` : "Save items for later"}
+            onPress={() => router.push("/wishlist")}
+            testID="account-wishlist-btn"
           />
           <Row
             icon={<RefreshCcw size={18} color={colors.text} />}

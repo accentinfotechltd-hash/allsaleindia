@@ -41,6 +41,7 @@ from routers import (
     size_guide,
     uploads,
     wallet,
+    wishlist,
 )
 from services.seed import seed_products
 
@@ -74,6 +75,7 @@ api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
 api.include_router(coupons.router)
+api.include_router(wishlist.router)
 api.include_router(wallet.router)
 api.include_router(shiprocket.router)
 api.include_router(uploads.router)

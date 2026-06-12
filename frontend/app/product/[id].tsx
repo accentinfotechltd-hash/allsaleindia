@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import SizeGuideModal from "@/src/components/SizeGuideModal";
 import ReviewsSection from "@/src/components/ReviewsSection";
+import WishlistButton from "@/src/components/WishlistButton";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -172,6 +173,10 @@ export default function ProductDetail() {
             >
               <ChevronLeft size={22} color={colors.text} />
             </Pressable>
+            <View style={{ flex: 1 }} />
+            <View style={styles.heroHeart}>
+              <WishlistButton productId={product.id} size={20} />
+            </View>
           </SafeAreaView>
         </View>
 
@@ -422,7 +427,22 @@ const styles = StyleSheet.create({
   muted: { color: colors.textMuted },
   heroWrap: { aspectRatio: 1, backgroundColor: colors.surface },
   hero: { width: "100%", height: "100%" },
-  heroOverlay: { position: "absolute", left: 0, right: 0, top: 0, padding: spacing.md },
+  heroOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  heroHeart: {
+    position: "relative",
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   backBtn: {
     width: 40,
     height: 40,

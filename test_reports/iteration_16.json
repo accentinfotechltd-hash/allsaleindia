@@ -1,0 +1,36 @@
+{
+  "summary": "Phase 4 — Wishlist / Favorites exhaustively validated. Wrote /app/backend/tests/test_wishlist.py with 16 pytest cases covering 401 on every endpoint (GET list/ids, POST, DELETE, bad bearer), GET initial-empty for both list and ids, POST 404 on unknown product, POST/GET hydration with all 11 required fields and correct types, POST idempotency (no duplicate ids and unchanged count on repeat), added_at desc sort verified (strict descending after 1.1s gap between adds), DELETE returns {removed, wishlist_count} and actually removes id, DELETE idempotent on already-removed AND on never-existed product ids (still 200), and cross-user isolation (user B sees ONLY their own ids; A's set unchanged when B adds). 16/16 PASSED in 5.85s. Frontend smoke (mobile viewport 390×844): required restart of expo via supervisorctl once to pick up the new files (wishlist.tsx route + WishlistButton + account row); before restart /wishlist returned 'Unmatched Route' and account-wishlist-btn was missing. After restart: 56 wishlist-toggle hearts render on /home product grid, tapping a heart flips it red optimistically AND /api/wishlist/ids confirms persistence, /wishlist screen renders hydrated card (image, BAGS & LUGGAGE category, name, by Seller, $89.00 NZD, Add to cart button, trash icon), product detail hero shows filled red heart in top-right, account screen shows 'My wishlist / Save items for later' row (testID account-wishlist-btn). Empty-state screen renders correctly with shop-cta. Signed-out: hearts stay outline (no add), confirming guard works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_wishlist.py",
+    "/app/test_reports/pytest/iter16_wishlist.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/wishlist.py is clean (108 lines). All endpoints async, use Pydantic response_model, exclude Mongo _id, idempotent upsert via update_one+$setOnInsert, unique compound index (user_id, product_id) prevents duplicates at DB level.",
+    "List endpoint silently skips deleted products (`if not prod: continue`) — matches contract; verified by code review but not by an isolated test (would require DB write).",
+    "wishlist.py response for POST uses status_code=201 — consistent with create semantics. Note: returned status is 201 even on idempotent re-add (no actual insert). Acceptable but arguably 200 on the no-op path; not a bug, just worth noting.",
+    "WishlistButton (floating variant) is 32×32 with hitSlop=6 → effective 44×44 touch target = meets minimum. Inline variant 18px icon + 6 padding + hitSlop=8 ≈ 46px effective. ✓",
+    "WishlistContext rollback path correctly inverts the optimistic mutation on API failure. ✓",
+    "Heart contrast: floating variant uses dark-translucent backdrop (rgba(15,23,42,0.5)) under white outline → good readability on light product images. Filled state #EF4444 also legible. ✓",
+    "No new deprecated packages introduced. expo-secure-store (used elsewhere) is not deprecated."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_wishlist.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Each backend test run registers two fresh users (TEST_wish_A_<uuid>@... and TEST_wish_B_<uuid>@...) and references real seeded product ids fetched live from /api/products. Test wishlists are cleared via DELETE for all added pids in a module-scoped autouse teardown fixture. No products are mutated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After adding NEW Expo Router screens (e.g. app/wishlist.tsx), the Metro CI-mode bundler does not auto-pick them up — supervisor expo restart is required (`sudo supervisorctl restart expo`). Once restarted, /wishlist, account-wishlist-btn and ProductCard heart overlay all worked. For UI smoke tests, AsyncStorage web-shim stores JSON-encoded values: inject auth token with localStorage.setItem('allsale_token', JSON.stringify(token)). Use /home (tabs route) — root '/' renders the marketing landing screen for new users, not the catalog.",
+  "rca_of_issue": "No production bug. Initial 'Unmatched Route' on /wishlist was a stale Metro bundle (Metro is running in CI mode, reloads are disabled) — resolved by restarting expo once. This is not an issue main agent needs to fix; just a heads-up for future iterations: whenever new app/ files are added, restart expo."
+}

@@ -1,5 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
+import WishlistButton from "@/src/components/WishlistButton";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -35,6 +36,7 @@ export function ProductCard({
     >
       <View style={styles.imageWrap}>
         <Image source={{ uri: product.image }} style={styles.image} />
+        <WishlistButton productId={product.id} size={16} />
       </View>
       <View style={styles.body}>
         <Text style={styles.category} numberOfLines={1}>

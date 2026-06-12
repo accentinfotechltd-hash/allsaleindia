@@ -78,3 +78,9 @@ async def ensure_indexes() -> None:
     )
     await db.coupon_usage.create_index([("coupon_id", 1), ("user_id", 1)])
     await db.coupon_usage.create_index([("user_id", 1), ("redeemed_at", -1)])
+    # wishlists: lookup by user (My Wishlist) + uniqueness per (user, product)
+    await db.wishlists.create_index(
+        [("user_id", 1), ("product_id", 1)], unique=True
+    )
+    await db.wishlists.create_index([("user_id", 1), ("added_at", -1)])
+    await db.wishlists.create_index("product_id")
