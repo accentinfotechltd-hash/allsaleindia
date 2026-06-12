@@ -637,3 +637,28 @@ Added two hand-built SVG illustrations (no designer assets, pure
   arrow guides labelled on the left
 
 **Lint clean. No backend changes.**
+
+## Shiprocket X — LIVE Integration (June 2026)
+
+`services/shiprocket.py` fully rewritten per the integration playbook:
+- Token cache in `db.shiprocket_tokens` (9-day TTL, MongoDB-backed)
+- `_create_adhoc()` posts cross-border order payload (INR pricing, NZ
+  address, kg/cm units) to `/v1/external/orders/create/adhoc`
+- `_cheapest_courier()` calls `/courier/serviceability/` and picks the
+  lowest rate
+- `_assign_awb()` calls `/courier/assign/awb` with the chosen courier
+- `track_awb()` calls `/courier/track/awb/{awb}` for live tracking
+- Falls back to a mock AWB if no token can be obtained (so dev keeps
+  working when creds are invalid)
+
+**Blocker — needs user action in Shiprocket dashboard:**
+The supplied credentials authenticate to the panel but return **403
+Forbidden** at `/v1/external/auth/login`. Per Shiprocket docs, API
+access requires a **separate API user** to be created:
+  Settings → API → Configure → **+ Add New API User**
+That API user's email/password (sent to the registered email) must be
+the values stored in `SHIPROCKET_EMAIL` / `SHIPROCKET_PASSWORD`.
+
+Until the API user is created, the integration logs the 403 and
+gracefully falls back to mocked AWBs so the rest of the app keeps
+working.
