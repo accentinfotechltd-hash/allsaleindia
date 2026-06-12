@@ -704,3 +704,11 @@ fell back to a local placeholder AWB because the courier
 serviceability call for IN→NZ returned an empty list. This is account-
 configurable in Shiprocket Settings → International Shipping. Tracking
 will activate the moment a real courier is picked.
+
+## Shiprocket Webhook — DISABLED by user (June 12, 2026)
+User opted out of webhook push tracking. The integration continues
+using polling (the existing background scheduler calls `track_awb()`
+periodically). The webhook endpoint `/api/shiprocket/webhook` remains
+in the codebase but is not registered on Shiprocket's side.
+`SHIPROCKET_WEBHOOK_TOKEN` env var stays in place in case the user
+re-enables webhooks later.
