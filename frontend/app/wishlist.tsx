@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { useWishlist } from "@/src/contexts/WishlistContext";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { api } from "@/src/lib/api";
@@ -38,26 +39,36 @@ export default function WishlistScreen() {
   const router = useRouter();
   const { formatPrice, info } = useRegion();
   const { add } = useCart();
+  const { user } = useAuth();
   const { toggle, refresh } = useWishlist();
   const [items, setItems] = useState<WishItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!user) {
+      setItems([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const data = await api<WishItem[]>("/wishlist");
       setItems(data || []);
+    } catch {
+      setItems([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const onPullRefresh = () => {
+    if (!user) return;
     setRefreshing(true);
     Promise.all([refresh(), load()]);
   };
@@ -96,6 +107,21 @@ export default function WishlistScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : !user ? (
+        <View style={styles.empty}>
+          <Heart size={42} color="#FCA5A5" fill="#FECACA" strokeWidth={1.6} />
+          <Text style={styles.emptyTitle}>Sign in to view your wishlist</Text>
+          <Text style={styles.emptySub}>
+            Save items you love and find them anytime from any device.
+          </Text>
+          <Pressable
+            onPress={() => router.push("/(auth)/login")}
+            style={styles.cta}
+            testID="wishlist-signin-cta"
+          >
+            <Text style={styles.ctaText}>Sign in</Text>
+          </Pressable>
         </View>
       ) : items.length === 0 ? (
         <View style={styles.empty}>
