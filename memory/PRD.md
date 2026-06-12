@@ -453,3 +453,27 @@ permutations + hidden-category leak prevention (`/taxonomy`,
 Clothing → Sort & Filter shows all sections. Backend correctly returns
 the Flowy Midi Summer Dress when filtering by size=L AND when filtering
 by color=Black (case-insensitive).
+
+## Branding — Allsale Logo Integration (June 2026)
+
+User supplied the official Allsale logo (teal "all" + orange "Sale" with
+upward/forward arrows). Wired everywhere a brand mark is needed:
+
+- **Welcome / sign-in screen** (`app/(auth)/welcome.tsx`) — replaces the
+  text "allsale" + dot with a 120×44 logo image over the hero
+- **Home tab header** (`app/(tabs)/home.tsx`) — 132×40 logo above the
+  "Shipping to New Zealand" subline
+- **App icon** (`app.json::expo.icon`)
+- **Android adaptive icon** (`expo.android.adaptiveIcon.foregroundImage`)
+  on black background
+- **Splash screen** (`expo-splash-screen` plugin) on black background,
+  220px wide, contain resize mode
+- **Web favicon** (`expo.web.favicon`)
+
+All five surfaces point at `assets/images/allsale-logo.png` (92 KB PNG).
+The icon/splash changes take effect at next native build; the in-app
+placements (welcome + home) are live in Expo Go immediately.
+
+## Shiprocket X — Status
+Still BLOCKED. User confirmed they are awaiting Shiprocket's reply with
+credentials. Un-mocking deferred.
