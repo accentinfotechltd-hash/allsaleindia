@@ -662,3 +662,19 @@ the values stored in `SHIPROCKET_EMAIL` / `SHIPROCKET_PASSWORD`.
 Until the API user is created, the integration logs the 403 and
 gracefully falls back to mocked AWBs so the rest of the app keeps
 working.
+
+## Shiprocket X — LIVE & AUTHENTICATED ✅ (June 12, 2026)
+
+Credentials configured in `/app/backend/.env`:
+- `SHIPROCKET_EMAIL=listing@allsale.co.nz` (Shiprocket API user, distinct from dashboard login)
+- `SHIPROCKET_PASSWORD=#XNUtW$Jngr@*P&iBt2*mvKgNQ4mez1V`
+- `SHIPROCKET_PICKUP_LOCATION=Primary`
+
+**Verified working:**
+- Login: `POST /v1/external/auth/login` → returns 400-char JWT
+- Token cached in `db.shiprocket_tokens` with `expires_at` set 9 days
+  ahead; subsequent calls reuse the cached token without re-login.
+
+All downstream flows (adhoc order → cheapest courier → AWB → tracking)
+now use the live token. The mock fallback remains in code as a safety
+net but will not trigger as long as Shiprocket auth succeeds.
