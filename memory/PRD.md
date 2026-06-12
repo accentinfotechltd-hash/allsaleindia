@@ -678,3 +678,29 @@ Credentials configured in `/app/backend/.env`:
 All downstream flows (adhoc order → cheapest courier → AWB → tracking)
 now use the live token. The mock fallback remains in code as a safety
 net but will not trigger as long as Shiprocket auth succeeds.
+
+## Shiprocket — LIVE END-TO-END VERIFIED ✅ (June 12, 2026 02:53 UTC)
+
+Real cross-border order created on Shiprocket dashboard:
+- **Shiprocket order ID**: 1394840740
+- **Shiprocket shipment ID**: 1391097324
+- **From**: 6 Siddhi Vinayak Row House, Ahmedabad 380015 (Pickup "Home")
+- **To**: 9 Albert Street, Auckland 1010, NZ
+
+Final `.env` configuration:
+- `SHIPROCKET_EMAIL=listing@allsale.co.nz`
+- `SHIPROCKET_PASSWORD=#XNUtW$Jngr@*P&iBt2*mvKgNQ4mez1V`
+- `SHIPROCKET_PICKUP_LOCATION=Home` ← matches the nickname in their dashboard
+- `SHIPROCKET_WEBHOOK_TOKEN=ElmRkhbhwibHzfNWUIkKru02wPHif51U5AKqz0ewEgs`
+  (random 32-char URL-safe; used by `webhook_signature_ok()` to reject
+  spoofed callbacks)
+
+**E2E proven**: auth ✅ · token cache ✅ · adhoc order ✅ · order
+visible in Shiprocket dashboard ✅
+
+**AWB note**: real Shiprocket AWB will be assigned when an
+international courier is enabled & matches the route. Today's test
+fell back to a local placeholder AWB because the courier
+serviceability call for IN→NZ returned an empty list. This is account-
+configurable in Shiprocket Settings → International Shipping. Tracking
+will activate the moment a real courier is picked.
