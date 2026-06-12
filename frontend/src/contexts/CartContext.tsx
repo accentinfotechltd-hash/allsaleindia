@@ -17,8 +17,11 @@ export type Cart = {
   items: CartItem[];
   subtotal_nzd: number;
   shipping_nzd: number;
+  discount_nzd: number;
   total_nzd: number;
   subtotal_inr: number;
+  coupon_code?: string | null;
+  coupon_label?: string | null;
 };
 
 type CartState = {
@@ -29,14 +32,19 @@ type CartState = {
   add: (productId: string, qty?: number) => Promise<void>;
   update: (productId: string, qty: number) => Promise<void>;
   remove: (productId: string) => Promise<void>;
+  applyCoupon: (code: string) => Promise<Cart>;
+  removeCoupon: () => Promise<void>;
 };
 
 const EMPTY: Cart = {
   items: [],
   subtotal_nzd: 0,
   shipping_nzd: 0,
+  discount_nzd: 0,
   total_nzd: 0,
   subtotal_inr: 0,
+  coupon_code: null,
+  coupon_label: null,
 };
 
 const CartCtx = createContext<CartState | undefined>(undefined);
@@ -88,10 +96,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart(c);
   }, []);
 
+  const applyCoupon = useCallback(async (code: string) => {
+    const c = await api<Cart>("/cart/coupon", {
+      method: "POST",
+      body: { code },
+    });
+    setCart(c);
+    return c;
+  }, []);
+
+  const removeCoupon = useCallback(async () => {
+    const c = await api<Cart>("/cart/coupon", { method: "DELETE" });
+    setCart(c);
+  }, []);
+
   const itemCount = cart.items.reduce((sum, it) => sum + it.quantity, 0);
 
   return (
-    <CartCtx.Provider value={{ cart, loading, itemCount, refresh, add, update, remove }}>
+    <CartCtx.Provider
+      value={{ cart, loading, itemCount, refresh, add, update, remove, applyCoupon, removeCoupon }}
+    >
       {children}
     </CartCtx.Provider>
   );

@@ -93,7 +93,10 @@ async def create_checkout_session(
         "items": [oi.model_dump() for oi in order_items],
         "subtotal_nzd": cart.subtotal_nzd,
         "shipping_nzd": cart.shipping_nzd,
+        "discount_nzd": float(getattr(cart, "discount_nzd", 0.0) or 0.0),
         "total_nzd": cart.total_nzd,
+        "coupon_code": getattr(cart, "coupon_code", None),
+        "coupon_label": getattr(cart, "coupon_label", None),
         "address": body.address.model_dump(),
         "status": "pending",
         "payment_status": "initiated",
@@ -134,6 +137,27 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
             }
         },
     )
+    # Record coupon redemption (best-effort, idempotent) AFTER the order is
+    # paid — never before, so we don't bump usage on abandoned carts.
+    try:
+        order = await db.orders.find_one(
+            {"id": order_id}, {"_id": 0, "coupon_code": 1, "discount_nzd": 1}
+        )
+        code = (order or {}).get("coupon_code")
+        if code:
+            from services.coupons import find_coupon, record_coupon_redemption
+
+            cpn = await find_coupon(code)
+            if cpn:
+                await record_coupon_redemption(
+                    coupon_id=cpn["id"],
+                    user_id=user_id,
+                    order_id=order_id,
+                    discount_nzd=float(order.get("discount_nzd") or 0.0),
+                )
+    except Exception:
+        pass
+
     await create_payouts_for_order(order_id)
     await book_shiprocket_shipment(order_id)
     await notify_order_placed(order_id)

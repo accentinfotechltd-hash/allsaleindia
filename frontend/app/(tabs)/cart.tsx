@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import CouponInput from "@/src/components/CouponInput";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -126,6 +127,16 @@ export default function Cart() {
           value={cart.shipping_nzd === 0 ? "FREE" : formatPrice(cart.shipping_nzd)}
           highlight={cart.shipping_nzd === 0}
         />
+        {cart.discount_nzd > 0 ? (
+          <SummaryRow
+            label={cart.coupon_code ? `Coupon (${cart.coupon_code})` : "Discount"}
+            value={`-${formatPrice(cart.discount_nzd)}`}
+            highlight
+          />
+        ) : null}
+        <View style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}>
+          <CouponInput />
+        </View>
         <SummaryRow
           label={cart.subtotal_nzd > 1000 ? "NZ GST 15% + 10% duty (est.)" : "NZ GST 15% (est.)"}
           value={formatPrice(

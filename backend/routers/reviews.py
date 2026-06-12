@@ -385,4 +385,3 @@ async def delete_review(review_id: str, current=Depends(get_current_user)):
     await db.reviews.delete_one({"id": review_id})
     await _recompute_product_rating(doc["product_id"])
     return None
-return None

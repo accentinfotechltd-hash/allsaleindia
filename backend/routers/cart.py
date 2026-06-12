@@ -5,8 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from db import db
 from deps import get_current_user
-from models import CartAddRequest, CartUpdateRequest, CartView
+from models import CartAddRequest, CartUpdateRequest, CartView, CouponValidateRequest
 from services.cart import hydrate_cart
+from services.coupons import validate_for_cart
 from utils import now_utc
 
 router = APIRouter(tags=["cart"])
@@ -62,6 +63,39 @@ async def add_to_cart(body: CartAddRequest, current=Depends(get_current_user)):
     return await hydrate_cart(current["id"])
 
 
+# ---------------------------------------------------------------------------
+# Coupons on the persistent cart — declared BEFORE the {product_id} routes so
+# that DELETE /cart/coupon isn't shadowed by DELETE /cart/{product_id}.
+# ---------------------------------------------------------------------------
+@router.post("/cart/coupon", response_model=CartView)
+async def apply_coupon_to_cart(
+    body: CouponValidateRequest, current=Depends(get_current_user)
+):
+    cart = await hydrate_cart(current["id"])
+    if not cart.items:
+        raise HTTPException(status_code=400, detail="Your cart is empty")
+
+    code = (body.code or "").strip().upper()
+    _, result = await validate_for_cart(code, cart.items, cart.subtotal_nzd, current)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "Invalid coupon")
+
+    await db.carts.update_one(
+        {"user_id": current["id"]},
+        {"$set": {"coupon_code": code, "updated_at": now_utc()}},
+        upsert=True,
+    )
+    return await hydrate_cart(current["id"])
+
+
+@router.delete("/cart/coupon", response_model=CartView)
+async def remove_coupon_from_cart(current=Depends(get_current_user)):
+    await db.carts.update_one(
+        {"user_id": current["id"]}, {"$unset": {"coupon_code": ""}}
+    )
+    return await hydrate_cart(current["id"])
+
+
 @router.put("/cart/{product_id}", response_model=CartView)
 async def update_cart_item(
     product_id: str, body: CartUpdateRequest, current=Depends(get_current_user)
@@ -108,5 +142,37 @@ async def remove_cart_item(product_id: str, current=Depends(get_current_user)):
     await db.carts.update_one(
         {"user_id": current["id"]},
         {"$pull": {"items": {"product_id": product_id}}},
+    )
+    return await hydrate_cart(current["id"])
+
+
+# ---------------------------------------------------------------------------
+# Coupons on the persistent cart
+# ---------------------------------------------------------------------------
+@router.post("/cart/coupon", response_model=CartView)
+async def apply_coupon_to_cart(
+    body: CouponValidateRequest, current=Depends(get_current_user)
+):
+    cart = await hydrate_cart(current["id"])
+    if not cart.items:
+        raise HTTPException(status_code=400, detail="Your cart is empty")
+
+    code = (body.code or "").strip().upper()
+    _, result = await validate_for_cart(code, cart.items, cart.subtotal_nzd, current)
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error") or "Invalid coupon")
+
+    await db.carts.update_one(
+        {"user_id": current["id"]},
+        {"$set": {"coupon_code": code, "updated_at": now_utc()}},
+        upsert=True,
+    )
+    return await hydrate_cart(current["id"])
+
+
+@router.delete("/cart/coupon", response_model=CartView)
+async def remove_coupon_from_cart(current=Depends(get_current_user)):
+    await db.carts.update_one(
+        {"user_id": current["id"]}, {"$unset": {"coupon_code": ""}}
     )
     return await hydrate_cart(current["id"])

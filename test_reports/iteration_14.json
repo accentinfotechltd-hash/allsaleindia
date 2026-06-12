@@ -1,0 +1,52 @@
+{
+  "summary": "Coupons & Promo Codes (Phase 2) — backend exhaustive + frontend smoke. 35/35 backend tests pass after fixing 2 real backend bugs. Frontend smoke: cart screen, seller coupons screen, and home screen all load with no red screen. CouponInput renders with proper testIDs.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "DELETE /api/cart/coupon",
+        "issue": "Route was being shadowed by DELETE /api/cart/{product_id} (declared first in routers/cart.py), so DELETE /api/cart/coupon was treated as 'remove product whose id is \"coupon\"' — silently succeeded WITHOUT clearing the coupon from the cart doc. T1 fixed by reordering route declarations: /cart/coupon endpoints are now declared BEFORE /cart/{product_id} in routers/cart.py.",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "services/coupons.py::record_coupon_redemption",
+        "issue": "Idempotency guard was broken. Code: `existing = await db.coupon_usage.find_one({coupon_id, order_id}, {_id:0, id:1})` — coupon_usage docs have NO `id` field, so the projection returned an empty dict `{}` on a match. `if existing:` evaluated False, so the second invocation INSERTED again → DuplicateKeyError on the (coupon_id, order_id) unique index AND used_count would have been double-incremented if the index were missing. T1 fixed by changing projection to `{_id: 1}` so a matched doc is truthy.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_coupons.py",
+    "/app/test_reports/pytest/iter14_coupons.xml"
+  ],
+  "action_items": [
+    "Both backend bugs have been fixed by T1 (route ordering + redemption idempotency). Please review and keep.",
+    "Consider adding a unit test in CI for FastAPI route declaration order (e.g. lint that more-specific paths come before path-param routes).",
+    "Frontend smoke only verified empty cart + seller coupons screen (loads with 'No coupons yet' empty state, '+ New' button, 'Create your first coupon' CTA). To smoke-test CouponInput with an applied coupon, main agent should add an authenticated browser session with a primed cart (or a Playwright fixture)."
+  ],
+  "critical_code_review_comments": [
+    "routers/cart.py: BUG (now fixed) — order-sensitive FastAPI route declarations. /cart/{product_id} routes must come AFTER any literal /cart/<word> paths.",
+    "services/coupons.py: BUG (now fixed) — projection asked for a field that doesn't exist on the doc, causing truthiness logic to break. Whenever using `find_one({...}, {...})` for an existence check, always include `_id: 1` (the default) or use `count_documents(..., limit=1)`.",
+    "services/coupons.py validate_for_cart correctness verified by tests: percent (with/without max_discount), fixed (with subtotal cap), free_shipping (sets shipping=0 and adds savings to discount), min_order (precise gap message), per-user-limit, expired (valid_to past), inactive, country-locked, scope=seller (other-seller cart filtered out).",
+    "routers/coupons.py: seller is correctly forced to scope=seller with scope_value=[seller_id] even when 'all' is requested. Percent validated 1-90. Duplicate code returns 409. Cross-seller PATCH/DELETE returns 403.",
+    "services/cart.py: stale coupon auto-drop verified — when a coupon becomes inactive after being applied, GET /cart silently $unsets coupon_code and returns discount_nzd=0 without error.",
+    "routers/checkout.py: order doc persists discount_nzd, coupon_code, coupon_label. _on_payment_succeeded calls record_coupon_redemption exactly once per order (verified idempotent — calling it twice with same order_id yields used_count=1 and exactly 1 coupon_usage row)."
+  ],
+  "updated_files": [
+    "/app/backend/routers/cart.py (reordered coupon routes BEFORE /cart/{product_id})",
+    "/app/backend/services/coupons.py (fixed projection in record_coupon_redemption idempotency check)",
+    "/app/backend/tests/test_coupons.py (NEW — 35 tests, 7 classes)"
+  ],
+  "success_rate": {"backend": "100% (35/35)", "frontend": "smoke only — home/cart/seller-coupons screens load, no red screen, CouponInput component verified to exist with testIDs"},
+  "seed_data_creation": "Tests create per-run TEST_-prefixed users, sellers, products, coupons. Coupon codes are prefixed with a 4-hex-char per-run nonce to avoid 409 collisions across iterations.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_coupons.py uses a per-run secrets.token_hex(2).upper() prefix on all coupon codes plus a shared _SVC_LOOP for any direct service-layer call (record_coupon_redemption / _on_payment_succeeded) — DO NOT replace with asyncio.run() (motor's `db` singleton becomes loop-bound on first I/O). _seed_product() inserts test products directly into MongoDB so we control price + seller exactly; clean up via TEST_ prefix queries if needed.",
+  "rca_of_issue": "Bug 1 (DELETE /cart/coupon shadowed): FastAPI matches routes in declaration order. DELETE /cart/{product_id} was registered first, so any DELETE on /cart/coupon got routed to remove_cart_item with product_id='coupon' — which is a no-op (no such item) that returns the cart untouched. Fix: declare literal /cart/coupon endpoints before the /cart/{product_id} catch-all. Bug 2 (redemption double-count): find_one projection `{_id:0, id:1}` returned `{}` for docs that exist because coupon_usage has no `id` field. `{}` is falsy in Python, so the existence check failed → reinsert. Fix: change projection to `{_id:1}` so truthiness works. Reproduced both bugs via pytest before fix; both pass after fix."
+}

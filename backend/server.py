@@ -28,6 +28,7 @@ from routers import (
     bulk_listings,
     cart,
     checkout,
+    coupons,
     geo,
     health,
     notifications,
@@ -72,6 +73,7 @@ api.include_router(orders.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
+api.include_router(coupons.router)
 api.include_router(wallet.router)
 api.include_router(shiprocket.router)
 api.include_router(uploads.router)

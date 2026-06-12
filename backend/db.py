@@ -68,3 +68,13 @@ async def ensure_indexes() -> None:
         [("user_id", 1), ("order_id", 1), ("product_id", 1)],
         unique=True,
     )
+    # coupons & redemptions
+    await db.coupons.create_index("id", unique=True)
+    await db.coupons.create_index("code", unique=True)
+    await db.coupons.create_index([("owner_id", 1), ("created_at", -1)])
+    await db.coupons.create_index([("active", 1), ("valid_to", 1)])
+    await db.coupon_usage.create_index(
+        [("coupon_id", 1), ("order_id", 1)], unique=True
+    )
+    await db.coupon_usage.create_index([("coupon_id", 1), ("user_id", 1)])
+    await db.coupon_usage.create_index([("user_id", 1), ("redeemed_at", -1)])

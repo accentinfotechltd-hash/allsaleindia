@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Store, Trash2, Upload, Wallet } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Store, Tag, Trash2, Upload, Wallet } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -183,6 +183,17 @@ export default function SellerDashboard() {
                   </View>
                   <Text style={styles.quickTitle}>Bulk upload</Text>
                   <Text style={styles.quickSubtitle}>Add many listings via CSV / Excel</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-coupons-link"
+                  onPress={() => router.push("/seller/coupons")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <Tag size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Coupons</Text>
+                  <Text style={styles.quickSubtitle}>Promo codes & flash deals</Text>
                 </Pressable>
               </View>
 

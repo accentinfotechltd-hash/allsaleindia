@@ -210,8 +210,89 @@ class CartView(BaseModel):
     items: List[dict]  # product details + quantity
     subtotal_nzd: float
     shipping_nzd: float
+    discount_nzd: float = 0.0
     total_nzd: float
     subtotal_inr: float
+    coupon_code: Optional[str] = None
+    coupon_label: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Coupons & Promo Codes
+# ---------------------------------------------------------------------------
+class CouponCreate(BaseModel):
+    code: str = Field(..., min_length=3, max_length=20)
+    description: str = Field(..., min_length=2, max_length=160)
+    type: str = Field(..., description="percent | fixed | free_shipping")
+    value: float = Field(0.0, ge=0, description="% (0-90) for percent, NZD for fixed, 0 for free_shipping")
+    min_order_nzd: float = Field(0.0, ge=0)
+    max_discount_nzd: Optional[float] = Field(default=None, gt=0)
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    usage_limit_total: Optional[int] = Field(default=None, ge=1)
+    per_user_limit: int = Field(1, ge=1, le=10)
+    scope: str = Field("all", description="all | category | seller | products")
+    scope_value: List[str] = Field(default_factory=list)
+    countries: List[str] = Field(default_factory=list, description="ISO-2 codes, empty = all")
+    active: bool = True
+
+
+class CouponUpdate(BaseModel):
+    description: Optional[str] = Field(default=None, max_length=160)
+    active: Optional[bool] = None
+    valid_to: Optional[datetime] = None
+    usage_limit_total: Optional[int] = Field(default=None, ge=1)
+    max_discount_nzd: Optional[float] = Field(default=None, gt=0)
+    min_order_nzd: Optional[float] = Field(default=None, ge=0)
+    value: Optional[float] = Field(default=None, ge=0)
+
+
+class Coupon(BaseModel):
+    id: str
+    code: str
+    description: str
+    type: str
+    value: float
+    min_order_nzd: float = 0.0
+    max_discount_nzd: Optional[float] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
+    usage_limit_total: Optional[int] = None
+    used_count: int = 0
+    per_user_limit: int = 1
+    scope: str = "all"
+    scope_value: List[str] = Field(default_factory=list)
+    countries: List[str] = Field(default_factory=list)
+    owner_id: Optional[str] = None  # seller_id or "admin"
+    owner_name: Optional[str] = None
+    active: bool = True
+    created_at: Optional[datetime] = None
+
+
+class CouponValidateRequest(BaseModel):
+    code: str = Field(..., min_length=2, max_length=20)
+
+
+class CouponApplyResult(BaseModel):
+    ok: bool
+    code: str
+    discount_nzd: float = 0.0
+    free_shipping: bool = False
+    label: str = ""
+    coupon: Optional[Coupon] = None
+    error: Optional[str] = None
+
+
+class CouponPublic(BaseModel):
+    code: str
+    description: str
+    type: str
+    value: float
+    min_order_nzd: float = 0.0
+    max_discount_nzd: Optional[float] = None
+    scope: str = "all"
+    owner_name: Optional[str] = None
+    valid_to: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +387,10 @@ class Order(BaseModel):
     buyer_country: Optional[str] = None
     buyer_currency: Optional[str] = None
     charge_amount: Optional[float] = None
+    # Coupons
+    discount_nzd: Optional[float] = 0.0
+    coupon_code: Optional[str] = None
+    coupon_label: Optional[str] = None
 
 
 class CancelOrderRequest(BaseModel):
