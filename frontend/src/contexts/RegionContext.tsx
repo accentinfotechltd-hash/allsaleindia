@@ -49,6 +49,62 @@ const FALLBACK: CountryInfo = {
 const Ctx = createContext<RegionContextValue | null>(null);
 const STORAGE_KEY = "allsale_country";
 
+// Web only — map the current hostname to a locked region.
+// www.allsale.co.nz → NZ, au.allsale.co.nz → AU, etc.
+// Returns null on native (mobile app uses geo-detect + stored value).
+function detectRegionFromHostname(): CountryCode | null {
+  if (typeof window === "undefined" || !window.location) return null;
+  const host = window.location.hostname.toLowerCase();
+  const parts = host.split(".");
+  const sub = parts.length > 2 ? parts[0] : "www";
+  switch (sub) {
+    case "au":
+      return "AU";
+    case "us":
+      return "US";
+    case "uk":
+    case "gb":
+      return "GB";
+    case "ca":
+      return "CA";
+    case "www":
+    case "nz":
+    case "allsale":
+      return "NZ";
+    default:
+      return null; // unknown subdomain (seller., preview., etc.) → use normal flow
+  }
+}
+
+// Auto-redirect to the buyer's IP-recommended subdomain (web only).
+// Honours an `?no_redirect=1` query param so users can manually stay.
+async function maybeAutoRedirect(currentRegion: CountryCode | null): Promise<void> {
+  if (typeof window === "undefined" || !window.location) return;
+  // Skip on the seller portal and on local dev (preview, localhost)
+  const host = window.location.hostname.toLowerCase();
+  if (host.startsWith("seller.") || host.includes("localhost") || host.includes("emergentagent.com")) {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("no_redirect") === "1") return;
+  // Only auto-redirect when we're on www. (so we don't bounce visitors who
+  // explicitly chose au./us./etc.)
+  if (!host.startsWith("www.") && !host.startsWith("allsale.")) return;
+  try {
+    const r = await api<{ subdomain: string; country: CountryCode }>(
+      "/geo/auto-redirect",
+      { auth: false },
+    );
+    if (r.subdomain && r.subdomain !== "www" && r.country !== currentRegion) {
+      // Use replace so back button doesn't bounce them in a loop
+      const target = `${url.protocol}//${r.subdomain}.allsale.co.nz${url.pathname}${url.search}`;
+      window.location.replace(target);
+    }
+  } catch {
+    /* silent */
+  }
+}
+
 export function RegionProvider({ children }: { children: ReactNode }) {
   const [country, setCountryState] = useState<CountryCode>("NZ");
   const [countries, setCountries] = useState<CountryInfo[]>([FALLBACK]);
@@ -65,6 +121,17 @@ export function RegionProvider({ children }: { children: ReactNode }) {
         );
         setCountries(rateRes.countries);
         setRates(rateRes.rates);
+        // Priority 0: hostname-based lock (web only). If the subdomain says
+        // "this is the AU site", we lock to AU regardless of stored value.
+        const fromHost = detectRegionFromHostname();
+        if (fromHost && rateRes.countries.some((c) => c.code === fromHost)) {
+          setCountryState(fromHost);
+          // Persist so native sessions inherit the same default later.
+          await storage.setItem(STORAGE_KEY, fromHost);
+          setReady(true);
+          // Don't auto-redirect once we're already on a subdomain.
+          return;
+        }
         // Stored?
         const stored = await storage.getItem<CountryCode>(STORAGE_KEY, null as any);
         if (stored && rateRes.countries.some((c) => c.code === stored)) {
@@ -82,6 +149,8 @@ export function RegionProvider({ children }: { children: ReactNode }) {
             /* ignore */
           }
         }
+        // Web-only: hop to the matching country subdomain if we're on www.
+        await maybeAutoRedirect(fromHost);
       } catch {
         /* network failure: keep defaults */
       } finally {

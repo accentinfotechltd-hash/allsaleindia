@@ -46,6 +46,39 @@ async def detect_country(request: Request):
     }
 
 
+@router.get("/geo/auto-redirect")
+async def auto_redirect(request: Request):
+    """Return the canonical subdomain for the visitor's detected country.
+
+    The web app calls this on cold start; if the current hostname doesn't
+    match the recommendation, it issues a 302 to the right subdomain.
+    """
+    raw = (
+        request.headers.get("cf-ipcountry")
+        or request.headers.get("x-country")
+        or request.headers.get("x-vercel-ip-country")
+        or ""
+    ).upper()
+    detected = raw if raw in COUNTRY_CODES else DEFAULT_COUNTRY
+    # Map country code → subdomain prefix. Falls back to www for unknowns.
+    subdomain = {
+        "NZ": "www",
+        "AU": "au",
+        "US": "us",
+        "GB": "uk",
+        "CA": "ca",
+    }.get(detected, "www")
+    info = next((c for c in SUPPORTED_COUNTRIES if c["code"] == detected), SUPPORTED_COUNTRIES[0])
+    return {
+        "country": detected,
+        "subdomain": subdomain,
+        "host_hint": f"{subdomain}.allsale.co.nz",
+        "currency": info["currency"],
+        "symbol": info["symbol"],
+        "name": info["name"],
+    }
+
+
 @router.get("/currency/rates")
 async def currency_rates():
     """Return the supported countries and live NZD→target FX rates.

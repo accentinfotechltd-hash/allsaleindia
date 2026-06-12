@@ -712,3 +712,50 @@ periodically). The webhook endpoint `/api/shiprocket/webhook` remains
 in the codebase but is not registered on Shiprocket's side.
 `SHIPROCKET_WEBHOOK_TOKEN` env var stays in place in case the user
 re-enables webhooks later.
+
+## Country-Locked Subdomain Routing (June 12, 2026)
+
+Multi-country e-commerce architecture mirroring Amazon/ASOS — each
+buyer market gets its own URL so Google indexes them separately and
+currency is impossible to mix up.
+
+**Subdomain map**
+| URL | Region | Currency | Locked |
+|---|---|---|---|
+| www.allsale.co.nz | NZ 🇳🇿 | NZD | ✓ |
+| au.allsale.co.nz | AU 🇦🇺 | AUD | ✓ |
+| us.allsale.co.nz | US 🇺🇸 | USD | ✓ |
+| uk.allsale.co.nz | UK 🇬🇧 | GBP | ✓ |
+| ca.allsale.co.nz | CA 🇨🇦 | CAD | ✓ |
+| seller.allsale.co.nz | Indian sellers 🇮🇳 | — | Seller portal |
+
+**Backend** — `routers/geo.py` adds:
+- `GET /api/geo/auto-redirect` — reads `cf-ipcountry` / `x-country` /
+  `x-vercel-ip-country` headers and returns
+  `{country, subdomain, host_hint, currency, symbol, name}` so the
+  client can hop to the right subdomain on first load.
+
+**Frontend** — `RegionContext.tsx` enhanced:
+- `detectRegionFromHostname()` reads `window.location.hostname`,
+  maps subdomain → CountryCode, locks `RegionContext` to that region
+  (priority 0 — beats stored + geo detect).
+- `maybeAutoRedirect()` runs on cold start when on `www.` only;
+  calls `/geo/auto-redirect`, and if the detected country differs
+  it `window.location.replace()`s to the matching subdomain.
+- Skipped automatically on: seller subdomain, localhost, Emergent
+  preview hostnames, and any URL carrying `?no_redirect=1`.
+- Persists the locked region to AsyncStorage so subsequent native
+  app sessions inherit the same default.
+
+**DNS / launch checklist (user-side):**
+1. Move DNS to Cloudflare (free) so `cf-ipcountry` is auto-injected
+2. Add 6 CNAME records (`www`, `au`, `us`, `uk`, `ca`, `seller`) →
+   Emergent preview hostname
+3. Enable Cloudflare proxy (orange cloud) for all 6 records
+4. Optional: `301` redirect rule from `allsale.co.nz` (apex) →
+   `www.allsale.co.nz`
+
+The integration is fully implemented and verified via header injection
+(`X-Country: GB` → subdomain `uk` confirmed). The moment Cloudflare
+DNS is live, IP-based auto-redirect activates with zero further code
+changes needed.
