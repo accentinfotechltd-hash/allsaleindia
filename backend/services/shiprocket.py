@@ -73,8 +73,15 @@ async def _get_token() -> Optional[str]:
         return None
     now = now_utc()
     doc = await db.shiprocket_tokens.find_one({"account_id": "default"})
-    if doc and doc.get("token") and doc.get("expires_at") and doc["expires_at"] > now:
-        return doc["token"]
+    if doc and doc.get("token") and doc.get("expires_at"):
+        exp = doc["expires_at"]
+        # MongoDB strips tzinfo; coerce both sides to naive UTC for safety.
+        if getattr(exp, "tzinfo", None) is None:
+            now_cmp = now.replace(tzinfo=None)
+        else:
+            now_cmp = now
+        if exp > now_cmp:
+            return doc["token"]
     try:
         async with httpx.AsyncClient(timeout=15.0) as c:
             r = await c.post(
@@ -152,7 +159,13 @@ async def _create_adhoc(token: str, order: dict, seller: dict) -> Optional[dict]
             r.raise_for_status()
             return r.json()
     except Exception as e:
-        logger.error("Shiprocket create_adhoc failed: %s", e)
+        body = ""
+        if isinstance(e, httpx.HTTPStatusError):
+            try:
+                body = e.response.text[:600]
+            except Exception:
+                pass
+        logger.error("Shiprocket create_adhoc failed: %s %s", e, body)
         return None
 
 
