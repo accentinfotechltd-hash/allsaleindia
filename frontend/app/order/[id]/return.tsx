@@ -85,6 +85,7 @@ export default function ReturnRequestScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const [reason, setReason] = useState<string | null>(null);
+  const [refundMethod, setRefundMethod] = useState<"original" | "store_credit">("original");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [note, setNote] = useState("");
   const [photos, setPhotos] = useState<string[]>([]); // Cloudinary URLs
@@ -261,7 +262,7 @@ export default function ReturnRequestScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [order, reason, selectedIds, note, photos, videoUrl, router]);
+  }, [order, reason, selectedIds, note, photos, videoUrl, refundMethod, router]);
 
   const chosenReason = REASONS.find((r) => r.value === reason);
 
@@ -503,6 +504,48 @@ export default function ReturnRequestScreen() {
               </Text>
             </View>
           ) : null}
+
+          {/* Refund method choice */}
+          <Text style={styles.section}>How would you like your refund?</Text>
+          <View style={styles.refundChoices}>
+            <Pressable
+              testID="refund-method-original"
+              onPress={() => setRefundMethod("original")}
+              style={[
+                styles.refundCard,
+                refundMethod === "original" && styles.refundCardActive,
+              ]}
+            >
+              <Text style={styles.refundEmoji}>💳</Text>
+              <Text style={styles.refundTitle}>Back to my card</Text>
+              <Text style={styles.refundSub}>
+                Money returns to your original payment method in 5-10 business days.
+              </Text>
+              <View style={[styles.refundRadio, refundMethod === "original" && styles.refundRadioActive]}>
+                {refundMethod === "original" ? <View style={styles.refundRadioDot} /> : null}
+              </View>
+            </Pressable>
+            <Pressable
+              testID="refund-method-credit"
+              onPress={() => setRefundMethod("store_credit")}
+              style={[
+                styles.refundCard,
+                refundMethod === "store_credit" && styles.refundCardActive,
+              ]}
+            >
+              <View style={styles.refundBadge}>
+                <Text style={styles.refundBadgeText}>+5% bonus</Text>
+              </View>
+              <Text style={styles.refundEmoji}>🪙</Text>
+              <Text style={styles.refundTitle}>Allsale credit</Text>
+              <Text style={styles.refundSub}>
+                Instant once approved · use at any future checkout · never expires.
+              </Text>
+              <View style={[styles.refundRadio, refundMethod === "store_credit" && styles.refundRadioActive]}>
+                {refundMethod === "store_credit" ? <View style={styles.refundRadioDot} /> : null}
+              </View>
+            </Pressable>
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -691,12 +734,51 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  submitBtn: {
-    height: 52,
+  submitBtn: {    height: 52,
     borderRadius: radius.pill,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   submitText: { color: "#fff", fontWeight: "800", fontSize: 15 },
+  refundChoices: { flexDirection: "row", gap: 10, marginTop: spacing.sm },
+  refundCard: {
+    flex: 1,
+    minHeight: 150,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    position: "relative",
+  },
+  refundCardActive: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  refundEmoji: { fontSize: 24, marginBottom: 6 },
+  refundTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  refundSub: { fontSize: 11.5, color: colors.textMuted, lineHeight: 16, marginTop: 4 },
+  refundRadio: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refundRadioActive: { borderColor: colors.primary, backgroundColor: "#fff" },
+  refundRadioDot: { width: 10, height: 10, borderRadius: 999, backgroundColor: colors.primary },
+  refundBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: colors.success,
+  },
+  refundBadgeText: { color: "#fff", fontSize: 9.5, fontWeight: "800", letterSpacing: 0.5 },
 });

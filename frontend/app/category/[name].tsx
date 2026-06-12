@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
+import SizeGuideModal from "@/src/components/SizeGuideModal";
 import {
   activeFilterSummary,
   buildProductsQuery,
@@ -40,6 +41,7 @@ export default function CategoryDetail() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [showFilter, setShowFilter] = useState(false);
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
 
   // Fetch products + taxonomy + brands. Re-runs when filters change.
   useEffect(() => {
@@ -228,8 +230,27 @@ export default function CategoryDetail() {
         visible={showFilter}
         initial={filters}
         brands={brands}
+        showSizeColor={[
+          "Women's Clothing",
+          "Men's Clothing",
+          "Kids' Fashion",
+          "Shoes",
+          "Bags & Luggage",
+          "Ethnic Fashion",
+          "Jewelry & Accessories",
+        ].includes(String(name))}
+        onOpenSizeGuide={() => {
+          setShowFilter(false);
+          setShowSizeGuide(true);
+        }}
         onClose={() => setShowFilter(false)}
         onApply={(next) => setFilters(next)}
+      />
+
+      <SizeGuideModal
+        visible={showSizeGuide}
+        category={String(name || "")}
+        onClose={() => setShowSizeGuide(false)}
       />
     </SafeAreaView>
   );

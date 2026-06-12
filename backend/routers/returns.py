@@ -101,6 +101,12 @@ async def create_return_requests(
                 detail=f"\"{p['name']}\" is in a non-returnable category ({p['category']}).",
             )
 
+    # Store-credit refunds get a 5% bonus to incentivise the choice and
+    # avoid Stripe refund fees. Anything else uses the original payment.
+    refund_method = (body.refund_method or "original").strip().lower()
+    if refund_method not in ("original", "store_credit"):
+        refund_method = "original"
+
     by_seller: dict[str, list[dict]] = {}
     for it in chosen_items:
         sid = it.get("seller_id") or "unknown"
@@ -110,6 +116,11 @@ async def create_return_requests(
     created: list[ReturnRequest] = []
     for sid, sitems in by_seller.items():
         refund_amount, fee, buyer_pays = _compute_refund(sitems, body.reason)
+        bonus = (
+            round(refund_amount * 0.05, 2)
+            if refund_method == "store_credit"
+            else 0.0
+        )
         doc = {
             "id": f"rtn_{uuid.uuid4().hex[:12]}",
             "order_id": body.order_id,
@@ -133,6 +144,8 @@ async def create_return_requests(
             "buyer_pays_shipping": buyer_pays,
             "restocking_fee_nzd": fee,
             "refund_amount_nzd": refund_amount,
+            "refund_method": refund_method,
+            "store_credit_bonus_nzd": bonus,
             "created_at": now_utc(),
         }
         await db.returns.insert_one(doc)
@@ -213,11 +226,36 @@ async def _decide_return(
     order = await db.orders.find_one({"id": rtn["order_id"]}, {"_id": 0})
     refund_id: Optional[str] = None
     new_status = "approved" if approve else "rejected"
+    method = rtn.get("refund_method", "original")
+    bonus = float(rtn.get("store_credit_bonus_nzd") or 0.0)
+    total_credit = float(rtn["refund_amount_nzd"]) + bonus
 
     if approve and order:
-        amount_cents = int(round(float(rtn["refund_amount_nzd"]) * 100))
-        refund_id = await issue_partial_refund(order.get("session_id"), amount_cents)
-        new_status = "refunded" if refund_id else "approved"
+        if method == "store_credit":
+            # Top up the buyer's wallet (no Stripe call needed).
+            await db.users.update_one(
+                {"id": rtn["user_id"]},
+                {"$inc": {"wallet_balance_nzd": total_credit}},
+            )
+            await db.wallet_ledger.insert_one(
+                {
+                    "id": f"wl_{uuid.uuid4().hex[:12]}",
+                    "user_id": rtn["user_id"],
+                    "amount_nzd": total_credit,
+                    "kind": "credit",
+                    "source": "return_refund",
+                    "return_id": rtn["id"],
+                    "order_id": rtn["order_id"],
+                    "created_at": now_utc(),
+                }
+            )
+            new_status = "refunded"
+        else:
+            amount_cents = int(round(float(rtn["refund_amount_nzd"]) * 100))
+            refund_id = await issue_partial_refund(
+                order.get("session_id"), amount_cents
+            )
+            new_status = "refunded" if refund_id else "approved"
 
     updated = await db.returns.find_one_and_update(
         {"id": return_id},
@@ -235,15 +273,23 @@ async def _decide_return(
 
     short = rtn["order_id"].replace("order_", "")[:8].upper()
     if approve:
+        if method == "store_credit":
+            body_msg = (
+                f"${total_credit:.2f} NZD added to your Allsale wallet"
+                + (f" (+${bonus:.2f} bonus)" if bonus > 0 else "")
+                + ". Apply it at checkout on your next order."
+            )
+        else:
+            body_msg = (
+                f"Your refund of ${rtn['refund_amount_nzd']:.2f} NZD is on the way "
+                "and will appear within 5–10 business days."
+            )
         await create_notification(
             user_id=rtn["user_id"],
             role="buyer",
             n_type="return_approved",
             title=f"Return for #{short} approved",
-            body=(
-                f"Your refund of ${rtn['refund_amount_nzd']:.2f} NZD is on the way "
-                "and will appear within 5–10 business days."
-            ),
+            body=body_msg,
             order_id=rtn["order_id"],
         )
     else:

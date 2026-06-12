@@ -518,3 +518,45 @@ a "Find my size" recommender driven by body measurements.
 category filtering, gender narrowing on shoes, recommendation for
 women's apparel / men's apparel / kids height / women's & men's shoes /
 ring sizing, plus the `null` no-match path.
+
+## Refund-or-Credit Choice + Wallet (June 2026)
+
+When a buyer requests a return, they now pick how to receive the refund:
+
+- **Back to original payment method** (Stripe refund · 5-10 business days)
+- **Allsale store credit** — instant top-up to a wallet with **+5% bonus**,
+  no Stripe fees, never expires
+
+**Backend**
+- `ReturnRequestCreate.refund_method` — `original` (default) or
+  `store_credit`. Invalid values silently fall back to `original`.
+- `ReturnRequest` now persists `refund_method` and
+  `store_credit_bonus_nzd` (5% of the refund amount when wallet was
+  chosen, else 0).
+- `_decide_return()` — when a seller approves a store-credit return,
+  the buyer's `users.wallet_balance_nzd` is incremented atomically with
+  `$inc` and a row is appended to `wallet_ledger` for audit.
+- New router `routers/wallet.py` → `GET /api/wallet` returns
+  `{balance_nzd, entries[]}` (last 50 ledger entries).
+- Notification copy varies by method ("$X added to your Allsale wallet"
+  vs the existing "$X NZD on its way in 5-10 days").
+
+**Frontend** — `/app/order/[id]/return.tsx`:
+- Two-card chooser between the "💳 Back to my card" and "🪙 Allsale
+  credit" options (mutually-exclusive radio).
+- The store-credit card carries a **"+5% bonus"** badge.
+- Success alert copy varies by selection.
+
+**Size Guide link in Sort & Filter**
+- `SortFilterSheet.onOpenSizeGuide` prop; when supplied, a small
+  underlined "Size guide" link appears next to the "SIZES" section
+  header in the filter sheet.
+- `category/[name].tsx` passes the current category to `SizeGuideModal`
+  and swaps it in when the link is tapped (filter sheet hides
+  automatically so the size guide takes the full screen).
+
+**Tests**
+- `test_refund_method.py` (3/3 passing): wallet endpoint baseline,
+  ReturnRequestCreate schema accepts/rejects refund_method.
+- `test_size_guide.py` (13/13) + `test_returns.py` (19/19) untouched
+  by the schema changes — 35/35 across the relevant suites.

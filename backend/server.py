@@ -38,6 +38,7 @@ from routers import (
     shiprocket,
     size_guide,
     uploads,
+    wallet,
 )
 from services.seed import seed_products
 
@@ -69,6 +70,7 @@ api.include_router(bulk_listings.router)
 api.include_router(orders.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
+api.include_router(wallet.router)
 api.include_router(shiprocket.router)
 api.include_router(uploads.router)
 api.include_router(notifications.router)

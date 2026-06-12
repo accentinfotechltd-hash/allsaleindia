@@ -84,6 +84,8 @@ type Props = {
   brands: string[];
   /** When true, the sizes & colors sections are shown (catalogue is apparel/lifestyle). */
   showSizeColor?: boolean;
+  /** When provided, a small "Size guide" link appears next to the Sizes section. */
+  onOpenSizeGuide?: () => void;
   onClose: () => void;
   onApply: (next: FilterState) => void;
 };
@@ -93,6 +95,7 @@ export function SortFilterSheet({
   initial,
   brands,
   showSizeColor = true,
+  onOpenSizeGuide,
   onClose,
   onApply,
 }: Props) {
@@ -214,7 +217,19 @@ export function SortFilterSheet({
             {/* Sizes & colors — only meaningful for apparel/lifestyle catalogs */}
             {showSizeColor ? (
               <>
-                <Text style={styles.section}>Sizes</Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.section}>Sizes</Text>
+                  {onOpenSizeGuide ? (
+                    <Pressable
+                      testID="size-guide-link"
+                      onPress={onOpenSizeGuide}
+                      hitSlop={8}
+                      style={styles.sizeGuideLink}
+                    >
+                      <Text style={styles.sizeGuideLinkText}>Size guide</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
                 <View style={styles.chipsWrap}>
                   {[...SIZE_OPTIONS, ...SHOE_SIZE_OPTIONS].map((sz) => {
                     const active = state.sizes.includes(sz);
@@ -418,6 +433,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: "rgba(0,0,0,0.15)",
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  sizeGuideLink: {
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    marginRight: -8,
+  },
+  sizeGuideLinkText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: colors.primary,
+    textDecorationLine: "underline",
   },
   priceRow: { flexDirection: "row", gap: 10, marginTop: spacing.sm },
   priceField: { flex: 1 },

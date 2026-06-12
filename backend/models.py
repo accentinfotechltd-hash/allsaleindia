@@ -345,6 +345,10 @@ class ReturnRequestCreate(BaseModel):
     note: Optional[str] = Field(None, max_length=600)
     photos: List[str] = Field(default_factory=list, description="base64-encoded images, optional, max 4")
     videos: List[str] = Field(default_factory=list, description="short proof videos (Cloudinary URLs), max 1")
+    refund_method: Optional[str] = Field(
+        default="original",
+        description="'original' = back to card, 'store_credit' = Allsale wallet (5% bonus)",
+    )
 
 
 class ReturnRequest(BaseModel):
@@ -361,6 +365,8 @@ class ReturnRequest(BaseModel):
     buyer_pays_shipping: bool
     restocking_fee_nzd: float
     refund_amount_nzd: float
+    refund_method: str = "original"  # 'original' | 'store_credit'
+    store_credit_bonus_nzd: float = 0.0
     created_at: datetime
     decided_at: Optional[datetime] = None
     decision_note: Optional[str] = None
