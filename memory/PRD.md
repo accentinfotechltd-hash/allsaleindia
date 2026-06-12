@@ -844,3 +844,39 @@ checkout persistence, redemption idempotency).
 **Bugs caught during testing:** (1) DELETE /cart/coupon was shadowed
 by /cart/{product_id}; fixed by route reorder. (2) `record_coupon_redemption`
 idempotency check used a wrong projection; fixed.
+
+## Phase: Seller Analytics — Insights (NEW — Jun 2026)
+
+**Why:** Sellers need to know what's selling where, who's coming back,
+and whether returns are eating their margin.
+
+**Backend (`GET /api/seller/analytics/insights?days=N`):**
+- `days` clamped 1..365 (default 30). One endpoint computes:
+  - **Returns:** total_returns, total_paid_orders, returns_rate_pct,
+    refund_total_nzd (only refunded/approved status), by_reason
+    histogram (lowercased + sorted desc).
+  - **Revenue by region:** group by `buyer_country` (uppercased, fallback NZ),
+    summing only THIS seller's items in each order (cross-seller isolation
+    is enforced). Sorted by revenue desc with share_pct.
+  - **Customer demographics:** unique buyers, repeat rate %, AOV (avg
+    order value), buyers grouped by country with flag emoji + share_pct.
+- Excludes `cancelled` / `refunded` orders.
+- Window filter uses `paid_at` (falling back to `created_at` for legacy rows).
+
+**Frontend:**
+- `src/components/InsightsSection.tsx` — drop-in section with 7d/30d/90d
+  range toggle. Renders 3 cards: returns rate (with Healthy/Watch/Concerning
+  health chip ≤5% / ≤10% / >10%), revenue-by-region (horizontal bar +
+  flag), and customers (AOV / repeat / country grid). Graceful empty state.
+- `app/seller/analytics.tsx` — embeds `<InsightsSection days={30} />`
+  between the timeseries chart and the Top-5 lists.
+
+**Testing:** `tests/test_analytics_insights.py` — 20 tests pass on first
+run. Covers: auth (401/403), days clamping, divide-by-zero, refund-status
+filter, window filter, status exclusion, by_reason normalization,
+region grouping & share_pct, **seller isolation** (most important),
+AOV math, repeat-rate math, response shape contract.
+
+**Known code smell (not blocking):** `routers/seller.py` is now ~1000
+lines; a future refactor should split it into
+`listings.py / onboarding.py / seller_orders.py / seller_analytics.py`.
