@@ -802,3 +802,45 @@ one-review-per-purchase rule at the DB level.
 (create + 6 error paths, sorts, distribution, eligibility flag,
 helpful toggle, seller reply ACL + only-once, delete + recompute,
 401/404/409 paths).
+
+## Phase: Coupons & Promo Codes (NEW — Jun 2026)
+
+**Why:** Instant sales boost. Sellers control their own promos rather
+than waiting on platform marketing.
+
+**Backend (`/api/coupons/*` + `/api/seller/coupons/*` + `/api/cart/coupon`):**
+- 3 discount types: `percent`, `fixed`, `free_shipping`.
+- 4 scopes: `all`, `category`, `seller`, `products`. Sellers are
+  force-scoped to themselves (cannot create site-wide).
+- `services/coupons.py` — pure(-ish) `validate_for_cart` returning
+  `{ok, discount_nzd, free_shipping, label, error}` + atomic
+  `record_coupon_redemption` (idempotent via unique
+  `(coupon_id, order_id)` index).
+- `services/cart.py` — re-validates coupon on every cart hydrate;
+  silently drops stale codes (no scary error to user).
+- `routers/cart.py` — `POST /cart/coupon`, `DELETE /cart/coupon`.
+  IMPORTANT: literal coupon routes MUST be declared before
+  `/cart/{product_id}` to avoid being shadowed.
+- `routers/checkout.py` — persists `coupon_code`/`coupon_label`/
+  `discount_nzd` on the order; redemption recorded only on
+  payment success.
+
+**Indexes:** `coupons.code` unique, `coupon_usage(coupon_id, order_id)` unique
+(idempotency), `coupon_usage(coupon_id, user_id)` for per-user limit.
+
+**Frontend:**
+- `src/components/CouponInput.tsx` — input + "Available offers"
+  bottom sheet (lists `GET /coupons/active`).
+- `app/(tabs)/cart.tsx` — coupon input + discount line + clamped totals.
+- `app/seller/coupons.tsx` — seller dashboard: list + create modal
+  (code, description, type/value picker, min spend, usage cap, active toggle).
+- `app/seller/dashboard.tsx` — added "Coupons" tile.
+
+**Testing:** `tests/test_coupons.py` — 35 tests pass (percent w/ cap,
+fixed subtotal cap, free-shipping, min order, scope=seller exclusion,
+per-user-limit, expiry, inactive, country lock, stale auto-drop,
+checkout persistence, redemption idempotency).
+
+**Bugs caught during testing:** (1) DELETE /cart/coupon was shadowed
+by /cart/{product_id}; fixed by route reorder. (2) `record_coupon_redemption`
+idempotency check used a wrong projection; fixed.
