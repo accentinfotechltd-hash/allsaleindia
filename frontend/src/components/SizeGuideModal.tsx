@@ -1,251 +1,533 @@
+/**
+ * SizeGuideModal — bottom-sheet showing country-wise size conversion
+ * tables for a product's category, plus a "Find my size" recommender
+ * that asks the backend for a best-fit match given body measurements.
+ *
+ * Pulls every chart from `GET /api/size-guide?category=…` so the data
+ * stays in sync with the backend (which we can update without shipping
+ * a new mobile build).
+ */
 import { Ruler, X } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
+import { useRegion } from "@/src/contexts/RegionContext";
+import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
-import { chartsForCategory, SizeChart, SizeRow } from "@/src/lib/sizeCharts";
+
+type ColumnDef = { key: string; label: string };
+type Row = Record<string, string>;
+type Table = {
+  id: string;
+  label: string;
+  kind: "apparel" | "shoes" | "kids" | "heritage" | "jewelry";
+  columns: ColumnDef[];
+  extra_columns: ColumnDef[];
+  rows: Row[];
+  note?: string;
+  gender_hint?: "women" | "men";
+};
+type GuideResponse = { countries: string[]; categories: Table[] };
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   category?: string;
   subcategory?: string;
+  gender?: "women" | "men";
 };
 
-export default function SizeGuideModal({ visible, onClose, category, subcategory }: Props) {
-  const charts = useMemo(() => {
-    const list = chartsForCategory(category, subcategory);
-    return list.length > 0 ? list : [];
-  }, [category, subcategory]);
+export default function SizeGuideModal({ visible, onClose, category, gender }: Props) {
+  const { country } = useRegion();
+  const [loading, setLoading] = useState(false);
+  const [guide, setGuide] = useState<GuideResponse | null>(null);
+  const [activeTabId, setActiveTabId] = useState<string>("");
 
-  const [activeKey, setActiveKey] = useState<string | null>(null);
-  const active: SizeChart | null = useMemo(() => {
-    if (charts.length === 0) return null;
-    return charts.find((c) => c.key === activeKey) || charts[0];
-  }, [charts, activeKey]);
+  useEffect(() => {
+    if (!visible || !category) return;
+    setLoading(true);
+    const q = new URLSearchParams({ category });
+    if (gender) q.append("gender", gender);
+    api<GuideResponse>(`/size-guide?${q.toString()}`, { auth: false })
+      .then((data) => {
+        setGuide(data);
+        setActiveTabId(data.categories[0]?.id || "");
+      })
+      .catch(() => setGuide(null))
+      .finally(() => setLoading(false));
+  }, [visible, category, gender]);
+
+  const activeTable = useMemo(
+    () => guide?.categories.find((c) => c.id === activeTabId) || null,
+    [guide, activeTabId],
+  );
+
+  const buyerCountry = (country || "NZ").toUpperCase();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.root}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.sheet} testID="size-guide-modal">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      testID="size-guide-modal"
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        style={styles.backdrop}
+      >
+        <Pressable style={styles.scrim} onPress={onClose} />
+        <View style={styles.sheet}>
+          <View style={styles.handle} />
           <View style={styles.header}>
-            <View style={styles.headerRow}>
-              <View style={styles.headerIcon}>
-                <Ruler size={18} color={colors.primary} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Ruler size={18} color={colors.text} />
+              <Text style={styles.title}>Size guide</Text>
+              <View style={styles.countryPill}>
+                <Text style={styles.countryPillText}>You · {buyerCountry}</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.title}>Size guide</Text>
-                <Text style={styles.subtitle}>NZ ↔ Indian conversion</Text>
-              </View>
-              <Pressable
-                testID="size-guide-close"
-                onPress={onClose}
-                style={styles.closeBtn}
-                hitSlop={10}
-              >
-                <X size={18} color={colors.text} />
-              </Pressable>
             </View>
+            <Pressable
+              testID="size-guide-close"
+              onPress={onClose}
+              hitSlop={10}
+              style={styles.closeBtn}
+            >
+              <X size={20} color={colors.text} />
+            </Pressable>
+          </View>
 
-            {charts.length > 1 ? (
+          {loading ? (
+            <View style={styles.loader}>
+              <ActivityIndicator color={colors.primary} />
+            </View>
+          ) : !guide || guide.categories.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>
+                No size chart for this category yet. Check the product description for
+                measurements.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {/* Tabs */}
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ gap: 6, paddingTop: 12 }}
+                contentContainerStyle={styles.tabsRow}
               >
-                {charts.map((c) => {
-                  const selected = active?.key === c.key;
+                {guide.categories.map((t) => {
+                  const active = t.id === activeTabId;
                   return (
                     <Pressable
-                      key={c.key}
-                      testID={`size-guide-tab-${c.key}`}
-                      onPress={() => setActiveKey(c.key)}
-                      style={({ pressed }) => [
-                        styles.tab,
-                        selected && styles.tabActive,
-                        pressed && { opacity: 0.85 },
-                      ]}
+                      key={t.id}
+                      testID={`size-guide-tab-${t.id}`}
+                      onPress={() => setActiveTabId(t.id)}
+                      style={[styles.tab, active && styles.tabActive]}
                     >
-                      <Text style={[styles.tabText, selected && styles.tabTextActive]}>
-                        {c.title}
+                      <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                        {t.label}
                       </Text>
                     </Pressable>
                   );
                 })}
+                <Pressable
+                  testID="size-guide-tab-find"
+                  onPress={() => setActiveTabId("__find__")}
+                  style={[styles.tab, activeTabId === "__find__" && styles.tabActive]}
+                >
+                  <Text
+                    style={[
+                      styles.tabText,
+                      activeTabId === "__find__" && styles.tabTextActive,
+                    ]}
+                  >
+                    Find my size
+                  </Text>
+                </Pressable>
               </ScrollView>
-            ) : null}
-          </View>
 
-          <ScrollView
-            style={{ flexGrow: 0 }}
-            contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}
-            showsVerticalScrollIndicator={false}
-          >
-            {active ? (
-              <ChartView chart={active} />
-            ) : (
-              <View style={styles.empty}>
-                <Text style={styles.emptyTitle}>No size chart for this item</Text>
-                <Text style={styles.emptySub}>
-                  Sizing is per-seller. Please check the product description.
-                </Text>
-              </View>
-            )}
-          </ScrollView>
+              {activeTabId === "__find__" ? (
+                <FindMySize
+                  defaultKind={
+                    guide.categories[0]?.kind === "shoes"
+                      ? "shoes"
+                      : guide.categories[0]?.kind === "kids"
+                      ? "kids"
+                      : "apparel"
+                  }
+                  gender={gender || guide.categories[0]?.gender_hint}
+                  buyerCountry={buyerCountry}
+                />
+              ) : activeTable ? (
+                <SizeTable table={activeTable} buyerCountry={buyerCountry} />
+              ) : null}
+            </>
+          )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-function ChartView({ chart }: { chart: SizeChart }) {
+function SizeTable({ table, buyerCountry }: { table: Table; buyerCountry: string }) {
+  const cols: ColumnDef[] = [
+    { key: "label", label: "Size" },
+    ...table.columns.filter((c) => c.key !== "label"),
+    ...table.extra_columns,
+  ];
   return (
-    <View testID={`size-chart-${chart.key}`}>
-      <Text style={styles.chartTitle}>{chart.title}</Text>
-      <Text style={styles.chartSub}>{chart.subtitle}</Text>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator
-        contentContainerStyle={{ marginTop: 12 }}
-      >
+    <ScrollView
+      style={{ maxHeight: 440 }}
+      contentContainerStyle={{ paddingBottom: spacing.md }}
+    >
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
-          <View style={[styles.row, styles.rowHeader]}>
-            {chart.headers.map((h) => (
-              <View
-                key={String(h.key)}
-                style={[styles.cell, h.key === "nz" && styles.cellKey]}
+          <View style={[styles.row, styles.headerRow]}>
+            {cols.map((c) => (
+              <Text
+                key={c.key}
+                style={[
+                  styles.cell,
+                  styles.cellHeader,
+                  c.key === buyerCountry && styles.cellHeaderHighlight,
+                ]}
               >
-                <Text style={styles.cellHeaderText}>{h.label}</Text>
-              </View>
+                {c.label}
+              </Text>
             ))}
           </View>
-          {chart.rows.map((r, i) => (
+          {table.rows.map((row, i) => (
             <View
-              key={i}
-              style={[styles.row, i % 2 === 1 && { backgroundColor: colors.surface }]}
+              key={`${row.label}-${i}`}
+              style={[styles.row, i % 2 === 0 ? styles.rowAlt : null]}
+              testID={`size-row-${row.label}`}
             >
-              {chart.headers.map((h) => (
-                <View
-                  key={String(h.key)}
-                  style={[styles.cell, h.key === "nz" && styles.cellKey]}
+              {cols.map((c) => (
+                <Text
+                  key={c.key}
+                  style={[
+                    styles.cell,
+                    c.key === "label" && styles.cellLabel,
+                    c.key === buyerCountry && styles.cellHighlight,
+                  ]}
                 >
-                  <Text
-                    style={[styles.cellText, h.key === "nz" && styles.cellKeyText]}
-                    numberOfLines={1}
-                  >
-                    {(r[h.key as keyof SizeRow] as string) || "—"}
-                  </Text>
-                </View>
+                  {row[c.key] ?? "—"}
+                </Text>
               ))}
             </View>
           ))}
         </View>
       </ScrollView>
+      {table.note ? <Text style={styles.note}>{table.note}</Text> : null}
+    </ScrollView>
+  );
+}
 
-      {chart.notes?.length ? (
-        <View style={styles.notes}>
-          {chart.notes.map((n, i) => (
-            <View key={i} style={styles.noteRow}>
-              <View style={styles.noteDot} />
-              <Text style={styles.noteText}>{n}</Text>
-            </View>
-          ))}
-        </View>
+function FindMySize({
+  defaultKind,
+  gender,
+  buyerCountry,
+}: {
+  defaultKind: "apparel" | "shoes" | "kids";
+  gender?: "women" | "men";
+  buyerCountry: string;
+}) {
+  const [bust, setBust] = useState("");
+  const [waist, setWaist] = useState("");
+  const [hip, setHip] = useState("");
+  const [chest, setChest] = useState("");
+  const [foot, setFoot] = useState("");
+  const [height, setHeight] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<Row | null | undefined>(undefined);
+
+  const submit = useCallback(async () => {
+    setLoading(true);
+    setResult(undefined);
+    const q = new URLSearchParams({ kind: defaultKind });
+    if (gender) q.append("gender", gender);
+    if (bust) q.append("bust_cm", bust);
+    if (chest) q.append("chest_cm", chest);
+    if (waist) q.append("waist_cm", waist);
+    if (hip) q.append("hip_cm", hip);
+    if (foot) q.append("foot_cm", foot);
+    if (height) q.append("height_cm", height);
+    try {
+      const r = await api<{ match: Row | null }>(`/size-guide/recommend?${q.toString()}`, {
+        auth: false,
+      });
+      setResult(r.match);
+    } catch {
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [defaultKind, gender, bust, chest, waist, hip, foot, height]);
+
+  return (
+    <ScrollView
+      style={{ maxHeight: 440 }}
+      contentContainerStyle={{ paddingTop: spacing.sm, paddingBottom: spacing.md }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.findIntro}>
+        Tell us your measurements (cm). We&apos;ll match the size most likely to fit you.
+      </Text>
+
+      {defaultKind === "apparel" ? (
+        <>
+          {gender === "men" ? (
+            <Measure label="Chest" value={chest} onChange={setChest} testID="m-chest" />
+          ) : (
+            <Measure label="Bust" value={bust} onChange={setBust} testID="m-bust" />
+          )}
+          <Measure label="Waist" value={waist} onChange={setWaist} testID="m-waist" />
+          {gender !== "men" ? (
+            <Measure label="Hip" value={hip} onChange={setHip} testID="m-hip" />
+          ) : null}
+        </>
+      ) : null}
+      {defaultKind === "shoes" ? (
+        <Measure label="Foot length" value={foot} onChange={setFoot} testID="m-foot" />
+      ) : null}
+      {defaultKind === "kids" ? (
+        <Measure label="Height" value={height} onChange={setHeight} testID="m-height" />
       ) : null}
 
-      <Text style={styles.footnote}>
-        Measurements are a guide. Indian-made garments often run 5–10% smaller than NZ retail
-        equivalents — when in doubt, size up.
-      </Text>
+      <Pressable
+        testID="size-guide-recommend-btn"
+        onPress={submit}
+        disabled={loading}
+        style={({ pressed }) => [
+          styles.recommendBtn,
+          loading && { opacity: 0.5 },
+          pressed && { transform: [{ scale: 0.98 }] },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.recommendBtnText}>Find my size</Text>
+        )}
+      </Pressable>
+
+      {result === null ? (
+        <View style={styles.resultBox}>
+          <Text style={styles.resultMiss}>
+            Couldn&apos;t match — try adding more measurements or check the chart.
+          </Text>
+        </View>
+      ) : result ? (
+        <View style={styles.resultBox}>
+          <Text style={styles.resultLabel}>Your recommended size · {buyerCountry}</Text>
+          <Text style={styles.resultSize}>{result[buyerCountry] || result.label}</Text>
+          <Text style={styles.resultEq}>Label on tag: {result.label}</Text>
+          <View style={styles.resultGrid}>
+            {["US", "UK", "EU", "AU", "NZ", "CA", "IN"].map((c) =>
+              result[c] ? (
+                <View
+                  key={c}
+                  style={[
+                    styles.resultChip,
+                    c === buyerCountry && styles.resultChipActive,
+                  ]}
+                >
+                  <Text style={styles.resultChipKey}>{c}</Text>
+                  <Text style={styles.resultChipValue}>{result[c]}</Text>
+                </View>
+              ) : null,
+            )}
+          </View>
+        </View>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+function Measure({
+  label,
+  value,
+  onChange,
+  testID,
+}: {
+  label: string;
+  value: string;
+  onChange: (s: string) => void;
+  testID?: string;
+}) {
+  return (
+    <View style={styles.measureRow}>
+      <Text style={styles.measureLabel}>{label}</Text>
+      <View style={styles.measureInputWrap}>
+        <TextInput
+          testID={testID}
+          value={value}
+          onChangeText={(t) => onChange(t.replace(/[^0-9.]/g, ""))}
+          keyboardType="numeric"
+          placeholder="0"
+          placeholderTextColor={colors.textFaint}
+          style={styles.measureInput}
+        />
+        <Text style={styles.measureUnit}>cm</Text>
+      </View>
     </View>
   );
 }
 
-const CELL_W = 96;
-const CELL_W_KEY = 88;
-
 const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: "flex-end" },
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  backdrop: { flex: 1, justifyContent: "flex-end" },
+  scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
   sheet: {
     backgroundColor: "#fff",
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
-    maxHeight: "85%",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  handle: {
+    alignSelf: "center",
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    marginBottom: spacing.sm,
   },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
   },
-  headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
+  title: { fontSize: 17, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  countryPill: {
     backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  title: { fontSize: 18, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
-  subtitle: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
-  closeBtn: {
-    width: 36,
-    height: 36,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
   },
+  countryPillText: { fontSize: 11, color: colors.primary, fontWeight: "800", letterSpacing: 0.5 },
+  closeBtn: { padding: 4, borderRadius: 999 },
+  loader: { paddingVertical: 60, alignItems: "center" },
+  empty: { paddingVertical: 40, alignItems: "center" },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: "center" },
+  tabsRow: { flexDirection: "row", gap: 8, paddingVertical: 4, marginBottom: spacing.sm },
   tab: {
+    minHeight: 34,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radius.pill,
+    paddingVertical: 7,
+    borderRadius: 999,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },
   tabActive: { backgroundColor: colors.text, borderColor: colors.text },
-  tabText: { fontSize: 12, fontWeight: "700", color: colors.text },
+  tabText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   tabTextActive: { color: "#fff" },
-  chartTitle: { fontSize: 16, fontWeight: "800", color: colors.text, marginTop: 4 },
-  chartSub: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   row: { flexDirection: "row" },
-  rowHeader: {
-    backgroundColor: colors.text,
+  headerRow: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radius.md,
+    borderTopRightRadius: radius.md,
   },
+  rowAlt: { backgroundColor: "#fafafa" },
   cell: {
-    minWidth: CELL_W,
-    paddingHorizontal: 10,
+    minWidth: 78,
     paddingVertical: 10,
-    borderRightWidth: 1,
-    borderRightColor: colors.border,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 10,
+    fontSize: 12.5,
+    color: colors.text,
+    textAlign: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  cellHeader: { fontWeight: "800", color: colors.textMuted, letterSpacing: 0.5 },
+  cellHeaderHighlight: { color: colors.primary, backgroundColor: colors.primarySoft },
+  cellLabel: { fontWeight: "800" },
+  cellHighlight: { backgroundColor: "#FEF3E7", color: colors.text, fontWeight: "700" },
+  note: {
+    marginTop: spacing.md,
+    fontSize: 12,
+    color: colors.textMuted,
+    fontStyle: "italic",
+    lineHeight: 17,
+  },
+  findIntro: {
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  measureRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.sm,
+  },
+  measureLabel: { fontSize: 14, fontWeight: "700", color: colors.text },
+  measureInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 10,
+    width: 120,
+  },
+  measureInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: colors.text },
+  measureUnit: { color: colors.textMuted, fontSize: 12, fontWeight: "700" },
+  recommendBtn: {
+    marginTop: spacing.md,
+    height: 50,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
-  cellKey: { minWidth: CELL_W_KEY, backgroundColor: colors.primarySoft },
-  cellHeaderText: { color: "#fff", fontSize: 11, fontWeight: "800", letterSpacing: 0.3 },
-  cellText: { color: colors.text, fontSize: 12 },
-  cellKeyText: { fontWeight: "800" },
-  notes: { marginTop: 14, gap: 6 },
-  noteRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  noteDot: { width: 5, height: 5, borderRadius: 999, backgroundColor: colors.primary, marginTop: 7 },
-  noteText: { fontSize: 12, color: colors.textMuted, flex: 1, lineHeight: 17 },
-  footnote: { marginTop: 16, fontSize: 11, color: colors.textFaint, fontStyle: "italic" },
-  empty: { padding: spacing.xl, alignItems: "center", gap: 6 },
-  emptyTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
-  emptySub: { fontSize: 12, color: colors.textMuted, textAlign: "center" },
+  recommendBtnText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  resultBox: {
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.successSoft,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  resultLabel: { fontSize: 11, fontWeight: "800", color: colors.textMuted, letterSpacing: 1 },
+  resultSize: {
+    fontSize: 38,
+    fontWeight: "900",
+    color: colors.success,
+    letterSpacing: -1,
+    marginVertical: 4,
+  },
+  resultEq: { fontSize: 11, fontWeight: "700", color: colors.textMuted, marginBottom: 6 },
+  resultGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  resultChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  resultChipActive: { borderColor: colors.success, backgroundColor: colors.successSoft },
+  resultChipKey: { fontSize: 10, color: colors.textMuted, fontWeight: "800" },
+  resultChipValue: { fontSize: 12, color: colors.text, fontWeight: "700" },
+  resultMiss: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
 });

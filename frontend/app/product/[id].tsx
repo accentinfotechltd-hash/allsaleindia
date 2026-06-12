@@ -7,7 +7,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import SizeGuideModal from "@/src/components/SizeGuideModal";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
-import { chartsForCategory } from "@/src/lib/sizeCharts";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -78,10 +77,20 @@ export default function ProductDetail() {
     const x = e.nativeEvent.contentOffset.x;
     setGalleryIdx(Math.round(x / Math.max(1, galleryWidth)));
   };
-  const hasSizeChart = useMemo(
-    () => product ? chartsForCategory(product.category, product.subcategory).length > 0 : false,
-    [product]
-  );
+  const hasSizeChart = useMemo(() => {
+    if (!product) return false;
+    if (product.sizes && product.sizes.length > 0) return true;
+    const cat = product.category || "";
+    return [
+      "Women's Clothing",
+      "Men's Clothing",
+      "Kids' Fashion",
+      "Shoes",
+      "Bags & Luggage",
+      "Ethnic Fashion",
+      "Jewelry & Accessories",
+    ].includes(cat);
+  }, [product]);
   const outOfStock = product ? product.stock_count <= 0 || product.in_stock === false : false;
   const lowStock = product ? !outOfStock && product.stock_count > 0 && product.stock_count <= 5 : false;
 

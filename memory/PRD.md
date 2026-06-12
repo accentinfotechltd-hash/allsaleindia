@@ -477,3 +477,44 @@ placements (welcome + home) are live in Expo Go immediately.
 ## Shiprocket X — Status
 Still BLOCKED. User confirmed they are awaiting Shiprocket's reply with
 credentials. Un-mocking deferred.
+
+## Country-Wise Size Guide (June 2026)
+
+Buyers now see size conversion tables localized to their country plus
+a "Find my size" recommender driven by body measurements.
+
+**Backend**
+- New module `backend/data/size_guide.py` — pure data with 9 tables:
+  women's / men's / kids' apparel, women's & men's shoes, saree
+  blouse, lehenga, rings, bangles.
+- Each table has columns for **US · UK · EU · AU · NZ · CA · IN** and
+  body measurement ranges (bust/chest/waist/hip in cm, foot in cm,
+  height & weight for kids, mm diameter for jewellery).
+- Sources: ISO/EN 13402, ASTM F1166, BIS IS-13578 (Indian footwear),
+  Indian retail saree-blouse + bangle conventions.
+- Endpoints:
+  - `GET /api/size-guide` — full chart set
+  - `GET /api/size-guide?category=…&gender=…` — only the charts that
+    apply to one product category
+  - `GET /api/size-guide/{table_id}` — single table by stable id
+  - `GET /api/size-guide/recommend?kind=…&bust_cm=…&waist_cm=…` —
+    best-fit row given the buyer's measurements; returns `null` if
+    nothing fits the supplied data.
+
+**Frontend** — `src/components/SizeGuideModal.tsx` rewritten to:
+- Fetch from the backend instead of bundling static data (so we can
+  update charts without a new mobile build)
+- Show one tab per relevant chart (e.g. Ethnic Fashion shows Women's
+  Clothing, Saree Blouse, and Lehenga)
+- Highlight the buyer's country column in primary-soft + a "You · NZ"
+  pill in the header so the relevant column never gets lost
+- "Find my size" tab — measurement inputs (cm) → calls the recommender
+  endpoint → result card showing the recommended local size plus chips
+  for every supported country
+- Wired into the product detail page; the deprecated `sizeCharts.ts`
+  module is no longer imported.
+
+**Tests** — `test_size_guide.py` (13/13 passing): chart listing,
+category filtering, gender narrowing on shoes, recommendation for
+women's apparel / men's apparel / kids height / women's & men's shoes /
+ring sizing, plus the `null` no-match path.
