@@ -23,6 +23,7 @@ import {
 } from "react-native";
 
 import { useRegion } from "@/src/contexts/RegionContext";
+import { BodyFigure, GarmentDiagram } from "@/src/components/SizeGuideFigures";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -268,6 +269,18 @@ function SizeTable({ table, buyerCountry }: { table: Table; buyerCountry: string
           </Pressable>
         </View>
       </View>
+
+      {/* Product-chart garment diagram (top, when applicable) */}
+      {chartMode === "product" && hasProductCols ? (
+        <GarmentDiagram
+          values={{
+            shoulder: fmt(table.rows[Math.floor(table.rows.length / 2)]?.g_shoulder_cm, "g_shoulder_cm"),
+            chest: fmt(table.rows[Math.floor(table.rows.length / 2)]?.g_chest_cm, "g_chest_cm"),
+            length: fmt(table.rows[Math.floor(table.rows.length / 2)]?.g_length_cm, "g_length_cm"),
+            sleeve: fmt(table.rows[Math.floor(table.rows.length / 2)]?.g_sleeve_cm, "g_sleeve_cm"),
+          }}
+        />
+      ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           <View style={[styles.row, styles.headerRow]}>
@@ -361,6 +374,18 @@ function FindMySize({
       <Text style={styles.findIntro}>
         Tell us your measurements (cm). We&apos;ll match the size most likely to fit you.
       </Text>
+
+      <BodyFigure
+        kind={defaultKind}
+        gender={gender}
+        values={{
+          bust: bust || undefined,
+          chest: chest || undefined,
+          waist: waist || undefined,
+          hip: hip || undefined,
+          height: height || undefined,
+        }}
+      />
 
       {defaultKind === "apparel" ? (
         <>

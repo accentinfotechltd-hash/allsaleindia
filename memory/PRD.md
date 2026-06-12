@@ -603,3 +603,37 @@ controls across **all apparel categories** (Women's, Men's, Kids'):
 
 **Scope deferred** (per recommendation): body-figure SVG illustrations
 with annotation bubbles, stretch slider, "model is wearing" hint.
+
+## Size Guide v3 — Body Figure & Garment SVGs (June 2026)
+
+Added two hand-built SVG illustrations (no designer assets, pure
+`react-native-svg`) to make the size guide truly Temu-grade.
+
+**New component** — `src/components/SizeGuideFigures.tsx`:
+
+1. **`BodyFigure`** — three variants (`women`, `men`, `kids`) shown
+   inside the **"Find my size"** tab. Renders a stylised human
+   silhouette with orange arrows + dotted height guides. When the user
+   types a measurement into the bust/waist/hip/chest/height fields,
+   a small pill appears next to the matching arrow with the number
+   they entered.
+
+2. **`GarmentDiagram`** — a generic T-shirt line drawing with four
+   dimension arrows (Shoulder / Chest / Length / Sleeve). Sits at the
+   top of the **Product chart** view, populated with the median size
+   row's garment measurements so the buyer immediately knows what each
+   measurement represents.
+
+**Frontend integration** — `SizeGuideModal.tsx`:
+- `BodyFigure` rendered above the measurement input fields in
+  `FindMySize`. Values flow through live as the user types.
+- `GarmentDiagram` rendered above the product-chart table.
+
+**Visual confirmation** (Flowy Midi Summer Dress):
+- Product chart shows T-shirt outline with "Shoulder 40", "Chest 97",
+  "Length 66", "Sleeve 58" labels — values flip cm↔inches with the
+  unit toggle
+- Find my size shows the female silhouette with Bust / Waist / Hip
+  arrow guides labelled on the left
+
+**Lint clean. No backend changes.**
