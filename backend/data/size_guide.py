@@ -50,46 +50,38 @@ COUNTRIES: list[str] = ["US", "UK", "EU", "AU", "NZ", "CA", "IN"]
 # Bust / Waist / Hip in cm. Source: EN 13402-3 + US/UK retail conventions.
 # ---------------------------------------------------------------------------
 WOMENS_APPAREL: list[dict[str, str]] = [
-    {"label": "XS", "US": "0-2",   "UK": "4-6",   "EU": "32-34", "AU": "6-8",   "NZ": "6-8",   "CA": "0-2",   "IN": "32-34", "bust_cm": "78-83",   "waist_cm": "60-65",   "hip_cm": "85-90"},
-    {"label": "S",  "US": "4-6",   "UK": "8-10",  "EU": "36-38", "AU": "8-10",  "NZ": "8-10",  "CA": "4-6",   "IN": "36-38", "bust_cm": "84-89",   "waist_cm": "66-71",   "hip_cm": "91-96"},
-    {"label": "M",  "US": "8-10",  "UK": "12-14", "EU": "40-42", "AU": "12-14", "NZ": "12-14", "CA": "8-10",  "IN": "40-42", "bust_cm": "90-95",   "waist_cm": "72-77",   "hip_cm": "97-102"},
-    {"label": "L",  "US": "12-14", "UK": "16-18", "EU": "44-46", "AU": "16-18", "NZ": "16-18", "CA": "12-14", "IN": "44-46", "bust_cm": "96-101",  "waist_cm": "78-83",   "hip_cm": "103-108"},
-    {"label": "XL", "US": "16-18", "UK": "20-22", "EU": "48-50", "AU": "20-22", "NZ": "20-22", "CA": "16-18", "IN": "48-50", "bust_cm": "102-107", "waist_cm": "84-89",   "hip_cm": "109-114"},
-    {"label": "XXL","US": "20-22", "UK": "24-26", "EU": "52-54", "AU": "24-26", "NZ": "24-26", "CA": "20-22", "IN": "52-54", "bust_cm": "108-113", "waist_cm": "90-96",   "hip_cm": "115-120"},
-    {"label": "3XL","US": "24-26", "UK": "28-30", "EU": "56-58", "AU": "28-30", "NZ": "28-30", "CA": "24-26", "IN": "56-58", "bust_cm": "114-120", "waist_cm": "97-104",  "hip_cm": "121-128"},
+    {"label": "XS", "US": "0-2",   "UK": "4-6",   "EU": "32-34", "AU": "6-8",   "NZ": "6-8",   "CA": "0-2",   "IN": "32-34", "bust_cm": "78-83",   "waist_cm": "60-65",   "hip_cm": "85-90",  "g_shoulder_cm": "37", "g_chest_cm": "84",  "g_length_cm": "60", "g_sleeve_cm": "55"},
+    {"label": "S",  "US": "4-6",   "UK": "8-10",  "EU": "36-38", "AU": "8-10",  "NZ": "8-10",  "CA": "4-6",   "IN": "36-38", "bust_cm": "84-89",   "waist_cm": "66-71",   "hip_cm": "91-96",  "g_shoulder_cm": "38", "g_chest_cm": "88",  "g_length_cm": "62", "g_sleeve_cm": "56"},
+    {"label": "M",  "US": "8-10",  "UK": "12-14", "EU": "40-42", "AU": "12-14", "NZ": "12-14", "CA": "8-10",  "IN": "40-42", "bust_cm": "90-95",   "waist_cm": "72-77",   "hip_cm": "97-102", "g_shoulder_cm": "39", "g_chest_cm": "92",  "g_length_cm": "64", "g_sleeve_cm": "57"},
+    {"label": "L",  "US": "12-14", "UK": "16-18", "EU": "44-46", "AU": "16-18", "NZ": "16-18", "CA": "12-14", "IN": "44-46", "bust_cm": "96-101",  "waist_cm": "78-83",   "hip_cm": "103-108","g_shoulder_cm": "40", "g_chest_cm": "97",  "g_length_cm": "66", "g_sleeve_cm": "58"},
+    {"label": "XL", "US": "16-18", "UK": "20-22", "EU": "48-50", "AU": "20-22", "NZ": "20-22", "CA": "16-18", "IN": "48-50", "bust_cm": "102-107", "waist_cm": "84-89",   "hip_cm": "109-114","g_shoulder_cm": "41", "g_chest_cm": "102", "g_length_cm": "68", "g_sleeve_cm": "59"},
+    {"label": "XXL","US": "20-22", "UK": "24-26", "EU": "52-54", "AU": "24-26", "NZ": "24-26", "CA": "20-22", "IN": "52-54", "bust_cm": "108-113", "waist_cm": "90-96",   "hip_cm": "115-120","g_shoulder_cm": "42", "g_chest_cm": "108", "g_length_cm": "70", "g_sleeve_cm": "60"},
+    {"label": "3XL","US": "24-26", "UK": "28-30", "EU": "56-58", "AU": "28-30", "NZ": "28-30", "CA": "24-26", "IN": "56-58", "bust_cm": "114-120", "waist_cm": "97-104",  "hip_cm": "121-128","g_shoulder_cm": "43", "g_chest_cm": "114", "g_length_cm": "72", "g_sleeve_cm": "61"},
 ]
 
 
-# ---------------------------------------------------------------------------
-# Men's clothing — chest in cm; numeric columns refer to chest/collar inches
-# common to each country's retail labels.
-# ---------------------------------------------------------------------------
 MENS_APPAREL: list[dict[str, str]] = [
-    {"label": "XS", "US": "32-34", "UK": "32-34", "EU": "42-44", "AU": "32-34", "NZ": "32-34", "CA": "32-34", "IN": "36-38", "chest_cm": "81-86",  "waist_cm": "70-74"},
-    {"label": "S",  "US": "35-37", "UK": "35-37", "EU": "46-48", "AU": "35-37", "NZ": "35-37", "CA": "35-37", "IN": "38-40", "chest_cm": "87-93",  "waist_cm": "75-80"},
-    {"label": "M",  "US": "38-40", "UK": "38-40", "EU": "50",    "AU": "38-40", "NZ": "38-40", "CA": "38-40", "IN": "40-42", "chest_cm": "94-99",  "waist_cm": "81-86"},
-    {"label": "L",  "US": "41-43", "UK": "41-43", "EU": "52-54", "AU": "41-43", "NZ": "41-43", "CA": "41-43", "IN": "42-44", "chest_cm": "100-106","waist_cm": "87-92"},
-    {"label": "XL", "US": "44-46", "UK": "44-46", "EU": "56-58", "AU": "44-46", "NZ": "44-46", "CA": "44-46", "IN": "44-46", "chest_cm": "107-113","waist_cm": "93-98"},
-    {"label": "XXL","US": "47-49", "UK": "47-49", "EU": "60-62", "AU": "47-49", "NZ": "47-49", "CA": "47-49", "IN": "46-48", "chest_cm": "114-120","waist_cm": "99-104"},
-    {"label": "3XL","US": "50-52", "UK": "50-52", "EU": "64-66", "AU": "50-52", "NZ": "50-52", "CA": "50-52", "IN": "48-50", "chest_cm": "121-127","waist_cm": "105-110"},
+    {"label": "XS", "US": "32-34", "UK": "32-34", "EU": "42-44", "AU": "32-34", "NZ": "32-34", "CA": "32-34", "IN": "36-38", "chest_cm": "81-86",  "waist_cm": "70-74", "g_shoulder_cm": "42", "g_chest_cm": "98",  "g_length_cm": "68", "g_sleeve_cm": "62"},
+    {"label": "S",  "US": "35-37", "UK": "35-37", "EU": "46-48", "AU": "35-37", "NZ": "35-37", "CA": "35-37", "IN": "38-40", "chest_cm": "87-93",  "waist_cm": "75-80", "g_shoulder_cm": "44", "g_chest_cm": "104", "g_length_cm": "70", "g_sleeve_cm": "63"},
+    {"label": "M",  "US": "38-40", "UK": "38-40", "EU": "50",    "AU": "38-40", "NZ": "38-40", "CA": "38-40", "IN": "40-42", "chest_cm": "94-99",  "waist_cm": "81-86", "g_shoulder_cm": "46", "g_chest_cm": "110", "g_length_cm": "72", "g_sleeve_cm": "64"},
+    {"label": "L",  "US": "41-43", "UK": "41-43", "EU": "52-54", "AU": "41-43", "NZ": "41-43", "CA": "41-43", "IN": "42-44", "chest_cm": "100-106","waist_cm": "87-92", "g_shoulder_cm": "48", "g_chest_cm": "116", "g_length_cm": "74", "g_sleeve_cm": "65"},
+    {"label": "XL", "US": "44-46", "UK": "44-46", "EU": "56-58", "AU": "44-46", "NZ": "44-46", "CA": "44-46", "IN": "44-46", "chest_cm": "107-113","waist_cm": "93-98", "g_shoulder_cm": "50", "g_chest_cm": "122", "g_length_cm": "76", "g_sleeve_cm": "66"},
+    {"label": "XXL","US": "47-49", "UK": "47-49", "EU": "60-62", "AU": "47-49", "NZ": "47-49", "CA": "47-49", "IN": "46-48", "chest_cm": "114-120","waist_cm": "99-104", "g_shoulder_cm": "52", "g_chest_cm": "128", "g_length_cm": "78", "g_sleeve_cm": "67"},
+    {"label": "3XL","US": "50-52", "UK": "50-52", "EU": "64-66", "AU": "50-52", "NZ": "50-52", "CA": "50-52", "IN": "48-50", "chest_cm": "121-127","waist_cm": "105-110", "g_shoulder_cm": "54", "g_chest_cm": "134", "g_length_cm": "80", "g_sleeve_cm": "68"},
 ]
 
 
-# ---------------------------------------------------------------------------
-# Kids by age — height & approximate weight ranges.
-# Same metric across all countries (kids labels are universally age-based).
-# ---------------------------------------------------------------------------
 KIDS_APPAREL: list[dict[str, str]] = [
-    {"label": "0-3M",   "US": "NB-3M",  "UK": "0-3M",   "EU": "56-62",  "AU": "0000",   "NZ": "0000",   "CA": "NB-3M",  "IN": "0-3M",   "height_cm": "56-61",   "weight_kg": "4-6"},
-    {"label": "3-6M",   "US": "3-6M",   "UK": "3-6M",   "EU": "62-68",  "AU": "000",    "NZ": "000",    "CA": "3-6M",   "IN": "3-6M",   "height_cm": "62-67",   "weight_kg": "6-8"},
-    {"label": "6-12M",  "US": "6-12M",  "UK": "6-12M",  "EU": "68-76",  "AU": "00-0",   "NZ": "00-0",   "CA": "6-12M",  "IN": "6-12M",  "height_cm": "68-76",   "weight_kg": "8-10"},
-    {"label": "12-18M", "US": "12-18M", "UK": "12-18M", "EU": "80-86",  "AU": "1",      "NZ": "1",      "CA": "12-18M", "IN": "12-18M", "height_cm": "77-83",   "weight_kg": "10-12"},
-    {"label": "2-3Y",   "US": "2T-3T",  "UK": "2-3Y",   "EU": "92-98",  "AU": "2-3",    "NZ": "2-3",    "CA": "2T-3T",  "IN": "2-3Y",   "height_cm": "84-95",   "weight_kg": "12-15"},
-    {"label": "3-4Y",   "US": "3T-4T",  "UK": "3-4Y",   "EU": "98-104", "AU": "3-4",    "NZ": "3-4",    "CA": "3T-4T",  "IN": "3-4Y",   "height_cm": "96-105",  "weight_kg": "15-17"},
-    {"label": "4-5Y",   "US": "4-5",    "UK": "4-5Y",   "EU": "104-110","AU": "4-5",    "NZ": "4-5",    "CA": "4-5",    "IN": "4-5Y",   "height_cm": "106-114", "weight_kg": "17-19"},
-    {"label": "6-7Y",   "US": "6-7",    "UK": "6-7Y",   "EU": "116-122","AU": "6-7",    "NZ": "6-7",    "CA": "6-7",    "IN": "6-7Y",   "height_cm": "115-126", "weight_kg": "19-23"},
-    {"label": "8-9Y",   "US": "8-9",    "UK": "8-9Y",   "EU": "128-134","AU": "8-9",    "NZ": "8-9",    "CA": "8-9",    "IN": "8-9Y",   "height_cm": "127-138", "weight_kg": "23-30"},
-    {"label": "10-12Y", "US": "10-12",  "UK": "10-12Y", "EU": "140-152","AU": "10-12",  "NZ": "10-12",  "CA": "10-12",  "IN": "10-12Y", "height_cm": "139-152", "weight_kg": "30-40"},
+    {"label": "0-3M",   "US": "NB-3M",  "UK": "0-3M",   "EU": "56-62",  "AU": "0000",   "NZ": "0000",   "CA": "NB-3M",  "IN": "0-3M",   "height_cm": "56-61",   "weight_kg": "4-6",   "g_chest_cm": "44", "g_length_cm": "38", "g_sleeve_cm": "20"},
+    {"label": "3-6M",   "US": "3-6M",   "UK": "3-6M",   "EU": "62-68",  "AU": "000",    "NZ": "000",    "CA": "3-6M",   "IN": "3-6M",   "height_cm": "62-67",   "weight_kg": "6-8",   "g_chest_cm": "46", "g_length_cm": "40", "g_sleeve_cm": "22"},
+    {"label": "6-12M",  "US": "6-12M",  "UK": "6-12M",  "EU": "68-76",  "AU": "00-0",   "NZ": "00-0",   "CA": "6-12M",  "IN": "6-12M",  "height_cm": "68-76",   "weight_kg": "8-10",  "g_chest_cm": "48", "g_length_cm": "42", "g_sleeve_cm": "25"},
+    {"label": "12-18M", "US": "12-18M", "UK": "12-18M", "EU": "80-86",  "AU": "1",      "NZ": "1",      "CA": "12-18M", "IN": "12-18M", "height_cm": "77-83",   "weight_kg": "10-12", "g_chest_cm": "50", "g_length_cm": "44", "g_sleeve_cm": "28"},
+    {"label": "2-3Y",   "US": "2T-3T",  "UK": "2-3Y",   "EU": "92-98",  "AU": "2-3",    "NZ": "2-3",    "CA": "2T-3T",  "IN": "2-3Y",   "height_cm": "84-95",   "weight_kg": "12-15", "g_chest_cm": "54", "g_length_cm": "48", "g_sleeve_cm": "31"},
+    {"label": "3-4Y",   "US": "3T-4T",  "UK": "3-4Y",   "EU": "98-104", "AU": "3-4",    "NZ": "3-4",    "CA": "3T-4T",  "IN": "3-4Y",   "height_cm": "96-105",  "weight_kg": "15-17", "g_chest_cm": "57", "g_length_cm": "51", "g_sleeve_cm": "34"},
+    {"label": "4-5Y",   "US": "4-5",    "UK": "4-5Y",   "EU": "104-110","AU": "4-5",    "NZ": "4-5",    "CA": "4-5",    "IN": "4-5Y",   "height_cm": "106-114", "weight_kg": "17-19", "g_chest_cm": "60", "g_length_cm": "54", "g_sleeve_cm": "37"},
+    {"label": "6-7Y",   "US": "6-7",    "UK": "6-7Y",   "EU": "116-122","AU": "6-7",    "NZ": "6-7",    "CA": "6-7",    "IN": "6-7Y",   "height_cm": "115-126", "weight_kg": "19-23", "g_chest_cm": "65", "g_length_cm": "58", "g_sleeve_cm": "41"},
+    {"label": "8-9Y",   "US": "8-9",    "UK": "8-9Y",   "EU": "128-134","AU": "8-9",    "NZ": "8-9",    "CA": "8-9",    "IN": "8-9Y",   "height_cm": "127-138", "weight_kg": "23-30", "g_chest_cm": "70", "g_length_cm": "62", "g_sleeve_cm": "45"},
+    {"label": "10-12Y", "US": "10-12",  "UK": "10-12Y", "EU": "140-152","AU": "10-12",  "NZ": "10-12",  "CA": "10-12",  "IN": "10-12Y", "height_cm": "139-152", "weight_kg": "30-40", "g_chest_cm": "76", "g_length_cm": "68", "g_sleeve_cm": "50"},
 ]
 
 
@@ -180,6 +172,12 @@ CATEGORIES: list[dict[str, Any]] = [
             {"key": "waist_cm", "label": "Waist (cm)"},
             {"key": "hip_cm", "label": "Hip (cm)"},
         ],
+        "product_columns": [
+            {"key": "g_shoulder_cm", "label": "Shoulder (cm)"},
+            {"key": "g_chest_cm", "label": "Chest (cm)"},
+            {"key": "g_length_cm", "label": "Length (cm)"},
+            {"key": "g_sleeve_cm", "label": "Sleeve (cm)"},
+        ],
         "rows": WOMENS_APPAREL,
         "applies_to_categories": ["Women's Clothing", "Ethnic Fashion"],
     },
@@ -193,6 +191,12 @@ CATEGORIES: list[dict[str, Any]] = [
             {"key": "chest_cm", "label": "Chest (cm)"},
             {"key": "waist_cm", "label": "Waist (cm)"},
         ],
+        "product_columns": [
+            {"key": "g_shoulder_cm", "label": "Shoulder (cm)"},
+            {"key": "g_chest_cm", "label": "Chest (cm)"},
+            {"key": "g_length_cm", "label": "Length (cm)"},
+            {"key": "g_sleeve_cm", "label": "Sleeve (cm)"},
+        ],
         "rows": MENS_APPAREL,
         "applies_to_categories": ["Men's Clothing"],
     },
@@ -205,6 +209,11 @@ CATEGORIES: list[dict[str, Any]] = [
         "extra_columns": [
             {"key": "height_cm", "label": "Height (cm)"},
             {"key": "weight_kg", "label": "Weight (kg)"},
+        ],
+        "product_columns": [
+            {"key": "g_chest_cm", "label": "Chest (cm)"},
+            {"key": "g_length_cm", "label": "Length (cm)"},
+            {"key": "g_sleeve_cm", "label": "Sleeve (cm)"},
         ],
         "rows": KIDS_APPAREL,
         "applies_to_categories": ["Kids' Fashion"],

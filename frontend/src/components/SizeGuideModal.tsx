@@ -34,6 +34,7 @@ type Table = {
   kind: "apparel" | "shoes" | "kids" | "heritage" | "jewelry";
   columns: ColumnDef[];
   extra_columns: ColumnDef[];
+  product_columns?: ColumnDef[];
   rows: Row[];
   note?: string;
   gender_hint?: "women" | "men";
@@ -182,16 +183,91 @@ export default function SizeGuideModal({ visible, onClose, category, gender }: P
 }
 
 function SizeTable({ table, buyerCountry }: { table: Table; buyerCountry: string }) {
-  const cols: ColumnDef[] = [
-    { key: "label", label: "Size" },
-    ...table.columns.filter((c) => c.key !== "label"),
-    ...table.extra_columns,
-  ];
+  const [unit, setUnit] = useState<"cm" | "in">("cm");
+  const hasProductCols = !!(table.product_columns && table.product_columns.length > 0);
+  const [chartMode, setChartMode] = useState<"body" | "product">("body");
+
+  const baseCols: ColumnDef[] = useMemo(
+    () => [
+      { key: "label", label: "Size" },
+      ...table.columns.filter((c) => c.key !== "label"),
+      ...(chartMode === "product" && hasProductCols
+        ? (table.product_columns as ColumnDef[])
+        : table.extra_columns),
+    ],
+    [table, chartMode, hasProductCols],
+  );
+
+  // Re-label and convert cm/inch values on the fly.
+  const cols: ColumnDef[] = useMemo(
+    () =>
+      baseCols.map((c) => {
+        if (unit === "in" && c.label.includes("(cm)")) {
+          return { ...c, label: c.label.replace("(cm)", "(in)") };
+        }
+        return c;
+      }),
+    [baseCols, unit],
+  );
+
+  function fmt(val: string | undefined, key: string): string {
+    if (val == null || val === "") return "—";
+    if (unit !== "in") return val;
+    // Convert ranges or single numbers from cm → inches when the column is *_cm.
+    if (!key.endsWith("_cm") && !key.includes("foot_cm")) return val;
+    const conv = (n: number) => (n * 0.3937).toFixed(1).replace(/\.0$/, "");
+    if (val.includes("-")) {
+      const [lo, hi] = val.split("-").map((s) => parseFloat(s));
+      if (!isNaN(lo) && !isNaN(hi)) return `${conv(lo)}-${conv(hi)}`;
+    }
+    const n = parseFloat(val);
+    if (!isNaN(n)) return conv(n);
+    return val;
+  }
+
   return (
-    <ScrollView
-      style={{ maxHeight: 440 }}
-      contentContainerStyle={{ paddingBottom: spacing.md }}
-    >
+    <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ paddingBottom: spacing.md }}>
+      {/* IN/CM + Body/Product toggles */}
+      <View style={styles.toggleBar}>
+        {hasProductCols ? (
+          <View style={styles.segmented}>
+            <Pressable
+              testID="chart-body"
+              onPress={() => setChartMode("body")}
+              style={[styles.segment, chartMode === "body" && styles.segmentActive]}
+            >
+              <Text style={[styles.segmentText, chartMode === "body" && styles.segmentTextActive]}>
+                Body chart
+              </Text>
+            </Pressable>
+            <Pressable
+              testID="chart-product"
+              onPress={() => setChartMode("product")}
+              style={[styles.segment, chartMode === "product" && styles.segmentActive]}
+            >
+              <Text style={[styles.segmentText, chartMode === "product" && styles.segmentTextActive]}>
+                Product chart
+              </Text>
+            </Pressable>
+          </View>
+        ) : <View />}
+        <View style={styles.unitPill}>
+          <Pressable
+            testID="unit-cm"
+            onPress={() => setUnit("cm")}
+            style={[styles.unitSeg, unit === "cm" && styles.unitSegActive]}
+          >
+            <Text style={[styles.unitText, unit === "cm" && styles.unitTextActive]}>CM</Text>
+          </Pressable>
+          <Pressable
+            testID="unit-in"
+            onPress={() => setUnit("in")}
+            style={[styles.unitSeg, unit === "in" && styles.unitSegActive]}
+          >
+            <Text style={[styles.unitText, unit === "in" && styles.unitTextActive]}>IN</Text>
+          </Pressable>
+        </View>
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           <View style={[styles.row, styles.headerRow]}>
@@ -223,7 +299,7 @@ function SizeTable({ table, buyerCountry }: { table: Table; buyerCountry: string
                     c.key === buyerCountry && styles.cellHighlight,
                   ]}
                 >
-                  {row[c.key] ?? "—"}
+                  {fmt(row[c.key], c.key)}
                 </Text>
               ))}
             </View>
@@ -530,4 +606,35 @@ const styles = StyleSheet.create({
   resultChipKey: { fontSize: 10, color: colors.textMuted, fontWeight: "800" },
   resultChipValue: { fontSize: 12, color: colors.text, fontWeight: "700" },
   resultMiss: { color: colors.textMuted, fontSize: 13, lineHeight: 18 },
+  toggleBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+    gap: 8,
+  },
+  segmented: {
+    flexDirection: "row",
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segment: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 },
+  segmentActive: { backgroundColor: colors.text },
+  segmentText: { fontSize: 12, fontWeight: "700", color: colors.text },
+  segmentTextActive: { color: "#fff" },
+  unitPill: {
+    flexDirection: "row",
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  unitSeg: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, minWidth: 40, alignItems: "center" },
+  unitSegActive: { backgroundColor: colors.primary },
+  unitText: { fontSize: 11, fontWeight: "800", color: colors.textMuted, letterSpacing: 0.5 },
+  unitTextActive: { color: "#fff" },
 });

@@ -560,3 +560,46 @@ When a buyer requests a return, they now pick how to receive the refund:
   ReturnRequestCreate schema accepts/rejects refund_method.
 - `test_size_guide.py` (13/13) + `test_returns.py` (19/19) untouched
   by the schema changes — 35/35 across the relevant suites.
+
+## Temu-style Size Guide v2 (June 2026)
+
+Inspired by Temu's pattern, the size guide modal now offers three new
+controls across **all apparel categories** (Women's, Men's, Kids'):
+
+1. **CM ↔ IN unit toggle** (right of the toolbar) — switches every
+   measurement column on the fly using 1cm ≈ 0.3937in. Column headers
+   re-label too (e.g. "Chest (cm)" → "Chest (in)"). Country sizes and
+   non-metric values are passed through unchanged.
+2. **Body chart vs Product chart toggle** (left of the toolbar) — only
+   shown when a table has `product_columns`. "Body chart" keeps the
+   body-measurement columns (bust/chest/waist/hip/height). "Product
+   chart" swaps in the garment's actual measurements:
+   - Women's & Men's: Shoulder / Chest / Length / Sleeve
+   - Kids': Chest / Length / Sleeve
+3. **Detailed product-chart rows** — every apparel size now ships
+   garment measurements (`g_shoulder_cm`, `g_chest_cm`, `g_length_cm`,
+   `g_sleeve_cm`) in the backend data table.
+
+**Backend** — `data/size_guide.py`:
+- Added `g_shoulder_cm`, `g_chest_cm`, `g_length_cm`, `g_sleeve_cm` to
+  every row in `WOMENS_APPAREL`, `MENS_APPAREL`, `KIDS_APPAREL`
+- Added a `product_columns` array to the three apparel CATEGORIES
+  entries
+- Existing 13/13 size-guide pytests still pass (the new columns are
+  additive)
+
+**Frontend** — `src/components/SizeGuideModal.tsx`:
+- Component-level `unit` and `chartMode` state with a memoised
+  `fmt()` converter that handles ranges like `"94-99"` → `"37-39"`
+- New segmented controls with primary-color highlight for the active
+  unit pill
+- The Find-my-size recommender still uses CM inputs (unchanged) but
+  the result chips inherit whichever unit the user last picked
+
+**Verified visually** on Kids Cotton T-Shirt Pack (3):
+- Body / Product chart toggle works (defaults to Body)
+- CM → IN switch live-converts every numeric cell
+- 10 size rows visible: 0-3M through 10-12Y
+
+**Scope deferred** (per recommendation): body-figure SVG illustrations
+with annotation bubbles, stretch slider, "model is wearing" hint.
