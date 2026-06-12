@@ -759,3 +759,46 @@ The integration is fully implemented and verified via header injection
 (`X-Country: GB` → subdomain `uk` confirmed). The moment Cloudflare
 DNS is live, IP-based auto-redirect activates with zero further code
 changes needed.
+
+## Phase: Reviews & Ratings (NEW — Jun 2026)
+
+**Why:** Cross-border buying carries trust risk. Verified-purchase reviews
+are the highest-ROI lever to grow conversion.
+
+**Backend (`/api/reviews/*`):**
+- `POST /reviews` — verified-purchase only (order belongs to user AND
+  status ∈ {shipped, out_for_delivery, delivered} AND product is in
+  the order). One review per (user, order, product). Best-effort
+  notification to seller (won't fail the request if notifications
+  error).
+- `GET /reviews/product/{id}` — public; returns `summary` (avg,
+  total, 1–5 distribution) + paginated `items` + `can_review` /
+  `eligible_order_ids` (when Bearer present). Sorts:
+  `recent | helpful | rating_desc | rating_asc`.
+- `GET /reviews/eligible` — items the buyer can still review.
+- `POST /reviews/{id}/helpful` — toggle (idempotent per user).
+- `POST /reviews/{id}/reply` — seller of product replies once.
+- `DELETE /reviews/{id}` — author-only; auto-recomputes product
+  rating + count.
+
+**Indexes:** `reviews.id` (unique), `(product_id, created_at desc)`,
+`(user_id, created_at desc)`, `(seller_id, created_at desc)`, and a
+unique compound `(user_id, order_id, product_id)` to enforce the
+one-review-per-purchase rule at the DB level.
+
+**Frontend:**
+- `src/components/StarRating.tsx` — display + interactive picker.
+- `src/components/ReviewsSection.tsx` — used on `/product/[id]`.
+  Renders avg+histogram, sort chips, per-review card with photos,
+  helpful-vote, seller-reply bubble, and a "Write a review" CTA
+  shown only when `can_review === true`.
+- `app/review/write.tsx` — full-screen review composer (star
+  picker, optional title, comment, up to 6 photos via
+  `expo-image-picker`).
+- `app/order/[id].tsx` — per-item "Write a review" pill for
+  shipped/delivered orders.
+
+**Testing:** `tests/test_reviews.py` — 22 tests pass on first run
+(create + 6 error paths, sorts, distribution, eligibility flag,
+helpful toggle, seller reply ACL + only-once, delete + recompute,
+401/404/409 paths).

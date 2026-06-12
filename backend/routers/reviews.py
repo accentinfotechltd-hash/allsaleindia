@@ -354,14 +354,17 @@ async def seller_reply(
         {"id": review_id}, {"$set": {"seller_reply": reply}}
     )
 
-    # Notify the buyer
-    await create_notification(
-        user_id=doc["user_id"],
-        role="buyer",
-        n_type="review_reply",
-        title="Seller replied to your review",
-        body=body.body[:160],
-    )
+    # Notify the buyer (best effort)
+    try:
+        await create_notification(
+            user_id=doc["user_id"],
+            role="buyer",
+            n_type="review_reply",
+            title="Seller replied to your review",
+            body=body.body[:160],
+        )
+    except Exception:
+        pass
 
     fresh = await db.reviews.find_one({"id": review_id}, {"_id": 0})
     return _review_public(fresh)
@@ -382,3 +385,4 @@ async def delete_review(review_id: str, current=Depends(get_current_user)):
     await db.reviews.delete_one({"id": review_id})
     await _recompute_product_rating(doc["product_id"])
     return None
+return None
