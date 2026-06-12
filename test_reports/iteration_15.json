@@ -1,0 +1,34 @@
+{
+  "summary": "Phase 3 — Seller Analytics Insights endpoint exhaustively validated. Wrote /app/backend/tests/test_analytics_insights.py with 20 pytest cases covering auth (401/403), days clamping (1..365, default 30), empty state, returns rate math (inc. divide-by-zero), refund total filter (only refunded/approved), returns/orders window filtering, cancelled+refunded order exclusion, by_reason lowercase + count-desc sort, region grouping (uppercase, missing→NZ), share_pct math, seller isolation (other seller's items in same order ignored), AOV math, repeat-rate math, customers by-country breakdown, and full response shape. 20/20 PASSED. Frontend smoke (mobile viewport): seller registered via API, token injected into localStorage, /seller/analytics renders Insights heading + 7d/30d/90d range pills + correct empty-state copy ('No paid orders in the last 30 days yet…'). Toggling to 90d triggers GET /api/seller/analytics/insights?days=90 and the copy updates to '…in the last 90 days…'. No red-screen errors. Required restart of expo via supervisorctl once to pick up the new InsightsSection in the Metro bundle.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_analytics_insights.py",
+    "/app/test_reports/pytest/iter15_insights.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/seller.py is now 998 lines — exceeds the 700-line threshold. Recommend splitting into seller/listings.py, seller/orders.py, seller/analytics.py, seller/onboarding.py for maintainability.",
+    "Minor: `paid_orders_q` $or has only 2 branches (paid_at>=start OR paid_at None AND created_at>=start). The timeseries endpoint has 3 branches incl. `{paid_at: {$exists: false}, created_at: {...}}`. In MongoDB, {paid_at: None} already matches missing fields so behaviour is identical, but inconsistency between the two functions is worth aligning.",
+    "Refund_amount_nzd is coerced via `float(r.get('refund_amount_nzd') or 0.0)` — safe against None/missing. ✓",
+    "share_pct uses `total_revenue or 1.0` to dodge div-by-zero when all revenues are 0 (e.g. all items priced 0) — handled. ✓",
+    "buyer_country normalization: `(o.get('buyer_country') or 'NZ').upper()` — also normalizes empty string '' to 'NZ' since '' is falsy. Verified."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_analytics_insights.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Each backend test seeds its own fresh seller (uuid email) and inserts orders + returns directly into db.orders / db.returns with unique seller_id, then cleans up at the end via _cleanup(seller_id). No cross-test contamination.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Endpoint GET /api/seller/analytics/insights?days=N is fully green (20/20 pytest, FE smoke passes). Future iterations should keep using direct DB inserts for paid orders (faster than going through Stripe checkout). When testing FE changes that touch InsightsSection, remember to `sudo supervisorctl restart expo` if Metro doesn't auto-pick up the changes — happened once during this run.",
+  "rca_of_issue": "N/A — no defects found."
+}

@@ -817,3 +817,182 @@ async def export_seller_orders_csv(seller=Depends(get_current_user)):
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ---------------------------------------------------------------------------
+# Insights: returns rate · revenue by region · customer demographics
+# ---------------------------------------------------------------------------
+COUNTRY_FLAGS = {
+    "NZ": "🇳🇿",
+    "AU": "🇦🇺",
+    "US": "🇺🇸",
+    "GB": "🇬🇧",
+    "UK": "🇬🇧",
+    "CA": "🇨🇦",
+    "IN": "🇮🇳",
+}
+
+
+@router.get("/seller/analytics/insights")
+async def seller_analytics_insights(
+    days: int = 30,
+    seller=Depends(get_current_user),
+):
+    """Returns-rate, revenue-by-region, and customer-demographics insights
+    for the last `days` calendar days (default 30, clamped to 365).
+    """
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+
+    from datetime import datetime, timedelta, timezone
+
+    days = max(1, min(int(days), 365))
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=days)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    # --- 1) Paid orders for this seller in the window
+    paid_orders_q = {
+        "items.seller_id": seller["id"],
+        "payment_status": "paid",
+        "status": {"$nin": ["cancelled", "refunded"]},
+        "$or": [
+            {"paid_at": {"$gte": start}},
+            {"$and": [{"paid_at": None}, {"created_at": {"$gte": start}}]},
+        ],
+    }
+
+    total_paid_orders = 0
+    revenue_by_country: dict[str, dict] = {}
+    customers_seen: dict[str, dict] = {}  # user_id -> {country, revenue, orders}
+
+    async for o in db.orders.find(
+        paid_orders_q,
+        {
+            "_id": 0,
+            "id": 1,
+            "user_id": 1,
+            "buyer_country": 1,
+            "items": 1,
+            "paid_at": 1,
+            "created_at": 1,
+        },
+    ):
+        total_paid_orders += 1
+        cc = (o.get("buyer_country") or "NZ").upper()
+        # Sum just this seller's revenue from the order
+        seller_revenue = 0.0
+        seller_units = 0
+        for it in o.get("items", []):
+            if it.get("seller_id") != seller["id"]:
+                continue
+            qty = int(it.get("quantity", 0))
+            seller_revenue += float(it.get("price_nzd", 0)) * qty
+            seller_units += qty
+
+        bucket = revenue_by_country.setdefault(
+            cc, {"orders": 0, "revenue_nzd": 0.0, "units": 0}
+        )
+        bucket["orders"] += 1
+        bucket["revenue_nzd"] += seller_revenue
+        bucket["units"] += seller_units
+
+        uid = o.get("user_id")
+        if uid:
+            c = customers_seen.setdefault(
+                uid, {"country": cc, "revenue_nzd": 0.0, "orders": 0}
+            )
+            c["revenue_nzd"] += seller_revenue
+            c["orders"] += 1
+
+    # --- 2) Returns in the same window
+    total_returns = 0
+    returns_by_reason: dict[str, int] = {}
+    returns_refund_total = 0.0
+    async for r in db.returns.find(
+        {
+            "seller_id": seller["id"],
+            "created_at": {"$gte": start},
+        },
+        {"_id": 0, "reason": 1, "refund_amount_nzd": 1, "status": 1},
+    ):
+        total_returns += 1
+        reason = (r.get("reason") or "other").strip().lower()
+        returns_by_reason[reason] = returns_by_reason.get(reason, 0) + 1
+        if r.get("status") in {"refunded", "approved"}:
+            returns_refund_total += float(r.get("refund_amount_nzd") or 0.0)
+
+    returns_rate = (
+        round((total_returns / total_paid_orders) * 100, 1)
+        if total_paid_orders
+        else 0.0
+    )
+
+    # --- 3) Region breakdown — sorted, with flags
+    total_revenue = sum(b["revenue_nzd"] for b in revenue_by_country.values()) or 1.0
+    by_region = [
+        {
+            "country": cc,
+            "flag": COUNTRY_FLAGS.get(cc, "🌍"),
+            "orders": v["orders"],
+            "units": v["units"],
+            "revenue_nzd": round(v["revenue_nzd"], 2),
+            "share_pct": round((v["revenue_nzd"] / total_revenue) * 100, 1),
+        }
+        for cc, v in revenue_by_country.items()
+    ]
+    by_region.sort(key=lambda x: x["revenue_nzd"], reverse=True)
+
+    # --- 4) Customer demographics
+    total_unique = len(customers_seen)
+    repeat_buyers = sum(1 for c in customers_seen.values() if c["orders"] > 1)
+    repeat_rate = (
+        round((repeat_buyers / total_unique) * 100, 1) if total_unique else 0.0
+    )
+
+    cust_by_country: dict[str, int] = {}
+    for c in customers_seen.values():
+        cc = c.get("country") or "NZ"
+        cust_by_country[cc] = cust_by_country.get(cc, 0) + 1
+    customer_countries = [
+        {
+            "country": cc,
+            "flag": COUNTRY_FLAGS.get(cc, "🌍"),
+            "count": n,
+            "share_pct": round((n / total_unique) * 100, 1) if total_unique else 0.0,
+        }
+        for cc, n in cust_by_country.items()
+    ]
+    customer_countries.sort(key=lambda x: x["count"], reverse=True)
+
+    # AOV — avg order value
+    aov = (
+        round(sum(b["revenue_nzd"] for b in revenue_by_country.values()) / total_paid_orders, 2)
+        if total_paid_orders
+        else 0.0
+    )
+
+    return {
+        "window_days": days,
+        "returns": {
+            "total_returns": total_returns,
+            "total_paid_orders": total_paid_orders,
+            "returns_rate_pct": returns_rate,
+            "refund_total_nzd": round(returns_refund_total, 2),
+            "by_reason": [
+                {"reason": k, "count": v}
+                for k, v in sorted(
+                    returns_by_reason.items(), key=lambda kv: kv[1], reverse=True
+                )
+            ],
+        },
+        "by_region": by_region,
+        "customers": {
+            "total_unique": total_unique,
+            "repeat_buyers": repeat_buyers,
+            "repeat_rate_pct": repeat_rate,
+            "by_country": customer_countries,
+            "aov_nzd": aov,
+        },
+    }

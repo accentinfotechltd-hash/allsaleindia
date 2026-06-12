@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { TimeseriesChart, type Metric } from "@/src/components/TimeseriesChart";
+import InsightsSection from "@/src/components/InsightsSection";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -186,6 +187,9 @@ export default function SellerAnalyticsScreen() {
               {series ? (
                 <TimeseriesChart buckets={series.buckets} metric={metric} />
               ) : null}
+
+              {/* Phase 3 — Insights: returns rate, revenue by region, customer demographics */}
+              <InsightsSection days={30} />
 
               {/* Top 5 by views */}
               {data.top_by_views.length > 0 ? (
