@@ -880,3 +880,25 @@ AOV math, repeat-rate math, response shape contract.
 **Known code smell (not blocking):** `routers/seller.py` is now ~1000
 lines; a future refactor should split it into
 `listings.py / onboarding.py / seller_orders.py / seller_analytics.py`.
+
+## Phase: Wishlist / Favorites (NEW — Jun 2026)
+
+**Why:** Cross-border buyers research a lot — saving items = return visits.
+
+**Backend (`/api/wishlist/*`):**
+- 4 endpoints: list (hydrated), ids-only (for heart-state across catalog),
+  POST/DELETE (idempotent). All auth-required.
+- Storage: `wishlists` collection with unique compound index
+  `(user_id, product_id)` for natural idempotency.
+- Hydration silently skips products that have been deleted.
+
+**Frontend:**
+- `WishlistContext` — Set<id> with optimistic toggle + rollback on error.
+- `WishlistButton` — floating heart (cards) + inline variant. Sign-in
+  guard if anonymous.
+- `app/wishlist.tsx` — hydrated list with Add-to-cart + remove.
+- ProductCard, product detail hero, and Account row all wired.
+
+**Testing:** `tests/test_wishlist.py` — 16/16 pass on first run. Covers
+401 paths, 404 unknown product, idempotency, ordering, cross-user
+isolation, hydration completeness.
