@@ -394,6 +394,74 @@ class Shipment(BaseModel):
 # ---------------------------------------------------------------------------
 # Uploads
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Reviews & Ratings
+# ---------------------------------------------------------------------------
+class ReviewCreate(BaseModel):
+    order_id: str
+    product_id: str
+    rating: int = Field(..., ge=1, le=5)
+    title: Optional[str] = Field(default=None, max_length=120)
+    comment: str = Field(..., min_length=2, max_length=2000)
+    photos: List[str] = Field(default_factory=list, description="Up to 6 image URLs / data URIs")
+
+
+class ReviewReplyCreate(BaseModel):
+    body: str = Field(..., min_length=2, max_length=1000)
+
+
+class ReviewReply(BaseModel):
+    seller_id: str
+    seller_name: Optional[str] = None
+    body: str
+    created_at: datetime
+
+
+class Review(BaseModel):
+    id: str
+    product_id: str
+    seller_id: Optional[str] = None
+    order_id: str
+    user_id: str
+    user_name: str
+    user_country: Optional[str] = None
+    rating: int
+    title: Optional[str] = None
+    comment: str
+    photos: List[str] = Field(default_factory=list)
+    verified_purchase: bool = True
+    helpful_count: int = 0
+    helpful_user_ids: List[str] = Field(default_factory=list)
+    seller_reply: Optional[ReviewReply] = None
+    created_at: datetime
+
+
+class ReviewSummary(BaseModel):
+    product_id: str
+    avg_rating: float
+    total: int
+    distribution: dict  # {"5": 12, "4": 4, "3": 1, "2": 0, "1": 0}
+
+
+class ReviewsPage(BaseModel):
+    summary: ReviewSummary
+    items: List[Review]
+    can_review: bool = False
+    eligible_order_ids: List[str] = Field(default_factory=list)
+
+
+class EligibleReviewItem(BaseModel):
+    order_id: str
+    product_id: str
+    product_name: str
+    product_image: str
+    order_status: str
+    purchased_at: datetime
+
+
+# ---------------------------------------------------------------------------
+# Uploads
+# ---------------------------------------------------------------------------
 class UploadImageRequest(BaseModel):
     data: str = Field(..., description="Base64 data URI (e.g. data:image/jpeg;base64,...) OR a remote URL")
     folder: Optional[str] = Field("allsale/products", description="Cloudinary folder")

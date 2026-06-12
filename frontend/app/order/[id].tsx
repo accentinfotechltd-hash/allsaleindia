@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Linking from "expo-linking";
-import { ChevronLeft, ExternalLink, MapPin, Package, RefreshCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
+import { ChevronLeft, ExternalLink, MapPin, Package, PenSquare, RefreshCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -413,18 +413,45 @@ export default function OrderDetail() {
         ) : null}
 
         <Text style={styles.sectionTitle}>Items</Text>
-        {order.items.map((it) => (
-          <View key={it.product_id} style={styles.itemRow}>
-            <Image source={{ uri: it.image }} style={styles.itemImg} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemName} numberOfLines={2}>
-                {it.name}
-              </Text>
-              <Text style={styles.itemMeta}>Qty {it.quantity}</Text>
+        {order.items.map((it) => {
+          const canReview =
+            ["shipped", "out_for_delivery", "delivered"].includes(order.status);
+          return (
+            <View key={it.product_id} style={styles.itemRow}>
+              <Image source={{ uri: it.image }} style={styles.itemImg} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName} numberOfLines={2}>
+                  {it.name}
+                </Text>
+                <Text style={styles.itemMeta}>Qty {it.quantity}</Text>
+                {canReview ? (
+                  <Pressable
+                    testID={`order-item-review-${it.product_id}`}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/review/write",
+                        params: {
+                          order_id: order.id,
+                          product_id: it.product_id,
+                          product_name: it.name,
+                          product_image: it.image,
+                        },
+                      })
+                    }
+                    style={({ pressed }) => [
+                      styles.reviewPill,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <PenSquare size={12} color={colors.primary} />
+                    <Text style={styles.reviewPillText}>Write a review</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Text style={styles.itemPrice}>{formatNZD(it.price_nzd * it.quantity)}</Text>
             </View>
-            <Text style={styles.itemPrice}>{formatNZD(it.price_nzd * it.quantity)}</Text>
-          </View>
-        ))}
+          );
+        })}
 
         <Text style={styles.sectionTitle}>Shipping address</Text>
         <View style={styles.addressCard}>
@@ -773,6 +800,20 @@ const styles = StyleSheet.create({
   itemImg: { width: 60, height: 60, borderRadius: radius.md, backgroundColor: colors.surface },
   itemName: { fontSize: 14, fontWeight: "600", color: colors.text, lineHeight: 18 },
   itemMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  reviewPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  reviewPillText: { color: colors.primary, fontWeight: "700", fontSize: 11 },
   itemPrice: { fontSize: 14, fontWeight: "800", color: colors.text },
   addressCard: {
     flexDirection: "row",

@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 13 — backend-heavy testing of the brand-new Reviews & Ratings feature (`/api/reviews/*`). Created 22 pytest cases in /app/backend/tests/test_reviews.py covering all 7 endpoints + verified-purchase enforcement + product aggregate sync + seller-reply ACL. ALL 22 TESTS PASSED on the first run (100%, 18.83s). Verified happy paths, every error path (404 on missing order, 400 on wrong status, 400 on product-not-in-order, 409 on duplicate, 401 on unauth, 403 on non-author delete, 403 on non-seller reply, 403 on different seller, 409 on second reply, 404 on missing review/helpful). Confirmed product.rating + reviews_count are recomputed after create AND after delete. Verified all four sort modes (recent/helpful/rating_desc/rating_asc), distribution histogram correctness, eligible orders exclude already-reviewed items + non-eligible statuses, and helpful-vote toggling (up then down). Cross-checked notifications fire (no exception thrown during create/reply — services.notifications.create_notification works). Frontend smoke test on /product/{id} confirmed the ReviewsSection renders for anonymous users with summary + 'Ratings & Reviews' heading and correctly hides the Write-a-review CTA. Frontend deeper auth-gated flows were not exercised in this pass; backend correctness was the priority and is solid. No bugs found in the reviews router — feature ready to ship from a backend correctness standpoint.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "global style props (not introduced by reviews PR)",
+        "issue": "Browser console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' — pre-existing in the codebase (observed on product detail page, NOT specifically from ReviewsSection.tsx or write.tsx). Non-blocking; cosmetic deprecation warning."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_reviews.py (NEW — 22 tests, all pass)",
+    "/app/test_reports/pytest/iter13_reviews.xml"
+  ],
+  "action_items": [
+    "Reviews feature passes all 22 backend tests on first run — no fixes required. Safe to ship the backend.",
+    "(Optional) Track down which component still uses deprecated `shadow*` style props (not the reviews PR) and migrate to `boxShadow` to silence the console warning.",
+    "(Optional follow-up) The seller-reply notification + new-review notification handlers in /app/backend/routers/reviews.py have no try/except around create_notification. Tests show they currently succeed, but if a future notification regression breaks that call the entire review create / reply will 500. Consider wrapping create_notification calls in a try/except so a notification failure can't roll back a successful review.",
+    "(Optional follow-up) After deleting all reviews of a product, the aggregate sets rating=0.0 (per _recompute_product_rating fallback). Product schema default is 4.5 — confirm this 0.0 behavior is intentional for 'no reviews yet' (frontend handles 0.0 fine via summary.total==0 messaging, so this is not a bug, just a heads-up)."
+  ],
+  "critical_code_review_comments": [
+    "GET /api/reviews/product/{id} re-parses the Authorization header manually (calls get_current_user from inside the handler) instead of using Depends — this is correct (endpoint is public-by-default) but a tiny bit duplicative. Acceptable as-is.",
+    "_recompute_product_rating sets product.rating to 0.0 when there are 0 reviews. The Product model defaults rating to 4.5 — net effect: a product that NEVER had reviews has rating=4.5, but a product whose last review was deleted has rating=0.0. Confirm this is intentional (cards may show 0★ after delete).",
+    "DELETE /api/reviews/{id} response_class is default JSON but returns None with status_code=204. FastAPI will still produce a 204 with empty body, OK. No bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_reviews.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22)",
+    "frontend": "smoke-only — anon product page Reviews section renders correctly; auth-gated flows not exercised"
+  },
+  "seed_data_creation": "Each test creates fresh TEST_rev_* users via /api/auth/register and flips orders to {shipped,delivered,paid} directly in Mongo (mirrors test_returns.py pattern). Cleanup is by unique email/order prefix; no shared state.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 22 review tests pass cleanly and run in ~19s. They depend on /api/products returning at least one product (the first product is used). If frontend changes regress the product list endpoint, the fixtures _make_eligible_order will fail at the cart-add step. The sort-by-helpful test (`test_list_product_reviews_sort_helpful`) calls pytest.skip if two sequential /api/products[0] picks return different products (race / rotation guard) — currently both calls return the same first product, so it actually runs.",
+  "rca_of_issue": "N/A — no bugs found. Feature is functioning per spec."
+}

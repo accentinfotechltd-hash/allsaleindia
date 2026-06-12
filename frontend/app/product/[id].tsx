@@ -5,6 +5,7 @@ import { Dimensions, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicato
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import SizeGuideModal from "@/src/components/SizeGuideModal";
+import ReviewsSection from "@/src/components/ReviewsSection";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -312,6 +313,21 @@ export default function ProductDetail() {
 
           <Text style={styles.sectionTitle}>About this item</Text>
           <Text style={styles.description}>{product.description}</Text>
+
+          <ReviewsSection
+            productId={product.id}
+            onWriteReview={(orderId) =>
+              router.push({
+                pathname: "/review/write",
+                params: {
+                  order_id: orderId,
+                  product_id: product.id,
+                  product_name: product.name,
+                  product_image: product.image,
+                },
+              })
+            }
+          />
         </View>
       </ScrollView>
 

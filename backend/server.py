@@ -34,6 +34,7 @@ from routers import (
     orders,
     products,
     returns,
+    reviews,
     seller,
     shiprocket,
     size_guide,
@@ -70,6 +71,7 @@ api.include_router(bulk_listings.router)
 api.include_router(orders.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
+api.include_router(reviews.router)
 api.include_router(wallet.router)
 api.include_router(shiprocket.router)
 api.include_router(uploads.router)

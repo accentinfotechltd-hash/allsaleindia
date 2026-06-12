@@ -57,3 +57,14 @@ async def ensure_indexes() -> None:
     # analytics_events: per-day aggregation by seller for the 7/30-day chart.
     await db.analytics_events.create_index([("seller_id", 1), ("at", -1)])
     await db.analytics_events.create_index([("seller_id", 1), ("type", 1), ("at", -1)])
+    # reviews: lookup by product (list reviews on product page), by user
+    # (My Reviews / verified-purchase dedupe), and by seller (My Reviews
+    # tab in seller dashboard).
+    await db.reviews.create_index("id", unique=True)
+    await db.reviews.create_index([("product_id", 1), ("created_at", -1)])
+    await db.reviews.create_index([("user_id", 1), ("created_at", -1)])
+    await db.reviews.create_index([("seller_id", 1), ("created_at", -1)])
+    await db.reviews.create_index(
+        [("user_id", 1), ("order_id", 1), ("product_id", 1)],
+        unique=True,
+    )
