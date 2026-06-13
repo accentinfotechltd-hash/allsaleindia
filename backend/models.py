@@ -4,7 +4,16 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+
+def _validate_strong_password(v: str) -> str:
+    """Production password rules: ≥ 8 chars and at least one digit."""
+    if len(v) < 8:
+        raise ValueError("Password must be at least 8 characters")
+    if not any(c.isdigit() for c in v):
+        raise ValueError("Password must contain at least one number")
+    return v
 
 
 # ---------------------------------------------------------------------------
@@ -12,15 +21,26 @@ from pydantic import BaseModel, EmailStr, Field
 # ---------------------------------------------------------------------------
 class UserCreate(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8)
     full_name: str = Field(..., min_length=1)
     country: Optional[str] = Field(default=None, min_length=2, max_length=2, description="ISO-2 country code (NZ/AU/US/GB/CA)")
     referral_code: Optional[str] = Field(default=None, max_length=12, description="Friend's code")
+
+    @field_validator("password")
+    @classmethod
+    def _strong_pwd(cls, v: str) -> str:
+        return _validate_strong_password(v)
 
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class AppleSessionRequest(BaseModel):
+    identity_token: str
+    full_name: Optional[str] = None
+    country: Optional[str] = Field(default=None, min_length=2, max_length=2)
 
 
 class UserPublic(BaseModel):

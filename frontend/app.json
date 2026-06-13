@@ -12,6 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.allsale.shop",
       "buildNumber": "1",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Upload product photos to your seller listings",
         "NSCameraUsageDescription": "Take photos of your products to sell on Allsale"

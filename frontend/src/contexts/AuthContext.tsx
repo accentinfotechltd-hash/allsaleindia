@@ -20,6 +20,7 @@ type AuthState = {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
   loginWithGoogle: () => Promise<{ cancelled: boolean }>;
+  loginWithApple: (identityToken: string, fullName?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -168,6 +169,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [exchangeSessionId]);
 
+  const loginWithApple = useCallback(async (identityToken: string, fullName?: string | null) => {
+    const res = await api<{ user: User; access_token: string }>("/auth/apple-session", {
+      method: "POST",
+      auth: false,
+      body: { identity_token: identityToken, full_name: fullName || null },
+    });
+    await setToken(res.access_token);
+    setUser(res.user);
+  }, []);
+
   const logout = useCallback(async () => {
     await clearToken();
     setUser(null);
@@ -175,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthCtx.Provider
-      value={{ user, loading, googleSigningIn, login, register, loginWithGoogle, logout, refresh }}
+      value={{ user, loading, googleSigningIn, login, register, loginWithGoogle, loginWithApple, logout, refresh }}
     >
       {children}
     </AuthCtx.Provider>

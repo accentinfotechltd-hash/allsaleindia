@@ -1,4 +1,4 @@
-"""Authentication endpoints (email/password + Emergent Google OAuth)."""
+"""Authentication endpoints (email/password + Emergent Google OAuth + Apple Sign-In)."""
 from __future__ import annotations
 
 import uuid
@@ -12,11 +12,19 @@ from config import COUNTRY_CODES, DEFAULT_COUNTRY
 from db import db
 from deps import get_current_user
 from models import (
+    AppleSessionRequest,
     AuthResponse,
     GoogleSessionRequest,
     UserCreate,
     UserLogin,
     UserPublic,
+)
+from services.apple_auth import verify_apple_identity_token
+from services.security import (
+    clear_login_attempts,
+    enforce_ip_rate_limit,
+    enforce_login_lockout,
+    record_failed_login,
 )
 from utils import create_token, hash_password, now_utc, public_user, verify_password
 
@@ -39,6 +47,8 @@ def _normalize_country(value: Optional[str], request: Request) -> str:
 
 @router.post("/auth/register", response_model=AuthResponse)
 async def register(body: UserCreate, request: Request):
+    # Light rate-limit on signup endpoint to deter scripted account creation.
+    await enforce_ip_rate_limit(request, "auth/register", max_requests=5, window_seconds=60)
     email = body.email.lower()
     existing = await db.users.find_one({"email": email})
     if existing:
@@ -79,16 +89,89 @@ async def register(body: UserCreate, request: Request):
 
 
 @router.post("/auth/login", response_model=AuthResponse)
-async def login(body: UserLogin):
+async def login(body: UserLogin, request: Request):
     email = body.email.lower()
+    await enforce_ip_rate_limit(request, "auth/login", max_requests=10, window_seconds=60)
+    await enforce_login_lockout(email)
     user = await db.users.find_one({"email": email})
     if (
         not user
         or not user.get("password_hash")
         or not verify_password(body.password, user["password_hash"])
     ):
+        await record_failed_login(email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    await clear_login_attempts(email)
     token = create_token(user["id"])
+    return AuthResponse(user=public_user(user), access_token=token)
+
+
+@router.post("/auth/apple-session", response_model=AuthResponse)
+async def apple_session(body: AppleSessionRequest, request: Request):
+    """Verify Apple's RS256 identity token and issue our own JWT.
+
+    Uses ``sub`` as the canonical Apple identifier (stable across devices),
+    handles Hide My Email relays, and links to an existing email/Google user
+    when emails match exactly.
+    """
+    await enforce_ip_rate_limit(request, "auth/apple-session", max_requests=10, window_seconds=60)
+    claims = await verify_apple_identity_token(body.identity_token)
+    apple_sub = claims["sub"]
+    apple_email = (claims.get("email") or "").lower() or None
+    is_private = bool(claims.get("is_private_email"))
+
+    # 1) try existing Apple user (by sub)
+    existing = await db.users.find_one({"apple_sub": apple_sub})
+    if existing:
+        uid = existing["id"]
+        await db.users.update_one({"id": uid}, {"$set": {"last_login_at": now_utc()}})
+    else:
+        # 2) try linking by email when present and not a private relay
+        if apple_email and not is_private:
+            existing = await db.users.find_one({"email": apple_email})
+        if existing:
+            uid = existing["id"]
+            await db.users.update_one(
+                {"id": uid},
+                {
+                    "$set": {
+                        "apple_sub": apple_sub,
+                        "apple_email": apple_email,
+                        "last_login_at": now_utc(),
+                    },
+                    "$addToSet": {"providers": "apple"},
+                },
+            )
+        else:
+            # 3) brand-new user
+            uid = f"user_{uuid.uuid4().hex[:12]}"
+            country = _normalize_country(body.country, request)
+            full_name = (body.full_name or "").strip() or (
+                apple_email.split("@")[0] if apple_email else "Apple user"
+            )
+            await db.users.insert_one(
+                {
+                    "id": uid,
+                    "email": apple_email,
+                    "apple_email": apple_email,
+                    "apple_sub": apple_sub,
+                    "full_name": full_name,
+                    "password_hash": None,
+                    "provider": "apple",
+                    "providers": ["apple"],
+                    "picture": None,
+                    "country": country,
+                    "created_at": now_utc(),
+                }
+            )
+            try:
+                from services.points import award_welcome_bonus
+                await award_welcome_bonus(uid)
+            except Exception:
+                pass
+
+    user = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
+    token = create_token(uid)
     return AuthResponse(user=public_user(user), access_token=token)
 
 

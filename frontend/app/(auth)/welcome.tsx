@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { SellOnAllsaleBanner } from "@/src/components/SellOnAllsaleBanner";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -67,6 +68,11 @@ export default function Welcome() {
         <GoogleSignInButton
           testID="welcome-google-btn"
           label="Continue with Google"
+          redirectTo="/(tabs)/home"
+        />
+
+        <AppleSignInButton
+          testID="welcome-apple-btn"
           redirectTo="/(tabs)/home"
         />
 
