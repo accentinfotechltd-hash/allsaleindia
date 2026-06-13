@@ -107,16 +107,17 @@ export default function Home() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         ListHeaderComponent={
           <View>
-            {/* Top bar */}
+            {/* Top bar — branded header card */}
             <View style={styles.topBar}>
-              <View style={{ flex: 1 }}>
+              <View style={styles.brandCard}>
                 <Image
                   source={require("@/assets/images/allsale-logo.png")}
                   style={styles.brandLogo}
                   resizeMode="contain"
                 />
+                <View style={styles.brandAccent} />
                 <View style={styles.regionRow}>
-                  <Globe2 size={11} color={colors.textMuted} />
+                  <Globe2 size={12} color={colors.primary} />
                   <Text style={styles.region}>Shipping to New Zealand</Text>
                 </View>
               </View>
@@ -227,11 +228,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    gap: spacing.md,
+  },
+  brandCard: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: "#FFD9BA",
+    overflow: "hidden",
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 2,
   },
   brand: { fontSize: 22, fontWeight: "800", color: colors.text, letterSpacing: -0.8 },
-  brandLogo: { width: 132, height: 40, marginBottom: 2 },
-  regionRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 },
-  region: { fontSize: 11, color: colors.textMuted, fontWeight: "500" },
+  brandLogo: { width: 168, height: 48 },
+  brandAccent: {
+    position: "absolute",
+    right: -28,
+    top: -28,
+    width: 80,
+    height: 80,
+    borderRadius: 80,
+    backgroundColor: colors.primary,
+    opacity: 0.08,
+  },
+  regionRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 },
+  region: { fontSize: 11.5, color: colors.primaryDark, fontWeight: "600" },
   iconBtn: {
     width: 40,
     height: 40,
