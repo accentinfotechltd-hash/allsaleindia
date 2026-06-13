@@ -23,7 +23,13 @@ export default function Welcome() {
           style={styles.gradient}
         />
         <View style={styles.brandRow}>
-          <Image source={require("@/assets/images/allsale-logo.png")} style={styles.brandLogo} resizeMode="contain" />
+          <View style={styles.brandPill}>
+            <Image
+              source={require("@/assets/images/allsale-logo.png")}
+              style={styles.brandLogo}
+              resizeMode="contain"
+            />
+          </View>
         </View>
         <View style={styles.heroContent}>
           <Text style={styles.eyebrow}>INDIA → NEW ZEALAND</Text>
@@ -102,9 +108,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  brandPill: {
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  },
   brandLogo: {
     width: 120,
-    height: 44,
+    height: 38,
   },
   brandDot: { width: 10, height: 10, backgroundColor: colors.primary, borderRadius: 999 },
   brandText: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
