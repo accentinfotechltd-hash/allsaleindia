@@ -1,0 +1,40 @@
+{
+  "summary": "Phase 6 — Flash Sales / Deal of the Day BACKEND exhaustive testing. Wrote /app/backend/tests/test_flash_sales.py with 30 tests covering public active list (sorting, DoD, hydration), seller CRUD (all 7 validation rules: ownership, sale<list, min 10%, valid_to>from, valid_to>now, max 7 days, max 10 active per seller, discount_pct rounding), patch recomputation + 403, delete authorization, cart hydration substitution + backward compat (original_price_nzd=price, flash_sale_id=null for non-sale items), inactive/sold-out fallback to list price, best-discount-wins for duplicate sales, order persistence of flash_sale_id + original_price_nzd, record_units_sold idempotency (unique index on flash_sale_usage), _on_payment_succeeded increment + double-call no-op, sold-out auto-deactivate via get_active_for_product, and full stack (flash + coupon + points) — all 30/30 PASS in 17.25s. Backend lint clean. No code changes needed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_flash_sales.py",
+    "/app/test_reports/pytest/iter18_flash_sales.xml"
+  ],
+  "action_items": [
+    "Backend Phase 6 is GREEN — proceed to build Flash Sales / Deal of the Day frontend (seller create/list/edit/delete screens + Deal of the Day carousel on home + sale badge on product cards + cart line-item showing strikethrough original_price_nzd).",
+    "Pre-existing cross-file motor event-loop flake in test_points.py (test_welcome_bonus_idempotent, test_order_earn_and_redeem_on_payment, test_review_earn_idempotent_unit) — only fails when run together with other suites; each file passes standalone. Optional cleanup: unify the _LOOP fixture across test_points and test_coupons. Not blocking."
+  ],
+  "critical_code_review_comments": [
+    "services/flash_sales.py is clean: idempotency via flash_sale_usage insert-then-fail-silent, sort tuple correctly puts featured first then -discount then earliest ending, _is_currently_active() double-checks units_sold<units_max (covering race conditions in mongo find).",
+    "routers/flash_sales.py: _require_verified_seller is reused locally — consider moving to deps.py if other phases need it.",
+    "services/cart.py correctly attaches original_price_nzd and flash_sale_id per item (verified backward compat — non-sale items get original==price, flash_sale_id=null).",
+    "routers/checkout.py: _on_payment_succeeded aggregates per-sale qty (correct for multi-item carts hitting same sale) and calls record_units_sold once per sale_id — idempotent.",
+    "Minor: PATCH endpoint does not re-validate the 10% MIN_DISCOUNT_PCT floor on price change (seller could lower price further but also raise it just under list). Confirmed behavior: PATCH only blocks price>=list. Consider tightening if product requires constant minimum-discount enforcement."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_flash_sales.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (30/30 flash sales tests pass)",
+    "frontend": "N/A (backend-only iteration)"
+  },
+  "seed_data_creation": "All test data prefixed TEST_FS_/TEST_fs_, products + sellers + flash sales created per-test via uuid-suffixed emails to avoid collisions. flash_sale_usage rows cleaned in record_units_sold unit test.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 6 backend is fully verified. When frontend lands, hit GET /api/flash-sales/active (no auth) to render Deal of the Day carousel. Sale price + original_price_nzd + flash_sale_id are already attached to cart items by services/cart.py. Order items persist these fields on checkout. Seller endpoints under /api/seller/flash-sales require seller_verification_status=='auto_verified'. Use the fixture pattern from test_flash_sales.py (_promote_to_seller + _seed_product) for additional integration tests.",
+  "rca_of_issue": "N/A — no bugs found in this iteration."
+}

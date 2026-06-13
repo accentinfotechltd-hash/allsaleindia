@@ -29,6 +29,7 @@ from routers import (
     cart,
     checkout,
     coupons,
+    flash_sales,
     geo,
     health,
     notifications,
@@ -76,6 +77,7 @@ api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
 api.include_router(coupons.router)
+api.include_router(flash_sales.router)
 api.include_router(wishlist.router)
 api.include_router(points.router)
 api.include_router(wallet.router)

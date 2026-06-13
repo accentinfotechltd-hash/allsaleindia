@@ -47,6 +47,8 @@ async def create_checkout_session(
                 quantity=it["quantity"],
                 seller_id=(prod or {}).get("seller_id"),
                 seller_name=(prod or {}).get("seller_name"),
+                flash_sale_id=it.get("flash_sale_id"),
+                original_price_nzd=it.get("original_price_nzd"),
             )
         )
 
@@ -166,7 +168,7 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
 
         order = await db.orders.find_one(
             {"id": order_id},
-            {"_id": 0, "subtotal_nzd": 1, "points_used": 1},
+            {"_id": 0, "subtotal_nzd": 1, "points_used": 1, "items": 1},
         )
         if order:
             subtotal = float(order.get("subtotal_nzd") or 0.0)
@@ -174,6 +176,21 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
             pts_used = int(order.get("points_used") or 0)
             if pts_used > 0:
                 await redeem_for_order(user_id, order_id, pts_used)
+    except Exception:
+        pass
+
+    # Increment flash-sale units_sold (idempotent per (sale_id, order_id))
+    try:
+        from services.flash_sales import record_units_sold
+        order = order or await db.orders.find_one({"id": order_id}, {"_id": 0, "items": 1})
+        if order:
+            counted: dict[str, int] = {}
+            for it in order.get("items", []) or []:
+                sid = it.get("flash_sale_id")
+                if sid:
+                    counted[sid] = counted.get(sid, 0) + int(it.get("quantity", 0))
+            for sid, qty in counted.items():
+                await record_units_sold(sale_id=sid, order_id=order_id, qty=qty)
     except Exception:
         pass
 

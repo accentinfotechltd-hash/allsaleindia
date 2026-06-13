@@ -89,3 +89,11 @@ async def ensure_indexes() -> None:
     await db.points_ledger.create_index([("user_id", 1), ("created_at", -1)])
     await db.points_ledger.create_index([("user_id", 1), ("reason", 1), ("ref_id", 1)])
     await db.points_ledger.create_index("expires_at")
+    # flash sales
+    await db.flash_sales.create_index("id", unique=True)
+    await db.flash_sales.create_index([("active", 1), ("valid_from", 1), ("valid_to", 1)])
+    await db.flash_sales.create_index([("seller_id", 1), ("created_at", -1)])
+    await db.flash_sales.create_index([("product_id", 1), ("active", 1)])
+    await db.flash_sale_usage.create_index(
+        [("sale_id", 1), ("order_id", 1)], unique=True
+    )

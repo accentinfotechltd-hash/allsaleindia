@@ -14,20 +14,34 @@ async def hydrate_cart(user_id: str) -> CartView:
         items = [CartItem(**i) for i in cart_doc.get("items", [])]
         coupon_code = (cart_doc.get("coupon_code") or "").strip() or None
     hydrated = []
+    flash_sales_applied: dict[str, dict] = {}  # product_id -> sale doc
     for it in items:
         prod = await db.products.find_one({"id": it.product_id}, {"_id": 0})
         if not prod:
             continue
+        # Honor any active flash sale on this product (substitute price)
+        try:
+            from services.flash_sales import get_active_for_product
+            sale = await get_active_for_product(prod["id"])
+        except Exception:
+            sale = None
+        price_nzd = float(prod["price_nzd"])
+        original_price_nzd = price_nzd
+        if sale:
+            price_nzd = float(sale["sale_price_nzd"])
+            flash_sales_applied[prod["id"]] = sale
         hydrated.append(
             {
                 "product_id": prod["id"],
                 "name": prod["name"],
                 "image": prod["image"],
-                "price_nzd": prod["price_nzd"],
+                "price_nzd": price_nzd,
+                "original_price_nzd": original_price_nzd,
                 "price_inr": prod["price_inr"],
                 "quantity": it.quantity,
                 "category": prod["category"],
                 "seller_id": prod.get("seller_id"),
+                "flash_sale_id": (sale or {}).get("id"),
             }
         )
     cart = compute_cart_totals(hydrated)

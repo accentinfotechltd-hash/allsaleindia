@@ -265,6 +265,62 @@ class PointsApplyRequest(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Flash Sales & Deal of the Day
+# ---------------------------------------------------------------------------
+class FlashSaleCreate(BaseModel):
+    product_id: str
+    sale_price_nzd: float = Field(..., gt=0)
+    valid_from: datetime
+    valid_to: datetime
+    units_max: int = Field(..., ge=1)
+    featured: bool = Field(False, description="Eligible to be Deal of the Day")
+    active: bool = True
+
+
+class FlashSaleUpdate(BaseModel):
+    sale_price_nzd: Optional[float] = Field(default=None, gt=0)
+    valid_to: Optional[datetime] = None
+    units_max: Optional[int] = Field(default=None, ge=1)
+    featured: Optional[bool] = None
+    active: Optional[bool] = None
+
+
+class FlashSale(BaseModel):
+    id: str
+    product_id: str
+    seller_id: Optional[str] = None
+    seller_name: Optional[str] = None
+    sale_price_nzd: float
+    original_price_nzd: float
+    discount_pct: int
+    valid_from: datetime
+    valid_to: datetime
+    units_max: int
+    units_sold: int = 0
+    featured: bool = False
+    active: bool = True
+    created_at: Optional[datetime] = None
+
+
+class FlashSalePublic(BaseModel):
+    """Inline flash-sale info attached to product responses + carousels."""
+    id: str
+    product_id: str
+    product_name: Optional[str] = None
+    product_image: Optional[str] = None
+    seller_name: Optional[str] = None
+    sale_price_nzd: float
+    original_price_nzd: float
+    discount_pct: int
+    ends_at: datetime
+    starts_at: datetime
+    units_sold: int = 0
+    units_max: int
+    is_deal_of_the_day: bool = False
+    sold_out: bool = False
+
+
+# ---------------------------------------------------------------------------
 # Coupons & Promo Codes
 # ---------------------------------------------------------------------------
 class CouponCreate(BaseModel):
@@ -369,6 +425,8 @@ class OrderItem(BaseModel):
     quantity: int
     seller_id: Optional[str] = None
     seller_name: Optional[str] = None
+    flash_sale_id: Optional[str] = None
+    original_price_nzd: Optional[float] = None
 
 
 class Payout(BaseModel):
