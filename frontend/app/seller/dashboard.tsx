@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
+import { SellerStatusBanner } from "@/src/components/SellerStatusBanner";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type SellerProfile = {
@@ -107,11 +108,8 @@ export default function SellerDashboard() {
                 </View>
               </View>
 
-              <View style={styles.verifiedBanner}>
-                <CheckCircle2 size={18} color={colors.success} />
-                <Text style={styles.verifiedText} testID="seller-verified-badge">
-                  Business auto-verified — you can start selling.
-                </Text>
+              <View style={{ marginBottom: spacing.md }}>
+                <SellerStatusBanner />
               </View>
 
               <View style={styles.quickActions}>

@@ -124,6 +124,14 @@ export default function AdminDashboard() {
           </View>
         )}
 
+        <Pressable
+          testID="admin-review-sellers-btn"
+          onPress={() => router.push("/admin/sellers")}
+          style={({ pressed }) => [styles.reviewBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.reviewBtnText}>Review pending sellers →</Text>
+        </Pressable>
+
         <Text style={styles.section}>Sellers ({sellers.length})</Text>
         {sellers.slice(0, 10).map((s) => (
           <View key={s.id} style={styles.row}>
@@ -192,4 +200,13 @@ const styles = StyleSheet.create({
   chipPend: { backgroundColor: "#FEF3C7" },
   chipText: { fontWeight: "800", fontSize: 10 },
   amount: { fontWeight: "800", color: colors.text },
+  reviewBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    marginTop: spacing.sm,
+  },
+  reviewBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
 });
