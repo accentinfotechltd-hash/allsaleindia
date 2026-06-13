@@ -131,7 +131,7 @@ export default function Home() {
             </View>
 
             <Text style={styles.hello} testID="home-greeting">
-              Namaste, {user?.full_name?.split(" ")[0] || "friend"} 👋
+              Namaste, {user?.full_name?.split(" ")[0] || "friend"} 🙏
             </Text>
 
             {/* Search */}
