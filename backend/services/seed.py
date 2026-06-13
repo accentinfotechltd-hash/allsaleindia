@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 
 from config import INR_PER_NZD
@@ -254,10 +255,19 @@ def _demo_extras(p: dict) -> dict:
 async def seed_products() -> None:
     """Idempotent reseed of platform-owned (no seller) products.
 
+    Skipped entirely when ``DISABLE_SEED=1`` is set — this is the
+    production safety guard so the live Atlas database never gets
+    polluted with demo sarees/brass/idols. Real sellers add their own
+    listings via the seller portal.
+
     Preserves per-product analytics counters (`view_count`, `cart_add_count`)
     across reseeds — looked up by product `name` so that the seller analytics
     dashboard isn't reset on every backend restart.
     """
+    if os.environ.get("DISABLE_SEED", "").strip().lower() in {"1", "true", "yes"}:
+        logger.info("DISABLE_SEED is set — skipping demo product seeding (production mode)")
+        return
+
     expected = len(SEED_PRODUCTS)
     existing = await db.products.count_documents({"seller_id": None})
     if existing == expected:

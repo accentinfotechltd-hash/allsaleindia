@@ -9,7 +9,12 @@ When clicking 🚀 Deploy on Emergent, paste these values into the production en
 ```
 MONGO_URL=mongodb+srv://allsale_admin:KQXnf0WFgg2Nei3d@cluster0.p4aqz5y.mongodb.net/allsale?retryWrites=true&w=majority&appName=Cluster0
 DB_NAME=allsale
+DISABLE_SEED=1
 ```
+
+⚠️ **`DISABLE_SEED=1` is critical** — without it, ~30 demo products (sarees, brass idols, etc.)
+get inserted into Atlas on every startup. With it set, the production catalog stays clean
+and only contains real seller listings.
 
 - Cluster: `Cluster0` (M0 Free tier, AWS Sydney)
 - Project: `Allsale App` (separate from existing allsale.events project)
