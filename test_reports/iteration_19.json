@@ -1,0 +1,36 @@
+{
+  "summary": "Backend-only HTTP-level integration smoke verifying the routers/seller.py → routers/seller/ package refactor preserved every endpoint. Wrote /app/backend/tests/test_seller_refactor_smoke.py with 39 new tests hitting all 4 submodules (onboarding, listings, orders, analytics) via the public EXPO_PUBLIC_BACKEND_URL. All 39 pass. Also re-ran the 7 existing seller-related suites (test_seller, test_edit_listing, test_bulk_listings_edges, test_analytics_timeseries, test_analytics_insights, test_seller_business_types, test_seller_payouts) → 105/105 pass. Combined: 144/144 pass. Refactor confirmed behavior-preserving: route parity intact, permission gates (401 unauth / 403 non-seller / 403 unverified-seller) all enforced, response shapes match models, CSV streaming + bulk-edit + analytics windows all working.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/health", "issue": "Returns 404 — there is no /api/health route. Not related to the seller refactor; just noticed during the smoke."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_seller_refactor_smoke.py",
+    "/app/test_reports/pytest/iter19_refactor_smoke.xml",
+    "/app/test_reports/pytest/iter19_existing_seller.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/seller/__init__.py cleanly re-exposes a single `router` so existing `from routers import seller; seller.router` in server.py still works — refactor is API-compatible.",
+    "_common.py centralises require_verified_seller + verify_business_and_persist + COUNTRY_FLAGS — good DRY win, ~20 lines each, no duplication across submodules.",
+    "All four submodules use APIRouter(tags=['seller']) so OpenAPI grouping is preserved.",
+    "_id is consistently excluded from all Mongo reads — no ObjectId serialisation issues in any submodule.",
+    "Bulk edit correctly scopes every operation by seller_id, preventing cross-seller damage.",
+    "Each submodule is now well under 500 LOC (listings.py is the largest at ~370 LOC) — good split. Main 1000-line file is gone."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (144/144: 39 new smoke + 105 existing seller-related)", "frontend": "not tested (backend-only review)"},
+  "seed_data_creation": "Each test creates throwaway TEST_-prefixed sellers/buyers/listings; nothing seeded persistently. No production data touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Seller router refactor is verified. Re-use /app/backend/tests/test_seller_refactor_smoke.py for any future seller-router regressions — it covers register/upgrade/me, full listing CRUD, all 7 bulk actions, payouts, orders, CSV streaming, view/cart-add counters, analytics summary, 7/30 day timeseries (incl. clamping), and 30-day insights, plus permission gates (401/403) on every protected endpoint.",
+  "rca_of_issue": "N/A — no bugs found. Refactor is a clean behavior-preserving package split."
+}
