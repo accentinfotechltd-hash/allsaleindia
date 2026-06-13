@@ -7,7 +7,7 @@ When clicking 🚀 Deploy on Emergent, paste these values into the production en
 ## MongoDB Atlas (Production Database)
 
 ```
-MONGO_URL=mongodb+srv://allsale_admin:KQXnf0WFgg2Nei3d@cluster0.p4aqz5y.mongodb.net/allsale?retryWrites=true&w=majority&appName=Cluster0
+MONGO_URL=mongodb+srv://allsale_admin:oqarKz6Nx503oS3l@cluster0.p4aqz5y.mongodb.net/allsale?retryWrites=true&w=majority&appName=Cluster0
 DB_NAME=allsale
 DISABLE_SEED=1
 ```
