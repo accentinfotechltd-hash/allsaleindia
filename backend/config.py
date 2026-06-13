@@ -12,7 +12,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+# override=True ensures values in backend/.env (Stripe live keys, Shiprocket
+# creds, etc.) win over any stale process-level env vars baked into the
+# container image.
+load_dotenv(ROOT_DIR / ".env", override=True)
 
 # ---------------------------------------------------------------------------
 # Env-driven secrets / endpoints
