@@ -1,24 +1,28 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Allsale: Indian Bazaar",
+    "slug": "allsale-shop",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/allsale-logo.png",
-    "scheme": "frontend",
+    "scheme": "allsale",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.allsale.shop",
+      "buildNumber": "1",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Upload product photos to your seller listings",
         "NSCameraUsageDescription": "Take photos of your products to sell on Allsale"
       }
     },
     "android": {
+      "package": "com.allsale.shop",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/allsale-logo.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#FFFFFF"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
@@ -39,7 +43,7 @@
           "image": "./assets/images/allsale-logo.png",
           "imageWidth": 220,
           "resizeMode": "contain",
-          "backgroundColor": "#000000"
+          "backgroundColor": "#FFFFFF"
         }
       ],
       "expo-font",
