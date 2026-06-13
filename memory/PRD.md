@@ -1024,3 +1024,33 @@ dashboard quick-actions. Gap closed.
 - Polling not realtime (5s interval)
 - No "Chat with seller" button on product detail page yet — buyer can start via
   `POST /chat/conversations` with their cart's seller_id; UI button can be added next.
+
+## Phase: AI Recommendations + Admin Dashboard (NEW — Jun 2026)
+
+**Phase 9 — "You may also like":**
+- `GET /api/products/{id}/recommendations?limit=N` — no LLM required for
+  MVP. Algorithm: same-category items → fall back to same-seller →
+  fall back to top-rated catalog-wide. Ranked by
+  `rating * ln(1+reviews_count) * 10`. Excludes out-of-stock and the
+  product itself. Returns hydrated Product[].
+- Verified live with 4 recs returned for the first test product.
+- **Gap:** no frontend RecommendationsSection on product detail yet
+  (endpoint is consumable by next session).
+
+**Phase 10 — Admin Web Dashboard:**
+- New backend endpoints (all guarded by `x-admin-secret` header):
+  - `GET /admin/overview` — users / sellers / products / paid orders /
+    revenue / pending payouts / pending sellers / open returns.
+  - `GET /admin/sellers` — top 100 with verification status, country,
+    company.
+  - `GET /admin/orders?limit=N` — recent orders summary.
+  - `GET /admin/payouts?status=pending|paid_out` — list.
+  - (Already existed: payout mark-paid + seller approve.)
+- New frontend `app/admin/index.tsx` — secret unlock screen → stat grid
+  (with warn-yellow highlights for `pending_*` > 0) → recent sellers
+  list + recent orders list. Refresh button.
+
+**Phase 11 — DEFERRED:**
+- Refactor `routers/seller.py` (~1000 lines) into modular files —
+  postponed to a future session to minimise regression risk with the
+  current high test coverage (165+ tests).

@@ -232,3 +232,53 @@ async def get_product(product_id: str):
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
     return Product(**p)
+
+
+@router.get("/products/{product_id}/recommendations", response_model=List[Product])
+async def get_recommendations(product_id: str, limit: int = 8):
+    """"You may also like" — scored by category match + rating + reviews.
+
+    Algorithm (no LLM needed for MVP):
+    - Same category as current product, excluding itself & out-of-stock items.
+    - Rank by (rating * log(1+reviews_count) * 100) descending.
+    - Fall back to top-rated overall if category yields too few results.
+    """
+    import math
+
+    base = await db.products.find_one(
+        {"id": product_id}, {"_id": 0, "category": 1, "tags": 1, "seller_id": 1}
+    )
+    if not base:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    limit = max(1, min(int(limit), 24))
+    seen: set[str] = {product_id}
+    out: list[dict] = []
+
+    async def add_matching(query: dict) -> None:
+        async for p in db.products.find(query, {"_id": 0}):
+            pid = p.get("id")
+            if not pid or pid in seen:
+                continue
+            if (p.get("stock_count") or 0) <= 0:
+                continue
+            seen.add(pid)
+            r = float(p.get("rating") or 0)
+            n = int(p.get("reviews_count") or 0)
+            score = r * math.log(1 + n) * 10 if r > 0 else float(p.get("price_nzd", 0)) / 1000
+            p["_score"] = score
+            out.append(p)
+
+    # Pass 1 — same category
+    await add_matching({"category": base.get("category"), "id": {"$ne": product_id}})
+    # Pass 2 — same seller, different category (good cross-sell within store)
+    if base.get("seller_id"):
+        await add_matching({"seller_id": base["seller_id"], "id": {"$ne": product_id}})
+    # Pass 3 — top-rated catalog-wide fallback
+    if len(out) < limit:
+        await add_matching({"rating": {"$gte": 3.5}})
+
+    out.sort(key=lambda x: x.get("_score", 0), reverse=True)
+    for p in out:
+        p.pop("_score", None)
+    return [Product(**p) for p in out[:limit]]

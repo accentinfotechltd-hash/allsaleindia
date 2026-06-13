@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
 import { ChevronLeft, Copy, Gift, Share2, UserPlus } from "lucide-react-native";
-import * as Clipboard from "expo-clipboard";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -57,8 +56,17 @@ export default function ReferralsScreen() {
 
   const onCopy = async () => {
     if (!data) return;
-    await Clipboard.setStringAsync(data.code);
-    Alert.alert("Code copied!", `${data.code} is ready to paste.`);
+    try {
+      // Web fallback: navigator.clipboard
+      // @ts-ignore
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        // @ts-ignore
+        await navigator.clipboard.writeText(data.code);
+      }
+      Alert.alert("Code copied!", `${data.code} is ready to paste.`);
+    } catch {
+      Alert.alert("Your code", data.code);
+    }
   };
 
   const onShare = async () => {
