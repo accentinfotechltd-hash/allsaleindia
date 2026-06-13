@@ -9,7 +9,7 @@ import { SellOnAllsaleBanner } from "@/src/components/SellOnAllsaleBanner";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 const HERO_IMG =
-  "https://images.unsplash.com/photo-1717585679395-bbe39b5fb6bc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDQ2NDF8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBldGhuaWMlMjB3ZWFyJTIwZmFzaGlvbnxlbnwwfHx8fDE3ODExMzIyNjl8MA&ixlib=rb-4.1.0&q=85";
+  "https://images.unsplash.com/photo-1696887484490-715e7eb0e682?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxUYWolMjBNYWhhbHxlbnwwfHx8b3JhbmdlfDE3ODEzMjg3ODB8MA&ixlib=rb-4.1.0&q=85";
 
 export default function Welcome() {
   const router = useRouter();
