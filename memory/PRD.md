@@ -930,3 +930,35 @@ order earn+redeem idempotent on payment, review earn, caps
 (balance/max%/cart-total), rounding-to-100, coupon stacking, cross-user
 isolation, stale auto-drop. 101/102 prior tests still green (1 unrelated
 pre-existing review-sort flake — separate ticket).
+
+## Phase: Flash Sales / Deal of the Day (NEW — Jun 2026)
+
+**Why:** Urgency-driven selling — Amazon/Flipkart's #1 conversion lever.
+
+**Backend (`/api/flash-sales/*` + `/api/seller/flash-sales/*`):**
+- Sale "active" when `active=True` AND `valid_from <= now < valid_to`
+  AND `units_sold < units_max`. Pure-function `_is_currently_active`
+  + indexed query in `get_active_for_product` & `list_currently_active`.
+- Min 10% discount · max 7-day duration · max 10 active per seller.
+- Cart hydrate substitutes sale price; passes `flash_sale_id` and
+  `original_price_nzd` through to order items on checkout.
+- `_on_payment_succeeded` increments `units_sold` via
+  `record_units_sold(sale_id, order_id, qty)` — idempotent via unique
+  index on `flash_sale_usage(sale_id, order_id)`.
+- Stacks with coupons + points: flash subtotal → coupon → points.
+- Deal of the Day auto-picks the featured sale with the highest
+  discount currently active.
+
+**Frontend:**
+- `FlashSalesCarousel` on home — orange-themed "Deal of the Day" hero
+  card with live countdown timer + horizontal scroller of other active
+  sales. Refreshes every 60s.
+- Reusable `<Countdown>` hook + display.
+
+**Testing:** `tests/test_flash_sales.py` — 30/30 pass on first run.
+Covers validation matrix, ownership ACL, best-discount selection,
+cart substitution, stacking, units-sold idempotency, sold-out
+auto-deactivate, order persistence.
+
+**Frontend gap (next session):** seller-side `/seller/flash-sales` UI
+to create/pause/edit sales. Currently exposed only via REST.
