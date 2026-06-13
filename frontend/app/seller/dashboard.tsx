@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Store, Tag, Trash2, Upload, Wallet } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -350,6 +350,27 @@ const styles = StyleSheet.create({
   deleteBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   editBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   fab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  fabBtn: {
+    backgroundColor: colors.primary,
+    height: 56,
+    borderRadius: radius.pill,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  fabText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  cta: {
+    backgroundColor: colors.primary,
+    height: 48,
+    paddingHorizontal: 28,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+});
+ab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   fabBtn: {
     backgroundColor: colors.primary,
     height: 56,

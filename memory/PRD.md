@@ -962,3 +962,9 @@ auto-deactivate, order persistence.
 
 **Frontend gap (next session):** seller-side `/seller/flash-sales` UI
 to create/pause/edit sales. Currently exposed only via REST.
+
+**Phase 6 (added later in same session):** Seller UI for flash sales —
+`app/seller/flash-sales.tsx` with create modal (product picker chip row,
+sale price input with live % preview, duration 1-7 days, units max,
+featured toggle, active toggle, Trash to delete). Tile added to seller
+dashboard quick-actions. Gap closed.
