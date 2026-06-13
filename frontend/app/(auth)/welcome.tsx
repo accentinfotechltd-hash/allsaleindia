@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   eyebrow: { color: "#FFF8E7", fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 8 },
   heroTitle: { color: "#fff", fontSize: 32, fontWeight: "800", lineHeight: 38, letterSpacing: -0.8 },
   heroSubtitle: { color: "rgba(255,255,255,0.85)", fontSize: 14, marginTop: 12, lineHeight: 20 },
-  body: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, justifyContent: "space-between" },
+  body: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.xl, justifyContent: "space-between" },
   usp: { gap: 14 },
   bullet: { flexDirection: "row", alignItems: "center", gap: 12 },
   bulletIcon: {
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
-  secondaryCta: { alignItems: "center", paddingVertical: spacing.lg, marginBottom: spacing.sm },
+  secondaryCta: { alignItems: "center", paddingVertical: spacing.md, marginBottom: spacing.xs },
   secondaryText: { color: colors.textMuted, fontSize: 14 },
   secondaryLink: { color: colors.primary, fontWeight: "700" },
 });
