@@ -37,7 +37,7 @@ export default function Welcome() {
             Authentic India,{"\n"}delivered to your door.
           </Text>
           <Text style={styles.heroSubtitle}>
-            Sarees, brass, spices and more from trusted Indian artisans — shipped fast to NZ.
+            Shop India, the way Indians shop — without the trip.
           </Text>
         </View>
       </View>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   brandDot: { width: 10, height: 10, backgroundColor: colors.primary, borderRadius: 999 },
   brandText: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
   heroContent: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: spacing.xl },
-  eyebrow: { color: colors.primary, fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 8 },
+  eyebrow: { color: "#FFF8E7", fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 8 },
   heroTitle: { color: "#fff", fontSize: 32, fontWeight: "800", lineHeight: 38, letterSpacing: -0.8 },
   heroSubtitle: { color: "rgba(255,255,255,0.85)", fontSize: 14, marginTop: 12, lineHeight: 20 },
   body: { flex: 1, paddingHorizontal: spacing.lg, paddingTop: spacing.xl, justifyContent: "space-between" },
