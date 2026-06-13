@@ -369,8 +369,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-});
-ab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
+  fab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
   fabBtn: {
     backgroundColor: colors.primary,
     height: 56,
@@ -381,13 +380,4 @@ ab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spa
     gap: 8,
   },
   fabText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  cta: {
-    backgroundColor: colors.primary,
-    height: 48,
-    paddingHorizontal: 28,
-    borderRadius: radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ctaText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 });

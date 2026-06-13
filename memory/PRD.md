@@ -1054,3 +1054,15 @@ dashboard quick-actions. Gap closed.
 - Refactor `routers/seller.py` (~1000 lines) into modular files —
   postponed to a future session to minimise regression risk with the
   current high test coverage (165+ tests).
+
+## Phase 9 frontend gap closure (NEW — Jun 2026)
+- `src/components/RecommendationsSection.tsx` — horizontal scroller of
+  "You may also like" recs on product detail. Uses the
+  `GET /products/{id}/recommendations` endpoint. Shows rating chip +
+  wishlist heart on each card.
+- Integrated into `app/product/[id].tsx` below ReviewsSection.
+
+## Stability fix (NEW — Jun 2026)
+- Fixed a stray syntax error in `app/seller/dashboard.tsx` (orphaned
+  StyleSheet keys outside the `})` boundary that was masking other
+  rebuild errors). Cleared metro cache to flush stale bundles.

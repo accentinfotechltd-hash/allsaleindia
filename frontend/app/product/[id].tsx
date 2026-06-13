@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import SizeGuideModal from "@/src/components/SizeGuideModal";
 import ReviewsSection from "@/src/components/ReviewsSection";
+import RecommendationsSection from "@/src/components/RecommendationsSection";
 import WishlistButton from "@/src/components/WishlistButton";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
@@ -333,6 +334,8 @@ export default function ProductDetail() {
               })
             }
           />
+
+          <RecommendationsSection productId={product.id} />
         </View>
       </ScrollView>
 
