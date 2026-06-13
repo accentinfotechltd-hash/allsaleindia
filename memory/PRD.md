@@ -902,3 +902,31 @@ lines; a future refactor should split it into
 **Testing:** `tests/test_wishlist.py` — 16/16 pass on first run. Covers
 401 paths, 404 unknown product, idempotency, ordering, cross-user
 isolation, hydration completeness.
+
+## Phase: Loyalty Points (NEW — Jun 2026)
+
+**Why:** Cross-border buyers carry trust friction — points create a sticky
+"savings account" that drives repeat orders.
+
+**Backend (`/api/points/*` + `/api/cart/points`):**
+- Append-only ledger (`points_ledger`): credits + debits, never mutate.
+- 1 pt per $1 NZD subtotal earned · 100 pts = $1 NZD redeemed.
+- Caps: 50% of cart subtotal · multiples of 100 (clean $1 increments).
+- 12-month expiry per credit; `expiring_soon` surfaces 30-day expiries.
+- Bonuses: 500 pts welcome (one-time) · 50 pts per verified review.
+- All awards idempotent on `(user_id, reason, ref_id)`.
+- Hydrate-cart drops stale `points_to_use` when balance/eligibility fails.
+
+**Frontend:**
+- `PointsRedeemInput` — purple-themed cart widget; only shows when
+  balance ≥ 100. Apply max button.
+- `/points/history` — hero balance card + rates legend + ledger timeline.
+- Account row "Allsale Points" with subtitle copy.
+- CartContext extended (`points_used`, `points_discount_nzd`,
+  `points_balance`, `points_max_usable`).
+
+**Testing:** `tests/test_points.py` — 22/22 pass. Covers welcome idempotency,
+order earn+redeem idempotent on payment, review earn, caps
+(balance/max%/cart-total), rounding-to-100, coupon stacking, cross-user
+isolation, stale auto-drop. 101/102 prior tests still green (1 unrelated
+pre-existing review-sort flake — separate ticket).

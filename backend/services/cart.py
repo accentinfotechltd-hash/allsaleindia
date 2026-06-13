@@ -100,6 +100,11 @@ async def hydrate_cart(user_id: str) -> CartView:
                 await db.carts.update_one(
                     {"user_id": user_id}, {"$unset": {"points_to_use": ""}}
                 )
+        elif points_to_use > 0 and points_balance <= 0:
+            # Defence-in-depth: balance hit 0 externally → drop stale field
+            await db.carts.update_one(
+                {"user_id": user_id}, {"$unset": {"points_to_use": ""}}
+            )
 
         if pts_used > 0 or points_balance > 0 or max_usable > 0:
             new_total = round(max(0.0, cart.total_nzd - pts_discount), 2)
