@@ -22,6 +22,10 @@ export type Cart = {
   subtotal_inr: number;
   coupon_code?: string | null;
   coupon_label?: string | null;
+  points_used?: number;
+  points_discount_nzd?: number;
+  points_balance?: number;
+  points_max_usable?: number;
 };
 
 type CartState = {
@@ -45,6 +49,10 @@ const EMPTY: Cart = {
   subtotal_inr: 0,
   coupon_code: null,
   coupon_label: null,
+  points_used: 0,
+  points_discount_nzd: 0,
+  points_balance: 0,
+  points_max_usable: 0,
 };
 
 const CartCtx = createContext<CartState | undefined>(undefined);

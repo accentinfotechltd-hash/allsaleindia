@@ -84,3 +84,8 @@ async def ensure_indexes() -> None:
     )
     await db.wishlists.create_index([("user_id", 1), ("added_at", -1)])
     await db.wishlists.create_index("product_id")
+    # points_ledger — fast user-history & balance aggregations
+    await db.points_ledger.create_index("id", unique=True)
+    await db.points_ledger.create_index([("user_id", 1), ("created_at", -1)])
+    await db.points_ledger.create_index([("user_id", 1), ("reason", 1), ("ref_id", 1)])
+    await db.points_ledger.create_index("expires_at")

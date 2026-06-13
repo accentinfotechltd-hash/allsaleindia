@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
 import CouponInput from "@/src/components/CouponInput";
+import PointsRedeemInput from "@/src/components/PointsRedeemInput";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -136,6 +137,9 @@ export default function Cart() {
         ) : null}
         <View style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}>
           <CouponInput />
+        </View>
+        <View style={{ marginBottom: spacing.sm }}>
+          <PointsRedeemInput />
         </View>
         <SummaryRow
           label={cart.subtotal_nzd > 1000 ? "NZ GST 15% + 10% duty (est.)" : "NZ GST 15% (est.)"}

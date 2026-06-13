@@ -277,6 +277,13 @@ async def create_review(body: ReviewCreate, current=Depends(get_current_user)):
     await db.reviews.insert_one(doc)
     await _recompute_product_rating(body.product_id)
 
+    # Award loyalty points (best-effort, idempotent per review_id)
+    try:
+        from services.points import award_review_points
+        await award_review_points(current["id"], review_id)
+    except Exception:
+        pass
+
     # Notify the seller a new review came in
     seller_id = matching_item.get("seller_id")
     if seller_id:

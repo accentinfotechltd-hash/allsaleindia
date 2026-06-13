@@ -33,6 +33,7 @@ from routers import (
     health,
     notifications,
     orders,
+    points,
     products,
     returns,
     reviews,
@@ -76,6 +77,7 @@ api.include_router(returns.router)
 api.include_router(reviews.router)
 api.include_router(coupons.router)
 api.include_router(wishlist.router)
+api.include_router(points.router)
 api.include_router(wallet.router)
 api.include_router(shiprocket.router)
 api.include_router(uploads.router)

@@ -96,6 +96,52 @@ async def remove_coupon_from_cart(current=Depends(get_current_user)):
     return await hydrate_cart(current["id"])
 
 
+# ---------------------------------------------------------------------------
+# Loyalty points applied to the cart
+# ---------------------------------------------------------------------------
+from models import PointsApplyRequest  # noqa: E402
+
+
+@router.post("/cart/points", response_model=CartView)
+async def apply_points_to_cart(
+    body: PointsApplyRequest, current=Depends(get_current_user)
+):
+    """Persist `points_to_use` on the cart. Validation happens on hydrate."""
+    from services.points import compute_redeem, current_balance as _balance
+
+    cart = await hydrate_cart(current["id"])
+    if not cart.items:
+        raise HTTPException(status_code=400, detail="Your cart is empty")
+
+    bal = await _balance(current["id"])
+    if bal <= 0:
+        raise HTTPException(status_code=400, detail="You have no points to redeem")
+
+    res = compute_redeem(
+        requested=int(body.points), balance=bal, subtotal_nzd=cart.subtotal_nzd
+    )
+    if res["usable_points"] <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="That number of points can't be applied to this cart",
+        )
+    await db.carts.update_one(
+        {"user_id": current["id"]},
+        {"$set": {"points_to_use": int(res["usable_points"]), "updated_at": now_utc()}},
+        upsert=True,
+    )
+    return await hydrate_cart(current["id"])
+
+
+@router.delete("/cart/points", response_model=CartView)
+async def remove_points_from_cart(current=Depends(get_current_user)):
+    await db.carts.update_one(
+        {"user_id": current["id"]}, {"$unset": {"points_to_use": ""}}
+    )
+    return await hydrate_cart(current["id"])
+
+
+
 @router.put("/cart/{product_id}", response_model=CartView)
 async def update_cart_item(
     product_id: str, body: CartUpdateRequest, current=Depends(get_current_user)

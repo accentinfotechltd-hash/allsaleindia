@@ -215,6 +215,53 @@ class CartView(BaseModel):
     subtotal_inr: float
     coupon_code: Optional[str] = None
     coupon_label: Optional[str] = None
+    # Loyalty
+    points_used: int = 0
+    points_discount_nzd: float = 0.0
+    points_balance: int = 0
+    points_max_usable: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Loyalty Points
+# ---------------------------------------------------------------------------
+class PointsLedgerEntry(BaseModel):
+    id: str
+    user_id: str
+    delta: int  # positive = credit, negative = debit
+    reason: str  # signup_bonus | order_earn | review_earn | order_redeem | manual | expired
+    title: str
+    ref_id: Optional[str] = None  # order_id / review_id
+    ref_type: Optional[str] = None
+    created_at: datetime
+    expires_at: Optional[datetime] = None  # only set on credits
+
+
+class PointsBalance(BaseModel):
+    balance: int
+    pending_earn: int = 0  # never used yet but reserved for future
+    monetary_value_nzd: float
+    expiring_soon: int = 0  # points expiring in the next 30 days
+    earn_rate_per_nzd: int = 1
+    redeem_rate_per_nzd: int = 100  # 100 pts = $1
+    welcome_bonus: int = 500
+
+
+class PointsHistoryPage(BaseModel):
+    balance: PointsBalance
+    items: List[PointsLedgerEntry]
+
+
+class PointsRedeemPreview(BaseModel):
+    requested_points: int
+    usable_points: int
+    discount_nzd: float
+    balance_after: int
+    capped_by: Optional[str] = None  # 'balance' | 'max_per_order' | 'cart_total' | None
+
+
+class PointsApplyRequest(BaseModel):
+    points: int = Field(..., ge=0)
 
 
 # ---------------------------------------------------------------------------
@@ -391,6 +438,9 @@ class Order(BaseModel):
     discount_nzd: Optional[float] = 0.0
     coupon_code: Optional[str] = None
     coupon_label: Optional[str] = None
+    # Loyalty points
+    points_used: Optional[int] = 0
+    points_discount_nzd: Optional[float] = 0.0
 
 
 class CancelOrderRequest(BaseModel):

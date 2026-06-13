@@ -55,6 +55,12 @@ async def register(body: UserCreate, request: Request):
         "created_at": now_utc(),
     }
     await db.users.insert_one(user_doc)
+    # Welcome bonus loyalty points (best-effort)
+    try:
+        from services.points import award_welcome_bonus
+        await award_welcome_bonus(uid)
+    except Exception:
+        pass
     token = create_token(uid)
     return AuthResponse(user=public_user(user_doc), access_token=token)
 
@@ -119,6 +125,11 @@ async def google_session(body: GoogleSessionRequest):
                 "created_at": now_utc(),
             }
         )
+        try:
+            from services.points import award_welcome_bonus
+            await award_welcome_bonus(uid)
+        except Exception:
+            pass
     token = create_token(uid)
     user = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
     return AuthResponse(user=public_user(user), access_token=token)

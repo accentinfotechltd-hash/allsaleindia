@@ -97,6 +97,8 @@ async def create_checkout_session(
         "total_nzd": cart.total_nzd,
         "coupon_code": getattr(cart, "coupon_code", None),
         "coupon_label": getattr(cart, "coupon_label", None),
+        "points_used": int(getattr(cart, "points_used", 0) or 0),
+        "points_discount_nzd": float(getattr(cart, "points_discount_nzd", 0.0) or 0.0),
         "address": body.address.model_dump(),
         "status": "pending",
         "payment_status": "initiated",
@@ -141,7 +143,7 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
     # paid — never before, so we don't bump usage on abandoned carts.
     try:
         order = await db.orders.find_one(
-            {"id": order_id}, {"_id": 0, "coupon_code": 1, "discount_nzd": 1}
+            {"id": order_id}, {"_id": 0, "coupon_code": 1, "discount_nzd": 1, "subtotal_nzd": 1, "points_used": 1},
         )
         code = (order or {}).get("coupon_code")
         if code:
@@ -155,6 +157,23 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
                     order_id=order_id,
                     discount_nzd=float(order.get("discount_nzd") or 0.0),
                 )
+    except Exception:
+        pass
+
+    # Award + redeem loyalty points (best-effort, both idempotent)
+    try:
+        from services.points import award_order_points, redeem_for_order
+
+        order = await db.orders.find_one(
+            {"id": order_id},
+            {"_id": 0, "subtotal_nzd": 1, "points_used": 1},
+        )
+        if order:
+            subtotal = float(order.get("subtotal_nzd") or 0.0)
+            await award_order_points(user_id, order_id, subtotal)
+            pts_used = int(order.get("points_used") or 0)
+            if pts_used > 0:
+                await redeem_for_order(user_id, order_id, pts_used)
     except Exception:
         pass
 

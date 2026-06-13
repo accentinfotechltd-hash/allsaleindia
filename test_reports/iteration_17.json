@@ -1,0 +1,45 @@
+{
+  "summary": "Phase 5 Loyalty Points feature tested end-to-end. Backend: 22/22 new points tests pass (welcome bonus idempotent, history shape+sort, balance shape, /points/redeem-preview caps, compute_redeem unit, /cart/points apply+remove, order earn+redeem on payment (idempotent), review-earn idempotent, cross-user isolation, stack-with-coupon, stale points API drop). Regression run on prior phases: 101/102 prior tests still green (1 pre-existing test_reviews::test_list_product_reviews_sort_helpful failure, unrelated to points). Frontend smoke: Account shows 'Allsale Points' row, /points/history renders welcome bonus, /cart shows 'You have 500 pts' redeem input. One minor backend behaviour issue found: stale points_to_use is not unset from carts collection when balance externally drops to 0 (the GET /cart RESPONSE is correct — points_used=0, points_discount=0 — but the cart Mongo doc retains the stale points_to_use field, so if the user's balance ever returns, the points would silently re-apply).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/cart",
+        "issue": "Stale points_to_use is NOT unset from the cart Mongo doc when user's balance hits 0 (services/cart.py:89 — the drop branch is gated by `points_balance > 0`, so when balance==0 the unset never runs). API response is correct (points_used=0), but persistence is stale. If the user re-earns points later, the stale points_to_use would silently re-apply on the next /cart. Fix: when `points_to_use > 0` and `(points_balance == 0 OR usable==0)`, $unset points_to_use."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_points.py",
+    "/app/test_reports/pytest/iter17_points.xml"
+  ],
+  "action_items": [
+    "Optional: harden services/cart.py hydrate to also $unset stale points_to_use when points_balance==0 (currently only unset when balance>0 AND compute_redeem returns 0). API response is already correct; only persistence is leaky.",
+    "Pre-existing unrelated regression: tests/test_reviews.py::test_list_product_reviews_sort_helpful fails — investigate separately (not blocking Phase 5)."
+  ],
+  "critical_code_review_comments": [
+    "services/points.py is clean, pure logic well isolated, idempotent helpers correct.",
+    "services/cart.py hydrate: stale-drop branch (line 89) is gated by points_balance>0; an extra branch for the balance==0 case would close the persistence gap.",
+    "routers/checkout.py::_on_payment_succeeded correctly awards earn THEN redeem in a try/except, both idempotent — good.",
+    "routers/auth.py: welcome bonus best-effort try/except in both register and google_session — good idempotency boundary.",
+    "models.CartView.points_used / points_discount_nzd / points_balance / points_max_usable all default-zero, safe for non-points users."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_points.py (new — 22 tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 new points tests; 101/102 regression — 1 unrelated pre-existing failure)",
+    "frontend": "100% smoke (Account row, history screen, cart redeem input all render)"
+  },
+  "seed_data_creation": "Tests create their own unique-prefix TEST_pts_* users and coupons; no shared seed needed. The shared test_credentials user (tester@allsale.co.nz) is NOT modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_points.py uses a single persistent asyncio loop (`_LOOP`) to share motor's lazy io_loop binding with backend/db.py's singleton — required because _on_payment_succeeded touches db.py module globals. Don't switch to asyncio.run() inside helpers or motor will raise 'Event loop is closed'. Order earn/redeem path is exercised by calling routers.checkout._on_payment_succeeded directly (no real Stripe webhook), which mirrors what the live webhook handler does.",
+  "rca_of_issue": "Stale points_to_use persistence leak: services/cart.py hydrate_cart only runs the $unset({'points_to_use':''}) branch when `points_to_use > 0 AND cart.subtotal_nzd > 0 AND points_balance > 0` and then compute_redeem returns usable_points==0. When points_balance drops to 0 externally, the outer guard short-circuits and the unset never fires, so cart_doc.points_to_use retains the stale value. Mitigation: extend the guard — if points_to_use>0 and (points_balance==0 OR compute_redeem returns 0), unset the field. Severity: low (response is correct; only matters if user re-earns ≥ stale value)."
+}
