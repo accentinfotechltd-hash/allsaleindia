@@ -61,6 +61,19 @@ async def register(body: UserCreate, request: Request):
         await award_welcome_bonus(uid)
     except Exception:
         pass
+    # Referral processing (best-effort, +100 to new user if valid)
+    if body.referral_code:
+        try:
+            from services.referrals import register_referral
+            await register_referral(uid, body.full_name, body.referral_code)
+        except Exception:
+            pass
+    # Generate own referral code immediately (idempotent)
+    try:
+        from services.referrals import ensure_referral_code
+        await ensure_referral_code(uid)
+    except Exception:
+        pass
     token = create_token(uid)
     return AuthResponse(user=public_user(user_doc), access_token=token)
 

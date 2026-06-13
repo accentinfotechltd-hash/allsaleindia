@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, ChevronRight, FileText, Globe2, Heart, LogOut, MapPin, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
+import { Bell, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, MapPin, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -97,6 +97,13 @@ export default function Account() {
             subtitle="Earn on every order · redeem for discounts"
             onPress={() => router.push("/points/history")}
             testID="account-points-btn"
+          />
+          <Row
+            icon={<Gift size={18} color="#7C3AED" />}
+            label="Invite friends"
+            subtitle="Give pts, get pts when they buy"
+            onPress={() => router.push("/referrals")}
+            testID="account-referrals-btn"
           />
           <Row
             icon={<RefreshCcw size={18} color={colors.text} />}

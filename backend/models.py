@@ -15,6 +15,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6)
     full_name: str = Field(..., min_length=1)
     country: Optional[str] = Field(default=None, min_length=2, max_length=2, description="ISO-2 country code (NZ/AU/US/GB/CA)")
+    referral_code: Optional[str] = Field(default=None, max_length=12, description="Friend's code")
 
 
 class UserLogin(BaseModel):
@@ -396,6 +397,32 @@ class CouponPublic(BaseModel):
     scope: str = "all"
     owner_name: Optional[str] = None
     valid_to: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Referrals
+# ---------------------------------------------------------------------------
+class ReferralEntry(BaseModel):
+    id: str
+    referee_id: str
+    referee_name: Optional[str] = None
+    status: str  # pending | rewarded | expired
+    pts_referrer: int = 0
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class ReferralMe(BaseModel):
+    code: str
+    share_url: str
+    share_message: str
+    referrer_reward_pts: int = 250
+    referee_reward_pts: int = 100
+    expiry_days: int = 30
+    total_referred: int = 0
+    total_rewarded: int = 0
+    pts_earned: int = 0
+    history: List[ReferralEntry] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

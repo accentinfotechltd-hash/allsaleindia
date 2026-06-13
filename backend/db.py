@@ -97,3 +97,8 @@ async def ensure_indexes() -> None:
     await db.flash_sale_usage.create_index(
         [("sale_id", 1), ("order_id", 1)], unique=True
     )
+    # Referrals
+    await db.users.create_index("referral_code", unique=True, sparse=True)
+    await db.referrals.create_index("referee_id", unique=True)
+    await db.referrals.create_index([("referrer_id", 1), ("created_at", -1)])
+    await db.referrals.create_index([("status", 1), ("created_at", 1)])

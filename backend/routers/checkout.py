@@ -179,6 +179,13 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
     except Exception:
         pass
 
+    # Referral reward: unlock referrer's +250 pts on referee's first paid order
+    try:
+        from services.referrals import maybe_unlock_referrer_reward
+        await maybe_unlock_referrer_reward(user_id, order_id)
+    except Exception:
+        pass
+
     # Increment flash-sale units_sold (idempotent per (sale_id, order_id))
     try:
         from services.flash_sales import record_units_sold

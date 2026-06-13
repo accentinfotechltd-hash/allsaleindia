@@ -968,3 +968,32 @@ to create/pause/edit sales. Currently exposed only via REST.
 sale price input with live % preview, duration 1-7 days, units max,
 featured toggle, active toggle, Trash to delete). Tile added to seller
 dashboard quick-actions. Gap closed.
+
+## Phase: Referral Program (NEW — Jun 2026)
+
+**Why:** Cheapest channel for new buyer acquisition.
+
+**Backend:**
+- `services/referrals.py` — `ensure_referral_code`, `register_referral`,
+  `maybe_unlock_referrer_reward`. Built on top of the loyalty points ledger.
+- `routers/referrals.py` — `GET /api/referrals/me` returns code, share URL,
+  share message, totals, and history.
+- `UserCreate.referral_code` optional field on `/api/auth/register`. On signup:
+  - Generate unique 8-char `referral_code` for new user (idempotent retry).
+  - If `referral_code` provided AND valid AND not self-referral AND not already
+    used → insert pending `referrals` row + +100 pts to referee.
+- On `_on_payment_succeeded`, call `maybe_unlock_referrer_reward(user, order)`.
+  - If referee's first paid order within 30 days → +250 pts to referrer +
+    mark referral `rewarded`. Idempotent.
+  - If expired → mark `expired`.
+- Unique indexes: `users.referral_code` (sparse), `referrals.referee_id`
+  (enforces "1 referrer per new user").
+
+**Frontend:**
+- `app/referrals.tsx` — purple hero card explaining the program, big code,
+  Copy + Share buttons, 3-stat row (Invited / Rewarded / Points Earned),
+  history list with status chips.
+- Account row "Invite friends" (Gift icon) → `/referrals`.
+
+**Verified via curl:** Logged-in user gets auto-generated code on first
+`/referrals/me` call. Share URL format `https://allsale.co.nz/?ref=CODE`.

@@ -36,6 +36,7 @@ from routers import (
     orders,
     points,
     products,
+    referrals,
     returns,
     reviews,
     seller,
@@ -80,6 +81,7 @@ api.include_router(coupons.router)
 api.include_router(flash_sales.router)
 api.include_router(wishlist.router)
 api.include_router(points.router)
+api.include_router(referrals.router)
 api.include_router(wallet.router)
 api.include_router(shiprocket.router)
 api.include_router(uploads.router)
