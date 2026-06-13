@@ -1,5 +1,5 @@
 import { Link, useRouter } from "expo-router";
-import { ChevronLeft, Eye, EyeOff } from "lucide-react-native";
+import { Check, ChevronLeft, Eye, EyeOff } from "lucide-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Register() {
@@ -24,6 +25,7 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
+  const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -33,8 +35,16 @@ export default function Register() {
       setErr("Please fill in all fields");
       return;
     }
-    if (password.length < 6) {
-      setErr("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setErr("Password must be at least 8 characters");
+      return;
+    }
+    if (!/\d/.test(password)) {
+      setErr("Password must contain at least one number");
+      return;
+    }
+    if (!agree) {
+      setErr("Please accept the Terms & Privacy Policy to continue");
       return;
     }
     setBusy(true);
@@ -114,10 +124,39 @@ export default function Register() {
           {err ? <Text style={styles.error} testID="register-error">{err}</Text> : null}
 
           <Pressable
+            testID="register-agree-checkbox"
+            onPress={() => setAgree((v) => !v)}
+            style={styles.agreeRow}
+          >
+            <View style={[styles.checkbox, agree && styles.checkboxOn]}>
+              {agree ? <Check size={14} color="#fff" strokeWidth={3} /> : null}
+            </View>
+            <Text style={styles.agreeText}>
+              I agree to Allsale&apos;s{" "}
+              <Link href="/help/terms-conditions" asChild>
+                <Text style={styles.agreeLink}>Terms of Service</Text>
+              </Link>
+              {", "}
+              <Link href="/help/privacy-policy" asChild>
+                <Text style={styles.agreeLink}>Privacy Policy</Text>
+              </Link>
+              {" and "}
+              <Link href="/help/return-policy" asChild>
+                <Text style={styles.agreeLink}>Return Policy</Text>
+              </Link>
+              .
+            </Text>
+          </Pressable>
+
+          <Pressable
             testID="register-submit-btn"
-            disabled={busy}
+            disabled={busy || !agree}
             onPress={submit}
-            style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }, busy && { opacity: 0.7 }]}
+            style={({ pressed }) => [
+              styles.cta,
+              pressed && { transform: [{ scale: 0.98 }] },
+              (busy || !agree) && { opacity: 0.55 },
+            ]}
           >
             <Text style={styles.ctaText}>{busy ? "Creating account…" : "Create account"}</Text>
           </Pressable>
@@ -134,9 +173,10 @@ export default function Register() {
             redirectTo="/(tabs)/home"
           />
 
-          <Text style={styles.terms}>
-            By continuing, you agree to Allsale&apos;s Terms of Service and Privacy Policy.
-          </Text>
+          <AppleSignInButton
+            testID="register-apple-btn"
+            redirectTo="/(tabs)/home"
+          />
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Already have an account? </Text>
@@ -201,6 +241,20 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
   terms: { color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: spacing.lg, lineHeight: 18 },
+  agreeRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: spacing.sm, marginBottom: spacing.xs },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  agreeText: { flex: 1, fontSize: 13, lineHeight: 19, color: colors.text },
+  agreeLink: { color: colors.primary, fontWeight: "700", textDecorationLine: "underline" },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: spacing.xl },
   footerText: { color: colors.textMuted, fontSize: 14 },
   footerLink: { color: colors.primary, fontSize: 14, fontWeight: "700" },

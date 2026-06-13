@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import { CheckCircle2, FileText, ShieldCheck, Upload } from "lucide-react-native";
+import { Link, useRouter } from "expo-router";
+import { Check, CheckCircle2, FileText, ShieldCheck, Upload } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -23,6 +23,7 @@ export default function SellerDocumentsScreen() {
   const router = useRouter();
   const [idProof, setIdProof] = useState<string | null>(null);
   const [bizProof, setBizProof] = useState<string | null>(null);
+  const [agreePolicy, setAgreePolicy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string | null>(null);
@@ -63,6 +64,13 @@ export default function SellerDocumentsScreen() {
   const submit = useCallback(async () => {
     if (!idProof || !bizProof) {
       Alert.alert("Both documents required", "Please upload your photo ID and business proof to continue.");
+      return;
+    }
+    if (!agreePolicy) {
+      Alert.alert(
+        "Seller Policy required",
+        "Please read and accept the Seller Policy, Payment Hold Policy, and Return Policy to submit.",
+      );
       return;
     }
     setSubmitting(true);
@@ -139,12 +147,41 @@ export default function SellerDocumentsScreen() {
         </View>
 
         <Pressable
+          testID="seller-policy-checkbox"
+          onPress={() => setAgreePolicy((v) => !v)}
+          style={styles.policyRow}
+        >
+          <View style={[styles.checkbox, agreePolicy && styles.checkboxOn]}>
+            {agreePolicy ? <Check size={14} color="#fff" strokeWidth={3} /> : null}
+          </View>
+          <Text style={styles.policyText}>
+            I have read and accept Allsale&apos;s{" "}
+            <Link href="/help/seller-policy" asChild>
+              <Text style={styles.policyLink}>Seller Policy</Text>
+            </Link>
+            {", "}
+            <Link href="/help/payment-policy" asChild>
+              <Text style={styles.policyLink}>Payment Hold Policy</Text>
+            </Link>
+            {", "}
+            <Link href="/help/return-policy" asChild>
+              <Text style={styles.policyLink}>Return Policy</Text>
+            </Link>
+            {", and "}
+            <Link href="/help/cancellation-policy" asChild>
+              <Text style={styles.policyLink}>Cancellation Policy</Text>
+            </Link>
+            . Payments are held until the return window closes (typically 14 days post-delivery).
+          </Text>
+        </Pressable>
+
+        <Pressable
           testID="seller-docs-submit"
-          disabled={!idProof || !bizProof || submitting}
+          disabled={!idProof || !bizProof || !agreePolicy || submitting}
           onPress={submit}
           style={({ pressed }) => [
             styles.submitBtn,
-            (!idProof || !bizProof) && styles.submitDisabled,
+            (!idProof || !bizProof || !agreePolicy) && styles.submitDisabled,
             pressed && !submitting && { opacity: 0.85 },
           ]}
         >
@@ -277,4 +314,18 @@ const styles = StyleSheet.create({
   submitDisabled: { backgroundColor: "#CBD5E1" },
   submitText: { color: "#fff", fontSize: 16, fontWeight: "800" },
   footnote: { fontSize: 11.5, color: colors.textMuted, textAlign: "center", lineHeight: 17, marginTop: 4 },
+  policyRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 4, paddingHorizontal: 4 },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  checkboxOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  policyText: { flex: 1, fontSize: 12.5, lineHeight: 18, color: colors.text },
+  policyLink: { color: colors.primary, fontWeight: "700", textDecorationLine: "underline" },
 });
