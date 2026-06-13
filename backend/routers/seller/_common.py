@@ -25,11 +25,37 @@ COUNTRY_FLAGS = {
 }
 
 
+VALID_SELLER_STATUSES = {
+    "pending_documents",  # Just registered — must upload ID + business proof
+    "pending_review",     # Documents submitted — admin reviewing (7-day SLA)
+    "approved",           # Cleared by admin — can list products
+    "rejected",           # Admin rejected (see rejection_reason)
+    "auto_verified",      # Legacy/back-compat — treated as approved
+}
+APPROVED_STATUSES = {"approved", "auto_verified"}
+
+
 async def require_verified_seller(current=Depends(get_current_user)) -> dict:
-    """Dependency: caller must be an auto-verified seller."""
+    """Dependency: caller must be a fully-approved seller (manual or legacy)."""
     if not current.get("is_seller"):
         raise HTTPException(status_code=403, detail="Seller account required")
-    if current.get("seller_verification_status") != "auto_verified":
+    status = current.get("seller_verification_status")
+    if status not in APPROVED_STATUSES:
+        if status == "pending_documents":
+            raise HTTPException(
+                status_code=403,
+                detail="Please upload your ID proof and business proof to continue.",
+            )
+        if status == "pending_review":
+            raise HTTPException(
+                status_code=403,
+                detail="Your seller application is under review. We'll notify you within 7 business days.",
+            )
+        if status == "rejected":
+            raise HTTPException(
+                status_code=403,
+                detail="Your seller application was rejected. Please contact support.",
+            )
         raise HTTPException(status_code=403, detail="Seller verification pending")
     return current
 
@@ -39,11 +65,10 @@ async def verify_business_and_persist(
 ) -> dict:
     """Validate the supplied business docs and upsert the seller profile.
 
-    Also flips the user doc to ``is_seller=True`` and stores the verified
-    company name for fast joins on product listings.
+    Sellers now start at ``pending_documents`` — they must upload ID proof
+    and business proof, then admin approves within 7 business days.
     """
     cleaned = validate_indian_business(business)
-    # Pre-flight uniqueness check on GSTIN (only if one is being set).
     if cleaned.get("gstin"):
         existing = await db.sellers.find_one(
             {"gstin": cleaned["gstin"], "user_id": {"$ne": user_id}},
@@ -54,12 +79,18 @@ async def verify_business_and_persist(
                 status_code=409,
                 detail="This GSTIN is already registered with another seller",
             )
-    verification_status = "auto_verified"
+    verification_status = "pending_documents"
     profile = {
         "user_id": user_id,
         **cleaned,
         "verification_status": verification_status,
-        "verified_at": now_utc(),
+        "submitted_at": None,
+        "approved_at": None,
+        "rejected_at": None,
+        "rejection_reason": None,
+        "reviewed_by": None,
+        "id_proof_url": None,
+        "business_proof_url": None,
         "created_at": now_utc(),
     }
     try:

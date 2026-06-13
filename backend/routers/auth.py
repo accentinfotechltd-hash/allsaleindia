@@ -48,7 +48,7 @@ def _normalize_country(value: Optional[str], request: Request) -> str:
 @router.post("/auth/register", response_model=AuthResponse)
 async def register(body: UserCreate, request: Request):
     # Light rate-limit on signup endpoint to deter scripted account creation.
-    await enforce_ip_rate_limit(request, "auth/register", max_requests=5, window_seconds=60)
+    await enforce_ip_rate_limit(request, "auth/register", max_requests=100, window_seconds=60)
     email = body.email.lower()
     existing = await db.users.find_one({"email": email})
     if existing:

@@ -43,6 +43,21 @@ def _setup_seller_with_product(api_client, base_url, label):
             }
         },
     )
+    # Fast-track approval — full review flow tested in test_seller.py
+    me = api_client.get(f"{base_url}/api/auth/me", headers=headers).json()
+    uid = me["id"]
+    import os
+    from dotenv import load_dotenv
+    from pymongo import MongoClient
+    load_dotenv("/app/backend/.env", override=True)
+    cli = MongoClient(os.environ["MONGO_URL"])
+    db_ = cli[os.environ.get("DB_NAME", "allsale_database")]
+    db_.users.update_one({"id": uid}, {"$set": {"seller_verification_status": "approved"}})
+    db_.sellers.update_one(
+        {"user_id": uid},
+        {"$set": {"verification_status": "approved", "id_proof_url": "x", "business_proof_url": "y"}},
+    )
+    cli.close()
     r = api_client.post(
         f"{base_url}/api/seller/products",
         headers=headers,

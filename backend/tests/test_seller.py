@@ -58,7 +58,7 @@ def _valid_business(overrides=None):
 
 # --- /seller/register --------------------------------------------------------
 class TestSellerRegister:
-    def test_register_auto_verifies(self, api_client):
+    def test_register_starts_pending_documents(self, api_client):
         email = f"TEST_seller_{_ts()}@allsale.co.nz"
         biz = _valid_business()
         r = api_client.post(
@@ -71,17 +71,43 @@ class TestSellerRegister:
         u = data["user"]
         assert u["email"] == email.lower()
         assert u["is_seller"] is True
-        assert u["seller_verified"] is True
+        # New flow: seller starts as pending_documents (NOT auto-verified).
+        assert u["seller_verified"] is False
 
-        # /seller/me returns profile
         headers = {"Authorization": f"Bearer {data['access_token']}"}
         me = api_client.get(f"{BASE_URL}/api/seller/me", headers=headers)
         assert me.status_code == 200
         prof = me.json()
-        assert prof["verification_status"] == "auto_verified"
+        assert prof["verification_status"] == "pending_documents"
         assert prof["gstin"] == biz["gstin"]
         assert prof["pan"] == biz["pan"]
         assert prof["company_name"] == "TEST Allsale Crafts Pvt Ltd"
+
+        # Status endpoint exposes lifecycle fields.
+        status = api_client.get(
+            f"{BASE_URL}/api/seller/me/status", headers=headers
+        ).json()
+        assert status["status"] == "pending_documents"
+        assert status["has_id_proof"] is False
+        assert status["has_business_proof"] is False
+
+        # Cannot list products until approved.
+        listing_attempt = api_client.post(
+            f"{BASE_URL}/api/seller/products",
+            headers=headers,
+            json={
+                "name": "Pre-approval saree",
+                "description": "x",
+                "category": "Sarees",
+                "price_nzd": 50,
+                "images": ["data:image/png;base64,iVBORw0KGgo="],
+                "stock_count": 10,
+                "shipping_days_min": 7,
+                "shipping_days_max": 14,
+            },
+        )
+        assert listing_attempt.status_code == 403
+        assert "ID proof" in listing_attempt.json()["detail"]
 
     def test_invalid_gstin_400(self, api_client):
         r = api_client.post(
@@ -170,7 +196,8 @@ class TestSellerUpgrade:
         assert up.status_code == 200, up.text
         u = up.json()
         assert u["is_seller"] is True
-        assert u["seller_verified"] is True
+        # New flow: upgraded sellers also start at pending_documents (not auto-verified).
+        assert u["seller_verified"] is False
 
         # /auth/me reflects change
         me = api_client.get(f"{BASE_URL}/api/auth/me", headers=headers)
@@ -202,6 +229,32 @@ class TestSellerMe:
 
 
 # --- /seller/products -------------------------------------------------------
+def _approve_seller_via_db(user_id: str) -> None:
+    """Test helper: bypass the 7-day review by directly marking the seller approved.
+
+    The full register → upload docs → admin approve flow is exercised by
+    `TestSellerRegister` and `TestSellerApprovalFlow`. Listing/CRUD tests just
+    need a working seller, so we shortcut here using sync pymongo.
+    """
+    import os
+    from dotenv import load_dotenv
+    from pymongo import MongoClient
+
+    load_dotenv("/app/backend/.env", override=True)
+    cli = MongoClient(os.environ["MONGO_URL"])
+    db_ = cli[os.environ.get("DB_NAME", "allsale_database")]
+    db_.users.update_one({"id": user_id}, {"$set": {"seller_verification_status": "approved"}})
+    db_.sellers.update_one(
+        {"user_id": user_id},
+        {"$set": {
+            "verification_status": "approved",
+            "id_proof_url": "https://test.local/id.jpg",
+            "business_proof_url": "https://test.local/biz.jpg",
+        }},
+    )
+    cli.close()
+
+
 @pytest.fixture(scope="module")
 def seller_token(api_client):
     email = f"TEST_listing_seller_{_ts()}@allsale.co.nz"
@@ -210,7 +263,9 @@ def seller_token(api_client):
         json={"email": email, "password": "Test1234!", "business": _valid_business()},
     )
     assert r.status_code == 200, r.text
-    return {"token": r.json()["access_token"], "user_id": r.json()["user"]["id"]}
+    uid = r.json()["user"]["id"]
+    _approve_seller_via_db(uid)
+    return {"token": r.json()["access_token"], "user_id": uid}
 
 
 class TestListings:
@@ -276,6 +331,7 @@ class TestListings:
         )
         assert r.status_code == 200
         b_token = r.json()["access_token"]
+        _approve_seller_via_db(r.json()["user"]["id"])
 
         # Seller A creates a listing
         ha = {"Authorization": f"Bearer {seller_token['token']}"}

@@ -56,7 +56,7 @@ def _valid_business(overrides=None) -> dict:
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="module")
 def seller(api_client):
-    """Register a fresh verified seller and return token + user_id."""
+    """Register a fresh seller, fast-track to approved, return token + user_id."""
     email = f"TEST_refactor_seller_{_ts()}@allsale.co.nz"
     r = api_client.post(
         f"{BASE_URL}/api/seller/register",
@@ -64,10 +64,24 @@ def seller(api_client):
     )
     assert r.status_code == 200, r.text
     body = r.json()
+    uid = body["user"]["id"]
+    # Fast-track approval for tests (sync pymongo, no event-loop issues)
+    import os
+    from dotenv import load_dotenv
+    from pymongo import MongoClient
+    load_dotenv("/app/backend/.env", override=True)
+    cli = MongoClient(os.environ["MONGO_URL"])
+    db_ = cli[os.environ.get("DB_NAME", "allsale_database")]
+    db_.users.update_one({"id": uid}, {"$set": {"seller_verification_status": "approved"}})
+    db_.sellers.update_one(
+        {"user_id": uid},
+        {"$set": {"verification_status": "approved", "id_proof_url": "x", "business_proof_url": "y"}},
+    )
+    cli.close()
     return {
         "email": email,
         "token": body["access_token"],
-        "user_id": body["user"]["id"],
+        "user_id": uid,
         "headers": {"Authorization": f"Bearer {body['access_token']}"},
     }
 
@@ -102,7 +116,7 @@ class TestOnboarding:
         r = api_client.get(f"{BASE_URL}/api/seller/me", headers=seller["headers"])
         assert r.status_code == 200, r.text
         p = r.json()
-        assert p["verification_status"] == "auto_verified"
+        assert p["verification_status"] == "approved"
         assert p["company_name"] == "TEST Refactor Co Pvt Ltd"
         assert p["user_id"] == seller["user_id"]
 

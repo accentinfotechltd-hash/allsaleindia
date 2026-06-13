@@ -32,7 +32,21 @@ def _seller(api_client, base_url):
     )
     assert r.status_code == 200, r.text
     token = r.json()["access_token"]
-    return {"headers": {"Authorization": f"Bearer {token}"}, "email": email, "user_id": r.json()["user"]["id"]}
+    uid = r.json()["user"]["id"]
+    # Fast-track to approved (sync pymongo)
+    import os
+    from dotenv import load_dotenv
+    from pymongo import MongoClient
+    load_dotenv("/app/backend/.env", override=True)
+    cli = MongoClient(os.environ["MONGO_URL"])
+    db_ = cli[os.environ.get("DB_NAME", "allsale_database")]
+    db_.users.update_one({"id": uid}, {"$set": {"seller_verification_status": "approved"}})
+    db_.sellers.update_one(
+        {"user_id": uid},
+        {"$set": {"verification_status": "approved", "id_proof_url": "x", "business_proof_url": "y"}},
+    )
+    cli.close()
+    return {"headers": {"Authorization": f"Bearer {token}"}, "email": email, "user_id": uid}
 
 
 def test_timeseries_default_7_days(api_client, base_url):

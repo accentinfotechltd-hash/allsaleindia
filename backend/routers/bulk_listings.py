@@ -62,7 +62,8 @@ ALLOWED_IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 async def _require_verified_seller(current=Depends(get_current_user)) -> dict:
     if not current.get("is_seller"):
         raise HTTPException(status_code=403, detail="Seller account required")
-    if current.get("seller_verification_status") != "auto_verified":
+    # Accept both new "approved" and legacy "auto_verified" sellers
+    if current.get("seller_verification_status") not in ("approved", "auto_verified"):
         raise HTTPException(status_code=403, detail="Seller verification pending")
     return current
 

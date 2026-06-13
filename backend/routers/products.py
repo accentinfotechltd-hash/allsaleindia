@@ -149,7 +149,14 @@ async def list_products(
     cursor = db.products.find(query, {"_id": 0})
     if sort_spec:
         cursor = cursor.sort(sort_spec)
-    return [Product(**p) async for p in cursor]
+    out: list[Product] = []
+    async for p in cursor:
+        try:
+            out.append(Product(**p))
+        except Exception:
+            # Skip malformed legacy/junk rows rather than 500'ing the whole list.
+            continue
+    return out
 
 
 @router.get("/brands", response_model=List[str])

@@ -65,6 +65,20 @@ def seller_headers():
     r = requests.post(f"{BASE_URL}/api/seller/register", json=body)
     assert r.status_code == 200, r.text
     token = r.json()["access_token"]
+    uid = r.json()["user"]["id"]
+    # Fast-track approval via direct pymongo (sync, no event-loop issues)
+    import os
+    from dotenv import load_dotenv
+    from pymongo import MongoClient
+    load_dotenv("/app/backend/.env", override=True)
+    cli = MongoClient(os.environ["MONGO_URL"])
+    db_ = cli[os.environ.get("DB_NAME", "allsale_database")]
+    db_.users.update_one({"id": uid}, {"$set": {"seller_verification_status": "approved"}})
+    db_.sellers.update_one(
+        {"user_id": uid},
+        {"$set": {"verification_status": "approved", "id_proof_url": "x", "business_proof_url": "y"}},
+    )
+    cli.close()
     return {"Authorization": f"Bearer {token}"}
 
 
