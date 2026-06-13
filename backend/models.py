@@ -426,6 +426,56 @@ class ReferralMe(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Live Chat (Buyer ↔ Seller)
+# ---------------------------------------------------------------------------
+class ChatStartRequest(BaseModel):
+    seller_id: str
+    product_id: Optional[str] = None
+    order_id: Optional[str] = None
+    body: Optional[str] = Field(default=None, max_length=2000)
+
+
+class ChatMessageCreate(BaseModel):
+    body: str = Field(..., min_length=1, max_length=2000)
+
+
+class ChatMessage(BaseModel):
+    id: str
+    conversation_id: str
+    sender_id: str
+    sender_role: str  # buyer | seller
+    sender_name: Optional[str] = None
+    body: str
+    created_at: datetime
+
+
+class ChatConversation(BaseModel):
+    id: str
+    buyer_id: str
+    buyer_name: Optional[str] = None
+    seller_id: str
+    seller_name: Optional[str] = None
+    product_id: Optional[str] = None
+    product_name: Optional[str] = None
+    product_image: Optional[str] = None
+    order_id: Optional[str] = None
+    last_message_preview: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    unread_count: int = 0  # for the CURRENT user
+    created_at: datetime
+
+
+class ChatThread(BaseModel):
+    conversation: ChatConversation
+    messages: List[ChatMessage]
+
+
+class UnreadCount(BaseModel):
+    total: int
+    by_conversation: dict
+
+
+# ---------------------------------------------------------------------------
 # Checkout / orders
 # ---------------------------------------------------------------------------
 class Address(BaseModel):

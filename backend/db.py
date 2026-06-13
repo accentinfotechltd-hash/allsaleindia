@@ -102,3 +102,12 @@ async def ensure_indexes() -> None:
     await db.referrals.create_index("referee_id", unique=True)
     await db.referrals.create_index([("referrer_id", 1), ("created_at", -1)])
     await db.referrals.create_index([("status", 1), ("created_at", 1)])
+    # chat
+    await db.chat_conversations.create_index("id", unique=True)
+    await db.chat_conversations.create_index([("buyer_id", 1), ("last_message_at", -1)])
+    await db.chat_conversations.create_index([("seller_id", 1), ("last_message_at", -1)])
+    await db.chat_conversations.create_index(
+        [("buyer_id", 1), ("seller_id", 1), ("product_id", 1)], unique=True
+    )
+    await db.chat_messages.create_index([("conversation_id", 1), ("created_at", 1)])
+    await db.chat_messages.create_index("id", unique=True)

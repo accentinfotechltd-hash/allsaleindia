@@ -997,3 +997,30 @@ dashboard quick-actions. Gap closed.
 
 **Verified via curl:** Logged-in user gets auto-generated code on first
 `/referrals/me` call. Share URL format `https://allsale.co.nz/?ref=CODE`.
+
+## Phase: Live Chat (NEW — Jun 2026)
+
+**Why:** Cross-border trust — buyers want to ask sellers questions.
+
+**Backend (`/api/chat/*`):**
+- `POST /chat/conversations` — idempotent get-or-create per (buyer, seller, product).
+  Optional `body` sends a first message in the same call.
+- `GET /chat/conversations` — list mine (buyer or seller side), sorted by recency.
+- `GET /chat/conversations/{id}?since=ISO` — thread with messages (polling-friendly
+  via `since` query). Opening this auto-resets the current side's unread to 0.
+- `POST /chat/conversations/{id}/messages` — send. Bumps OTHER side's unread + persists last_message_preview.
+- `GET /chat/unread-count` — total + per-conv map (for badge).
+- One conversation per (buyer, seller, product) enforced via compound unique index.
+- Per-side unread counters (`buyer_unread`, `seller_unread`) — no cross-side mutation.
+
+**Frontend:**
+- `app/chat/index.tsx` — thread list with avatars, partner name, last message preview, unread badge.
+- `app/chat/[id].tsx` — WhatsApp-style bubbles (primary for "mine", surface for "theirs"),
+  auto-scroll on new messages, input bar with send button, 5-second polling.
+- Account row "Messages" → `/chat`.
+
+**Scope (MVP — known gaps for next session):**
+- Text only (no image attachments)
+- Polling not realtime (5s interval)
+- No "Chat with seller" button on product detail page yet — buyer can start via
+  `POST /chat/conversations` with their cart's seller_id; UI button can be added next.
