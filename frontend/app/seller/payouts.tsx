@@ -3,9 +3,11 @@ import {
   Award,
   CheckCircle2,
   ChevronLeft,
+  ChevronRight,
   Clock,
   Coins,
   Crown,
+  HandCoins,
   Info,
   Shield,
   Sparkles,
@@ -252,6 +254,24 @@ export default function SellerPayoutsScreen() {
           </View>
         ) : null}
 
+        {/* Cash advance CTA */}
+        <Pressable
+          testID="financing-cta"
+          onPress={() => router.push("/seller/financing")}
+          style={({ pressed }) => [styles.financingCta, pressed && { opacity: 0.9 }]}
+        >
+          <View style={styles.financingIcon}>
+            <HandCoins size={18} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.financingTitle}>Need money sooner?</Text>
+            <Text style={styles.financingSub}>
+              Get 70–90% advance on confirmed orders via NBFC partners.
+            </Text>
+          </View>
+          <ChevronRight size={18} color="#fff" />
+        </Pressable>
+
         {/* Recent payouts list */}
         <Text style={styles.sectionTitle}>Recent payouts</Text>
         {summary.payouts.length === 0 ? (
@@ -481,6 +501,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primarySoft,
   },
   nextReleaseText: { fontSize: 12.5, fontWeight: "700", color: colors.primaryDark },
+  financingCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primaryDark,
+  },
+  financingIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  financingTitle: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  financingSub: { color: "rgba(255,255,255,0.85)", fontSize: 12, marginTop: 2 },
   sectionTitle: { fontSize: 14, fontWeight: "800", color: colors.text, marginTop: spacing.md },
   empty: {
     paddingVertical: spacing.xl,

@@ -30,6 +30,7 @@ from routers import (
     chat,
     checkout,
     coupons,
+    financing,
     flash_sales,
     geo,
     health,
@@ -94,6 +95,7 @@ api.include_router(admin.router)
 api.include_router(geo.router)
 api.include_router(health.router)
 api.include_router(support.router)
+api.include_router(financing.router)
 
 app.include_router(api)
 
@@ -111,8 +113,12 @@ async def on_startup() -> None:
     await ensure_indexes()
     await seed_products()
     await seed_owner_admin()
+    from services.scheduler import init_scheduler
+    init_scheduler()
 
 
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
+    from services.scheduler import shutdown_scheduler
+    shutdown_scheduler()
     client.close()
