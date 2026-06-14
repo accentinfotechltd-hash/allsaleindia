@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, RefreshCw, ShieldAlert } from "lucide-react-native";
+import { ChevronLeft, LifeBuoy, RefreshCw, ShieldAlert } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { getAdminSecret, setAdminSecret } from "@/src/lib/adminApi";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Overview = {
@@ -56,11 +57,24 @@ export default function AdminDashboard() {
       setSellers(sl);
       setOrders(ord);
       setAuthed(true);
+      await setAdminSecret(s);
     } catch (e: any) {
       Alert.alert("Access denied", e?.message?.startsWith("403") ? "Wrong admin secret." : e?.message || "Try again.");
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Auto-unlock if the secret is already persisted from a previous session.
+  useEffect(() => {
+    (async () => {
+      const stored = await getAdminSecret();
+      if (stored && !authed) {
+        setSecret(stored);
+        await load(stored);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!authed) {
@@ -130,6 +144,15 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.reviewBtn, pressed && { opacity: 0.85 }]}
         >
           <Text style={styles.reviewBtnText}>Review pending sellers →</Text>
+        </Pressable>
+
+        <Pressable
+          testID="admin-tickets-btn"
+          onPress={() => router.push("/admin/tickets")}
+          style={({ pressed }) => [styles.ticketsBtn, pressed && { opacity: 0.85 }]}
+        >
+          <LifeBuoy size={18} color="#fff" />
+          <Text style={styles.reviewBtnText}>Open support tickets →</Text>
         </Pressable>
 
         <Text style={styles.section}>Sellers ({sellers.length})</Text>
@@ -209,4 +232,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   reviewBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  ticketsBtn: {
+    backgroundColor: "#0EA5E9",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: spacing.sm,
+  },
 });
