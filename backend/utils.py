@@ -45,9 +45,10 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_token(user_id: str) -> str:
+def create_token(user_id: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
+        "tv": int(token_version or 0),
         "iat": int(now_utc().timestamp()),
         "exp": int((now_utc() + timedelta(days=JWT_EXPIRE_DAYS)).timestamp()),
     }

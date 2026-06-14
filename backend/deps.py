@@ -19,6 +19,7 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
         user_id = payload.get("sub")
+        tv = int(payload.get("tv") or 0)
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     if not user_id:
@@ -26,6 +27,8 @@ async def get_current_user(
     user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if int(user.get("token_version") or 0) != tv:
+        raise HTTPException(status_code=401, detail="Session expired — please sign in again")
     return user
 
 

@@ -85,6 +85,16 @@ async def list_products(
     # to non-seller listing endpoints, even if the seller had created them.
     query["category"] = {"$nin": list(HIDDEN_BUYER_CATEGORIES)}
 
+    # Sellers in vacation mode — hide all their listings from buyers.
+    paused_seller_ids: list[str] = []
+    async for s in db.sellers.find(
+        {"vacation_mode": True}, {"_id": 0, "user_id": 1}
+    ):
+        if s.get("user_id"):
+            paused_seller_ids.append(s["user_id"])
+    if paused_seller_ids:
+        query["seller_id"] = {"$nin": paused_seller_ids}
+
     if category and category.lower() != "all":
         if category in HIDDEN_BUYER_CATEGORIES:
             return []  # explicit hidden — return empty

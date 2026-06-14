@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Settings, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
