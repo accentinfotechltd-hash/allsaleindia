@@ -16,6 +16,7 @@ from models import (
     SellerOrderItem,
     SellerPayoutSummary,
 )
+from services.seller_tier import get_seller_tier_snapshot
 
 router = APIRouter(tags=["seller"])
 
@@ -72,6 +73,14 @@ async def list_seller_orders(seller=Depends(get_current_user)):
     return out
 
 
+@router.get("/seller/tier")
+async def get_my_tier(seller=Depends(get_current_user)):
+    """Current reputation tier, metrics & progress toward the next tier."""
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    return await get_seller_tier_snapshot(seller["id"])
+
+
 @router.get("/seller/payouts", response_model=SellerPayoutSummary)
 async def list_seller_payouts(seller=Depends(get_current_user)):
     if not seller.get("is_seller"):
@@ -80,18 +89,50 @@ async def list_seller_payouts(seller=Depends(get_current_user)):
         db.payouts.find({"seller_id": seller["id"]}, {"_id": 0})
         .sort("created_at", -1)
     )
-    payouts = [Payout(**p) async for p in cursor]
-    pending = round(
-        sum(p.net_payable_nzd for p in payouts if p.status == "pending"), 2
-    )
-    paid_out = round(
-        sum(p.net_payable_nzd for p in payouts if p.status == "paid_out"), 2
-    )
+    payouts: list[Payout] = []
+    held = 0.0
+    available = 0.0
+    reserve_held = 0.0
+    paid_out = 0.0
+    next_release_at = None
+    async for raw in cursor:
+        # Backward-compat: migrate `pending` → `held` on the fly for display
+        if raw.get("status") == "pending":
+            raw["status"] = "held"
+        if "tier" not in raw:
+            raw["tier"] = None
+        if "reserve_nzd" not in raw:
+            raw["reserve_nzd"] = 0.0
+        po = Payout(**raw)
+        payouts.append(po)
+        amt = po.net_payable_nzd
+        if po.status == "held":
+            held += amt
+            if po.release_at and (
+                next_release_at is None or po.release_at < next_release_at
+            ):
+                next_release_at = po.release_at
+        elif po.status == "available":
+            available += amt - po.reserve_nzd  # reserve part is already counted
+            reserve_held += 0  # reserve already released in available
+        elif po.status == "reserve_held":
+            available += amt - po.reserve_nzd
+            reserve_held += po.reserve_nzd
+        elif po.status == "paid_out":
+            paid_out += amt
+        # cancelled — exclude
+    pending_legacy = round(held + reserve_held + available, 2)
+    tier_snapshot = await get_seller_tier_snapshot(seller["id"])
     return SellerPayoutSummary(
         payouts=payouts,
-        lifetime_earnings_nzd=round(pending + paid_out, 2),
-        pending_nzd=pending,
-        paid_out_nzd=paid_out,
+        lifetime_earnings_nzd=round(pending_legacy + paid_out, 2),
+        pending_nzd=pending_legacy,
+        paid_out_nzd=round(paid_out, 2),
+        held_nzd=round(held, 2),
+        available_nzd=round(available, 2),
+        reserve_held_nzd=round(reserve_held, 2),
+        next_release_at=next_release_at,
+        tier=tier_snapshot["tier"]["name"],
     )
 
 

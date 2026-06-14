@@ -535,7 +535,12 @@ class Payout(BaseModel):
     gross_nzd: float
     commission_nzd: float
     net_payable_nzd: float
-    status: str  # pending | paid_out
+    # Tiered payout policy
+    tier: Optional[str] = None  # starter | verified | trusted | top
+    reserve_nzd: float = 0.0  # held against returns
+    release_at: Optional[datetime] = None  # when payout becomes available
+    reserve_release_at: Optional[datetime] = None  # when reserve is freed
+    status: str  # held | available | reserve_held | paid_out | cancelled
     created_at: datetime
     paid_out_at: Optional[datetime] = None
 
@@ -563,8 +568,14 @@ class SellerOrder(BaseModel):
 class SellerPayoutSummary(BaseModel):
     payouts: List[Payout]
     lifetime_earnings_nzd: float
-    pending_nzd: float
+    pending_nzd: float  # legacy alias for held + reserve
     paid_out_nzd: float
+    # Tier-aware breakdown
+    held_nzd: float = 0.0  # waiting on delivery
+    available_nzd: float = 0.0  # release date reached, ready to be paid out
+    reserve_held_nzd: float = 0.0  # held for returns/disputes
+    next_release_at: Optional[datetime] = None  # earliest upcoming release
+    tier: Optional[str] = None  # current tier name
 
 
 class Order(BaseModel):

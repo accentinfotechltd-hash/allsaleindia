@@ -82,6 +82,17 @@ async def shiprocket_webhook(
         )
     await db.orders.update_one({"id": order["id"]}, {"$set": update_ts})
 
+    # Schedule tier-aware payout release on delivery; void on RTO/refund.
+    try:
+        if mapped == "delivered":
+            from services.payouts import mark_delivered
+            await mark_delivered(order["id"])
+        elif mapped in {"rto_delivered", "refunded", "cancelled"}:
+            from services.payouts import cancel_payouts
+            await cancel_payouts(order["id"], reason=mapped)
+    except Exception:  # pragma: no cover — non-fatal
+        pass
+
     await db.shipments.update_one(
         {"awb_code": awb},
         {

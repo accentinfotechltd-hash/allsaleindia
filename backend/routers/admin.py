@@ -35,7 +35,9 @@ async def admin_overview(
     sellers = await db.users.count_documents({"is_seller": True})
     products = await db.products.count_documents({})
     orders = await db.orders.count_documents({"payment_status": "paid"})
-    pending_payouts = await db.payouts.count_documents({"status": "pending"})
+    pending_payouts = await db.payouts.count_documents(
+        {"status": {"$in": ["held", "available", "reserve_held", "pending"]}}
+    )
     pending_sellers = await db.users.count_documents(
         {"is_seller": True, "seller_verification_status": "pending"}
     )
@@ -117,12 +119,30 @@ async def admin_mark_payout_paid(
         raise HTTPException(status_code=404, detail="Payout not found")
     if po.get("status") == "paid_out":
         return Payout(**po)
+    if po.get("status") not in {"available", "pending"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Payout is {po.get('status')} — not yet eligible for payout. "
+            "It must be 'available' first.",
+        )
     await db.payouts.update_one(
         {"id": payout_id},
         {"$set": {"status": "paid_out", "paid_out_at": now_utc()}},
     )
     fresh = await db.payouts.find_one({"id": payout_id}, {"_id": 0})
     return Payout(**fresh)
+
+
+@router.post("/admin/payouts/process-due")
+async def admin_process_due_payouts(
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    """Cron-callable. Promote ``held`` → ``available`` / ``reserve_held``,
+    and release matured reserves back into ``available``."""
+    _require(x_admin_secret)
+    from services.payouts import release_due_payouts
+
+    return await release_due_payouts()
 
 
 @router.post("/admin/sellers/{user_id}/approve")
