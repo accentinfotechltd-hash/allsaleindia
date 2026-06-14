@@ -43,6 +43,7 @@ from routers import (
     seller,
     shiprocket,
     size_guide,
+    support,
     uploads,
     wallet,
     wishlist,
@@ -92,6 +93,7 @@ api.include_router(notifications.router)
 api.include_router(admin.router)
 api.include_router(geo.router)
 api.include_router(health.router)
+api.include_router(support.router)
 
 app.include_router(api)
 

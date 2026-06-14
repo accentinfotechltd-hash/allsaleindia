@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, Package, Pencil, Plus, RefreshCcw, Settings, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, Plus, RefreshCcw, Settings, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -193,6 +193,28 @@ export default function SellerDashboard() {
                   <Text style={styles.quickTitle}>Coupons</Text>
                   <Text style={styles.quickSubtitle}>Promo codes & flash deals</Text>
                 </Pressable>
+                <Pressable
+                  testID="seller-profile-link"
+                  onPress={() => router.push("/seller/profile")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <Settings size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Profile settings</Text>
+                  <Text style={styles.quickSubtitle}>Store logo, hours, payouts & password</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-support-link"
+                  onPress={() => router.push("/seller/support")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <LifeBuoy size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Support</Text>
+                  <Text style={styles.quickSubtitle}>Raise a ticket — we reply within 24h</Text>
+                </Pressable>
               </View>
 
               <View style={styles.listingsHeader}>
@@ -367,15 +389,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-  fab: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  fabBtn: {
-    backgroundColor: colors.primary,
-    height: 56,
-    borderRadius: radius.pill,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  fabText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
