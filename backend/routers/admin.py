@@ -3,12 +3,18 @@ from __future__ import annotations
 
 from typing import Annotated, Optional, List
 
-from fastapi import APIRouter, Header, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel, EmailStr
 
 from config import ADMIN_SECRET
 from db import db
 from models import Payout
+from services.admin_auth import (
+    authenticate_admin,
+    get_current_admin,
+    log_admin_action,
+    _create_admin_token,
+)
 from utils import now_utc
 
 router = APIRouter(tags=["admin"])
@@ -230,3 +236,65 @@ async def admin_list_pending_sellers(
             "overdue": overdue,
         })
     return {"sellers": out, "total": len(out)}
+
+
+# ============================================================================
+# Owner / Sub-admin login (JWT-based, replaces x-admin-secret going forward)
+# ============================================================================
+class AdminLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+@router.post("/admin/login")
+async def admin_login(body: AdminLoginRequest):
+    """Owner / sub-admin login. Returns short-lived JWT (8 hr TTL)."""
+    admin = await authenticate_admin(body.email, body.password)
+    token = _create_admin_token(admin["id"], admin.get("role", "owner"))
+    await log_admin_action(admin["id"], "login")
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "admin": {
+            "id": admin["id"],
+            "email": admin["email"],
+            "full_name": admin.get("full_name"),
+            "role": admin.get("role", "owner"),
+        },
+    }
+
+
+@router.get("/admin/me")
+async def admin_me(admin=Depends(get_current_admin)):
+    return {
+        "id": admin["id"],
+        "email": admin["email"],
+        "full_name": admin.get("full_name"),
+        "role": admin.get("role", "owner"),
+        "last_login_at": admin.get("last_login_at"),
+    }
+
+
+@router.get("/admin/activity-log")
+async def admin_activity_log(limit: int = 100, admin=Depends(get_current_admin)):
+    limit = max(1, min(int(limit), 500))
+    out = []
+    async for row in db.admin_activity_log.find({}, {"_id": 0}).sort("at", -1).limit(limit):
+        actor = await db.admin_users.find_one(
+            {"id": row["admin_id"]}, {"_id": 0, "email": 1, "full_name": 1}
+        )
+        row["actor_email"] = (actor or {}).get("email", "(deleted admin)")
+        out.append(row)
+    return {"events": out, "total": len(out)}
+
+
+@router.get("/admin/users")
+async def admin_list_users(limit: int = 100, admin=Depends(get_current_admin)):
+    """Owner-only: list all buyer/seller user accounts (read-only)."""
+    limit = max(1, min(int(limit), 500))
+    out = []
+    async for u in db.users.find(
+        {}, {"_id": 0, "password_hash": 0}
+    ).sort("created_at", -1).limit(limit):
+        out.append(u)
+    return {"users": out, "total": len(out)}

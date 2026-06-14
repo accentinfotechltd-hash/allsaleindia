@@ -48,6 +48,7 @@ from routers import (
     wishlist,
 )
 from services.seed import seed_products
+from services.admin_auth import seed_owner_admin
 
 # Backward-compatibility re-exports for tests that do
 # `from server import decrement_stock_for_order, restock_for_order,
@@ -107,6 +108,7 @@ app.add_middleware(
 async def on_startup() -> None:
     await ensure_indexes()
     await seed_products()
+    await seed_owner_admin()
 
 
 @app.on_event("shutdown")
