@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -76,22 +77,24 @@ export default function SellerCoupons() {
     }
   };
 
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const remove = async (c: Coupon) => {
-    Alert.alert("Delete coupon?", `Remove "${c.code}" permanently?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api(`/seller/coupons/${c.id}`, { method: "DELETE" });
-            load();
-          } catch (e: any) {
-            Alert.alert("Couldn't delete", e?.message || "Try again.");
-          }
-        },
-      },
-    ]);
+    const ok = await confirm({
+      title: "Delete coupon?",
+      message: `Remove "${c.code}" permanently?`,
+      destructive: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await api(`/seller/coupons/${c.id}`, { method: "DELETE" });
+      toast.show({ kind: "success", title: "Coupon deleted" });
+      load();
+    } catch (e: any) {
+      toast.show({ kind: "error", title: "Couldn't delete", body: e?.message || "Try again." });
+    }
   };
 
   return (

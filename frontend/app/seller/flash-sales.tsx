@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -74,22 +75,25 @@ export default function SellerFlashSales() {
     }
   };
 
-  const remove = (s: Sale) =>
-    Alert.alert("Delete flash sale?", "This cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api(`/seller/flash-sales/${s.id}`, { method: "DELETE" });
-            load();
-          } catch (e: any) {
-            Alert.alert("Couldn't delete", e?.message || "Try again.");
-          }
-        },
-      },
-    ]);
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  const remove = async (s: Sale) => {
+    const ok = await confirm({
+      title: "Delete flash sale?",
+      message: "This cannot be undone.",
+      destructive: true,
+      confirmLabel: "Delete",
+    });
+    if (!ok) return;
+    try {
+      await api(`/seller/flash-sales/${s.id}`, { method: "DELETE" });
+      toast.show({ kind: "success", title: "Flash sale deleted" });
+      load();
+    } catch (e: any) {
+      toast.show({ kind: "error", title: "Couldn't delete", body: e?.message || "Try again." });
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

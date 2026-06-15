@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -132,24 +133,26 @@ export default function TicketDetailScreen() {
     }
   }, [id, ratingValue, ratingComment, load]);
 
-  const closeTicket = useCallback(() => {
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  const closeTicket = useCallback(async () => {
     if (!id) return;
-    Alert.alert("Close this ticket?", "You won't be able to add more replies.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Close",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api(`/support/tickets/${id}/close`, { method: "POST" });
-            await load();
-          } catch (e: any) {
-            Alert.alert("Could not close", e?.message || "Try again.");
-          }
-        },
-      },
-    ]);
-  }, [id, load]);
+    const ok = await confirm({
+      title: "Close this ticket?",
+      message: "You won't be able to add more replies.",
+      destructive: true,
+      confirmLabel: "Close ticket",
+    });
+    if (!ok) return;
+    try {
+      await api(`/support/tickets/${id}/close`, { method: "POST" });
+      toast.show({ kind: "success", title: "Ticket closed" });
+      await load();
+    } catch (e: any) {
+      toast.show({ kind: "error", title: "Could not close", body: e?.message || "Try again." });
+    }
+  }, [id, load, confirm, toast]);
 
   if (loading || !detail) {
     return (

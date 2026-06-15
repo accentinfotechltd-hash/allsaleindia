@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
+import { useTranslation } from "@/src/i18n";
 import {
   ActivityIndicator,
   Pressable,
@@ -91,6 +92,7 @@ const TIER_ICON: Record<string, any> = {
 
 export default function SellerPayoutsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [tier, setTier] = useState<TierData | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -396,7 +398,7 @@ function Header({ onBack }: { onBack: () => void }) {
       <Pressable testID="payouts-back" onPress={onBack} style={styles.backBtn}>
         <ChevronLeft size={22} color={colors.text} />
       </Pressable>
-      <Text style={styles.title}>Payouts & tier</Text>
+      <Text style={styles.title}>{t("payouts_screen.title")} & {t("payouts.tier_starter")}</Text>
       <View style={{ width: 40 }} />
     </View>
   );

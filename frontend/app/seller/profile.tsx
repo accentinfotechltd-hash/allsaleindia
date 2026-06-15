@@ -35,6 +35,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api, setToken } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -218,31 +219,28 @@ export default function SellerProfileScreen() {
     }
   }, [pwOld, pwNew]);
 
-  const signOutAll = useCallback(() => {
-    Alert.alert(
-      "Sign out all other devices?",
-      "You will stay signed in here. All other devices must sign in again.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sign out everywhere",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const res = await api<{ access_token: string }>(
-                "/seller/profile/sign-out-all",
-                { method: "POST" },
-              );
-              await setToken(res.access_token);
-              Alert.alert("Done", "All other sessions have been revoked.");
-            } catch (e: any) {
-              Alert.alert("Failed", e?.message || "Please try again.");
-            }
-          },
-        },
-      ],
-    );
-  }, []);
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  const signOutAll = useCallback(async () => {
+    const ok = await confirm({
+      title: "Sign out all other devices?",
+      message: "You will stay signed in here. All other devices must sign in again.",
+      destructive: true,
+      confirmLabel: "Sign out everywhere",
+    });
+    if (!ok) return;
+    try {
+      const res = await api<{ access_token: string }>(
+        "/seller/profile/sign-out-all",
+        { method: "POST" },
+      );
+      await setToken(res.access_token);
+      toast.show({ kind: "success", title: "Done", body: "All other sessions have been revoked." });
+    } catch (e: any) {
+      toast.show({ kind: "error", title: "Failed", body: e?.message || "Please try again." });
+    }
+  }, [confirm, toast]);
 
   if (loading || !data) {
     return (

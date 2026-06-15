@@ -15,12 +15,14 @@ import { useCart } from "@/src/contexts/CartContext";
 import CouponInput from "@/src/components/CouponInput";
 import PointsRedeemInput from "@/src/components/PointsRedeemInput";
 import { useRegion } from "@/src/contexts/RegionContext";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export default function Cart() {
   const { formatPrice, info } = useRegion();
   const router = useRouter();
   const { cart, loading, update, remove } = useCart();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
@@ -34,13 +36,13 @@ export default function Cart() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.header}>
-          <Text style={styles.title}>Your cart</Text>
+          <Text style={styles.title}>{t("cart.title")}</Text>
         </View>
         <View style={styles.center}>
           <View style={styles.emptyIcon}>
             <ShoppingBag size={32} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
+          <Text style={styles.emptyTitle}>{t("cart.empty")}</Text>
           <Text style={styles.emptyText}>
             Discover authentic Indian sarees, brass, spices and more — handpicked for NZ.
           </Text>
@@ -59,7 +61,7 @@ export default function Cart() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Your cart</Text>
+        <Text style={styles.title}>{t("cart.title")}</Text>
         <Text style={styles.subtitle}>
           {cart.items.length} {cart.items.length === 1 ? "item" : "items"}
         </Text>

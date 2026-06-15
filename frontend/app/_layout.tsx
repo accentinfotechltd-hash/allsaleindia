@@ -10,6 +10,7 @@ import { AuthProvider } from "@/src/contexts/AuthContext";
 import { CartProvider } from "@/src/contexts/CartContext";
 import { RegionProvider } from "@/src/contexts/RegionContext";
 import { WishlistProvider } from "@/src/contexts/WishlistContext";
+import { UiOverlayProvider } from "@/src/components/UiOverlayProvider";
 import { loadStoredLanguage } from "@/src/i18n";
 
 SplashScreen.preventAutoHideAsync();
@@ -32,16 +33,18 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <RegionProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <StatusBar style="dark" />
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
-              </WishlistProvider>
-            </CartProvider>
-          </RegionProvider>
-        </AuthProvider>
+        <UiOverlayProvider>
+          <AuthProvider>
+            <RegionProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <StatusBar style="dark" />
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
+                </WishlistProvider>
+              </CartProvider>
+            </RegionProvider>
+          </AuthProvider>
+        </UiOverlayProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

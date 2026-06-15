@@ -32,6 +32,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -137,10 +138,13 @@ export default function BulkEditScreen() {
     return { ok: true, payload: { product_ids: ids, action } };
   };
 
+  const confirm = useConfirm();
+  const toast = useToast();
+
   const apply = async () => {
     const v = validate();
     if (!v.ok) {
-      Alert.alert("Can't apply", v.msg);
+      toast.show({ kind: "error", title: "Can't apply", body: v.msg });
       return;
     }
     const doIt = async () => {
@@ -150,30 +154,30 @@ export default function BulkEditScreen() {
           "/seller/products/bulk",
           { method: "POST", body: v.payload },
         );
-        Alert.alert(
-          "Done",
-          action === "delete"
+        toast.show({
+          kind: "success",
+          title: "Done",
+          body: action === "delete"
             ? `${res.deleted} listing${res.deleted === 1 ? "" : "s"} deleted.`
             : `${res.modified} listing${res.modified === 1 ? "" : "s"} updated.`,
-        );
+        });
         setSelected(new Set());
         setPrice(""); setPct(""); setStock(""); setStockDelta(""); setCategory("");
         await load();
       } catch (e: any) {
-        Alert.alert("Couldn't apply", e?.message || "Please try again.");
+        toast.show({ kind: "error", title: "Couldn't apply", body: e?.message || "Please try again." });
       } finally {
         setWorking(false);
       }
     };
     if (action === "delete") {
-      Alert.alert(
-        "Delete listings?",
-        `Permanently remove ${selected.size} listing${selected.size === 1 ? "" : "s"}? This cannot be undone.`,
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Delete", style: "destructive", onPress: doIt },
-        ],
-      );
+      const ok = await confirm({
+        title: "Delete listings?",
+        message: `Permanently remove ${selected.size} listing${selected.size === 1 ? "" : "s"}? This cannot be undone.`,
+        destructive: true,
+        confirmLabel: "Delete",
+      });
+      if (ok) doIt();
     } else {
       doIt();
     }

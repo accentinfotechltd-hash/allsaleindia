@@ -11,6 +11,7 @@ import WishlistButton from "@/src/components/WishlistButton";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Product = {
@@ -41,6 +42,7 @@ export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { add } = useCart();
+  const { t } = useTranslation();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -221,7 +223,7 @@ export default function ProductDetail() {
           {outOfStock ? (
             <View style={styles.stockBanner} testID="product-out-of-stock">
               <PackageX size={16} color={colors.error} />
-              <Text style={styles.stockBannerText}>Out of stock</Text>
+              <Text style={styles.stockBannerText}>{t("product.out_of_stock")}</Text>
             </View>
           ) : lowStock ? (
             <View style={styles.stockLow} testID="product-low-stock">
@@ -361,12 +363,12 @@ export default function ProductDetail() {
             <ShoppingBag size={18} color="#fff" />
             <Text style={styles.ctaText}>
               {outOfStock
-                ? "Out of stock"
+                ? t("product.out_of_stock")
                 : added
                   ? "Added to cart"
                   : adding
                     ? "Adding…"
-                    : "Add to cart"}
+                    : t("product.add_to_cart")}
             </Text>
           </Pressable>
         </View>
