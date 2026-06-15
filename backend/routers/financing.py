@@ -109,6 +109,9 @@ class FinancingApplication(BaseModel):
     seller_tier: Optional[str] = None
     status: str
     admin_notes: Optional[str] = None
+    partner_notified_at: Optional[datetime] = None
+    partner_notification_status: Optional[str] = None  # sent | failed | skipped_no_channel
+    partner_notification_error: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -152,6 +155,9 @@ async def _to_application(doc: dict) -> FinancingApplication:
         seller_tier=doc.get("seller_tier"),
         status=doc.get("status") or "interest",
         admin_notes=doc.get("admin_notes"),
+        partner_notified_at=doc.get("partner_notified_at"),
+        partner_notification_status=doc.get("partner_notification_status"),
+        partner_notification_error=doc.get("partner_notification_error"),
         created_at=doc["created_at"],
         updated_at=doc.get("updated_at") or doc["created_at"],
     )
@@ -329,5 +335,41 @@ async def admin_update(
     )
     if res.matched_count == 0:
         raise HTTPException(status_code=404, detail="Application not found")
+
+    # Side-effect: notify partner when moving into `submitted_to_partner`.
+    if body.status == "submitted_to_partner":
+        try:
+            from services.partner_notify import notify_partner_submitted
+
+            await notify_partner_submitted(app_id)
+        except Exception:  # pragma: no cover — never fail the status update
+            pass
+
+    fresh = await db.financing_applications.find_one({"id": app_id}, {"_id": 0})
+    return await _to_application(fresh)
+
+
+@router.post(
+    "/admin/financing/{app_id}/notify-partner",
+    response_model=FinancingApplication,
+)
+async def admin_renotify_partner(
+    app_id: str,
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    """Force a re-send of the partner notification (clears the idempotency flag)."""
+    _require_admin(x_admin_secret)
+    res = await db.financing_applications.update_one(
+        {"id": app_id},
+        {"$unset": {"partner_notified_at": "", "partner_notification_status": ""}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Application not found")
+    try:
+        from services.partner_notify import notify_partner_submitted
+
+        await notify_partner_submitted(app_id)
+    except Exception:
+        pass
     fresh = await db.financing_applications.find_one({"id": app_id}, {"_id": 0})
     return await _to_application(fresh)

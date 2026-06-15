@@ -6,7 +6,9 @@ import {
   HandCoins,
   Landmark,
   Mail,
+  Radio,
   Save,
+  Send,
   StickyNote,
   XCircle,
 } from "lucide-react-native";
@@ -41,6 +43,9 @@ type App = {
   seller_tier: string | null;
   status: string;
   admin_notes: string | null;
+  partner_notified_at: string | null;
+  partner_notification_status: string | null;
+  partner_notification_error: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -116,6 +121,30 @@ export default function AdminFinancingDetail() {
     },
     [id, app, note],
   );
+
+  const renotify = useCallback(async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      const fresh = await adminApi<App>(
+        `/admin/financing/${id}/notify-partner`,
+        { method: "POST" },
+      );
+      setApp(fresh);
+      Alert.alert(
+        "Partner notified",
+        fresh.partner_notification_status === "sent"
+          ? "Partner received the application."
+          : fresh.partner_notification_status === "skipped_no_channel"
+          ? "No webhook/email configured for this partner."
+          : "Notification failed — see error details.",
+      );
+    } catch (e: any) {
+      Alert.alert("Failed", e?.message || "Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }, [id]);
 
   if (loading || !app) {
     return (
@@ -198,6 +227,75 @@ export default function AdminFinancingDetail() {
                 <Text style={styles.notesText}>{app.notes}</Text>
               </View>
             ) : null}
+          </View>
+
+          {/* Partner notification status */}
+          <Text style={styles.sectionTitle}>Partner notification</Text>
+          <View
+            style={[
+              styles.notifyCard,
+              app.partner_notification_status === "sent" && {
+                backgroundColor: "#F0FDF4",
+                borderColor: "#86EFAC",
+              },
+              app.partner_notification_status === "failed" && {
+                backgroundColor: "#FEF2F2",
+                borderColor: "#FCA5A5",
+              },
+              app.partner_notification_status === "skipped_no_channel" && {
+                backgroundColor: "#FEF3C7",
+                borderColor: "#FCD34D",
+              },
+            ]}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Radio
+                size={16}
+                color={
+                  app.partner_notification_status === "sent"
+                    ? "#065F46"
+                    : app.partner_notification_status === "failed"
+                    ? "#991B1B"
+                    : colors.textMuted
+                }
+              />
+              <Text style={styles.notifyTitle}>
+                {app.partner_notification_status === "sent"
+                  ? "Partner notified"
+                  : app.partner_notification_status === "failed"
+                  ? "Notification failed"
+                  : app.partner_notification_status === "skipped_no_channel"
+                  ? "No channel configured"
+                  : "Not yet notified"}
+              </Text>
+            </View>
+            {app.partner_notified_at ? (
+              <Text style={styles.notifyMeta}>
+                Last attempt: {new Date(app.partner_notified_at).toLocaleString()}
+              </Text>
+            ) : (
+              <Text style={styles.notifyMeta}>
+                Will be notified when you set status to &ldquo;With partner&rdquo;.
+              </Text>
+            )}
+            {app.partner_notification_error ? (
+              <Text style={styles.notifyError}>{app.partner_notification_error}</Text>
+            ) : null}
+            <Pressable
+              testID="fin-renotify"
+              disabled={saving}
+              onPress={renotify}
+              style={({ pressed }) => [
+                styles.renotifyBtn,
+                saving && { opacity: 0.5 },
+                pressed && !saving && { opacity: 0.85 },
+              ]}
+            >
+              <Send size={14} color={colors.primary} />
+              <Text style={styles.renotifyText}>
+                {app.partner_notified_at ? "Re-send notification" : "Send notification now"}
+              </Text>
+            </Pressable>
           </View>
 
           {/* Status actions */}
@@ -405,4 +503,34 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   saveText: { color: "#fff", fontSize: 14, fontWeight: "800" },
+  notifyCard: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  notifyTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  notifyMeta: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  notifyError: {
+    fontSize: 11.5,
+    color: "#991B1B",
+    fontFamily: "monospace",
+    marginTop: 4,
+    backgroundColor: "#FEE2E2",
+    padding: 8,
+    borderRadius: radius.sm,
+  },
+  renotifyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.primarySoft,
+    marginTop: 6,
+  },
+  renotifyText: { fontSize: 13, fontWeight: "800", color: colors.primary },
 });
