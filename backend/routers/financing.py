@@ -298,6 +298,18 @@ async def admin_list(
     return out
 
 
+@router.get("/admin/financing/{app_id}", response_model=FinancingApplication)
+async def admin_get(
+    app_id: str,
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    _require_admin(x_admin_secret)
+    doc = await db.financing_applications.find_one({"id": app_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return await _to_application(doc)
+
+
 @router.patch("/admin/financing/{app_id}", response_model=FinancingApplication)
 async def admin_update(
     app_id: str,

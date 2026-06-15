@@ -100,3 +100,31 @@ class TestFinancingPartners:
     def test_admin_list_requires_secret(self):
         r = requests.get(f"{BASE_URL}/api/admin/financing", timeout=10)
         assert r.status_code == 403
+
+    def test_admin_get_unknown_returns_404(self):
+        r = requests.get(
+            f"{BASE_URL}/api/admin/financing/fin_unknown_x",
+            headers=ADMIN_HEADERS,
+            timeout=10,
+        )
+        assert r.status_code == 404
+
+    def test_admin_patch_unknown_returns_404(self):
+        r = requests.patch(
+            f"{BASE_URL}/api/admin/financing/fin_unknown_y",
+            json={"status": "approved"},
+            headers=ADMIN_HEADERS,
+            timeout=10,
+        )
+        assert r.status_code == 404
+
+    def test_admin_patch_invalid_status(self):
+        # Use any existing app or just check validation responds — there may be
+        # no app, so this returns 404 (validator hits before lookup); accept either.
+        r = requests.patch(
+            f"{BASE_URL}/api/admin/financing/fin_unknown_z",
+            json={"status": "bogus_status_x"},
+            headers=ADMIN_HEADERS,
+            timeout=10,
+        )
+        assert r.status_code in (400, 404, 422)

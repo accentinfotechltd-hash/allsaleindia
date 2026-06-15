@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, LifeBuoy, RefreshCw, ShieldAlert } from "lucide-react-native";
+import { ChevronLeft, HandCoins, LifeBuoy, RefreshCw, ShieldAlert } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -155,6 +155,15 @@ export default function AdminDashboard() {
           <Text style={styles.reviewBtnText}>Open support tickets →</Text>
         </Pressable>
 
+        <Pressable
+          testID="admin-financing-btn"
+          onPress={() => router.push("/admin/financing")}
+          style={({ pressed }) => [styles.financingBtn, pressed && { opacity: 0.85 }]}
+        >
+          <HandCoins size={18} color="#fff" />
+          <Text style={styles.reviewBtnText}>Financing applications →</Text>
+        </Pressable>
+
         <Text style={styles.section}>Sellers ({sellers.length})</Text>
         {sellers.slice(0, 10).map((s) => (
           <View key={s.id} style={styles.row}>
@@ -234,6 +243,17 @@ const styles = StyleSheet.create({
   reviewBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   ticketsBtn: {
     backgroundColor: "#0EA5E9",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: spacing.sm,
+  },
+  financingBtn: {
+    backgroundColor: "#9333EA",
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: radius.lg,
