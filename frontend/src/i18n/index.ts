@@ -13,6 +13,7 @@ import hi from "./locales/hi";
 import es from "./locales/es";
 import ar from "./locales/ar";
 import zh from "./locales/zh";
+import zhTW from "./locales/zh-TW";
 import pt from "./locales/pt";
 import fr from "./locales/fr";
 import de from "./locales/de";
@@ -22,13 +23,16 @@ import bn from "./locales/bn";
 import ta from "./locales/ta";
 import id from "./locales/id";
 import ru from "./locales/ru";
+import mi from "./locales/mi";
 
 const LANG_KEY = "allsale_lang";
 export const SUPPORTED = [
   { code: "en", label: "English", native: "English", flag: "🇬🇧" },
+  { code: "mi", label: "Māori", native: "Te Reo Māori", flag: "🇳🇿" },
   { code: "hi", label: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
   { code: "es", label: "Spanish", native: "Español", flag: "🇪🇸" },
-  { code: "zh", label: "Chinese", native: "中文", flag: "🇨🇳" },
+  { code: "zh", label: "Chinese (Simplified)", native: "简体中文", flag: "🇨🇳" },
+  { code: "zh-TW", label: "Chinese (Traditional)", native: "繁體中文", flag: "🇹🇼" },
   { code: "ar", label: "Arabic", native: "العربية", flag: "🇸🇦" },
   { code: "pt", label: "Portuguese", native: "Português", flag: "🇧🇷" },
   { code: "fr", label: "French", native: "Français", flag: "🇫🇷" },
@@ -41,7 +45,7 @@ export const SUPPORTED = [
   { code: "ru", label: "Russian", native: "Русский", flag: "🇷🇺" },
 ] as const;
 
-export const i18n = new I18n({ en, hi, es, ar, zh, pt, fr, de, ja, ko, bn, ta, id, ru });
+export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi });
 i18n.enableFallback = true;
 i18n.defaultLocale = "en";
 
