@@ -1,0 +1,9 @@
+const ar = {
+  common: { save: "حفظ", cancel: "إلغاء", back: "رجوع", next: "التالي", confirm: "تأكيد", delete: "حذف", loading: "جارٍ التحميل…", retry: "إعادة المحاولة", yes: "نعم", no: "لا", language: "اللغة", change_language: "تغيير اللغة" },
+  auth: { welcome: "مرحباً بك في Allsale", subtitle: "السوق الهندي — شحن عالمي", sign_in: "تسجيل الدخول", sign_up: "إنشاء حساب", sign_out: "تسجيل الخروج", email: "البريد الإلكتروني", password: "كلمة المرور", full_name: "الاسم الكامل", forgot_password: "هل نسيت كلمة المرور؟", google: "المتابعة عبر Google", apple: "المتابعة عبر Apple", or: "أو" },
+  tabs: { home: "الرئيسية", search: "بحث", cart: "السلة", orders: "طلباتي", account: "حسابي" },
+  seller: { dashboard: "لوحة البائع", profile: "الملف الشخصي", payouts: "المدفوعات", support: "الدعم", financing: "تمويل", products: "المنتجات", orders: "الطلبات", raise_ticket: "إنشاء تذكرة" },
+  payouts: { available: "متاح", held: "محجوز", reserve: "احتياطي", paid_out: "مدفوع", next_release: "الدفعة القادمة", tier_starter: "مبتدئ", tier_verified: "موثق", tier_trusted: "موثوق", tier_top: "الأعلى" },
+  settings: { title: "الإعدادات", language: "لغة التطبيق", change: "تغيير" }
+};
+export default ar;

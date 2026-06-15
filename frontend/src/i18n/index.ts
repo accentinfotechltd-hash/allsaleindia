@@ -10,14 +10,38 @@ import { storage } from "@/src/utils/storage";
 
 import en from "./locales/en";
 import hi from "./locales/hi";
+import es from "./locales/es";
+import ar from "./locales/ar";
+import zh from "./locales/zh";
+import pt from "./locales/pt";
+import fr from "./locales/fr";
+import de from "./locales/de";
+import ja from "./locales/ja";
+import ko from "./locales/ko";
+import bn from "./locales/bn";
+import ta from "./locales/ta";
+import id from "./locales/id";
+import ru from "./locales/ru";
 
 const LANG_KEY = "allsale_lang";
 export const SUPPORTED = [
   { code: "en", label: "English", native: "English", flag: "🇬🇧" },
   { code: "hi", label: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
+  { code: "es", label: "Spanish", native: "Español", flag: "🇪🇸" },
+  { code: "zh", label: "Chinese", native: "中文", flag: "🇨🇳" },
+  { code: "ar", label: "Arabic", native: "العربية", flag: "🇸🇦" },
+  { code: "pt", label: "Portuguese", native: "Português", flag: "🇧🇷" },
+  { code: "fr", label: "French", native: "Français", flag: "🇫🇷" },
+  { code: "de", label: "German", native: "Deutsch", flag: "🇩🇪" },
+  { code: "ja", label: "Japanese", native: "日本語", flag: "🇯🇵" },
+  { code: "ko", label: "Korean", native: "한국어", flag: "🇰🇷" },
+  { code: "bn", label: "Bengali", native: "বাংলা", flag: "🇧🇩" },
+  { code: "ta", label: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
+  { code: "id", label: "Indonesian", native: "Bahasa Indonesia", flag: "🇮🇩" },
+  { code: "ru", label: "Russian", native: "Русский", flag: "🇷🇺" },
 ] as const;
 
-export const i18n = new I18n({ en, hi });
+export const i18n = new I18n({ en, hi, es, ar, zh, pt, fr, de, ja, ko, bn, ta, id, ru });
 i18n.enableFallback = true;
 i18n.defaultLocale = "en";
 
