@@ -15,11 +15,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Login() {
   const router = useRouter();
   const { login } = useAuth();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -29,7 +31,7 @@ export default function Login() {
   const submit = async () => {
     setErr("");
     if (!email.trim() || !password) {
-      setErr("Enter your email and password");
+      setErr(t("auth.enter_credentials"));
       return;
     }
     setBusy(true);
@@ -48,7 +50,7 @@ export default function Login() {
       }
       router.replace("/(tabs)/home");
     } catch (e: any) {
-      setErr(e?.message || "Login failed");
+      setErr(e?.message || t("auth.login_failed"));
     } finally {
       setBusy(false);
     }
@@ -69,15 +71,15 @@ export default function Login() {
             <ChevronLeft size={24} color={colors.text} />
           </Pressable>
 
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Sign in to keep shopping authentic India.</Text>
+          <Text style={styles.title}>{t("auth.welcome_back")}</Text>
+          <Text style={styles.subtitle}>{t("auth.welcome_back_sub")}</Text>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t("auth.email")}</Text>
             <TextInput
               testID="login-email-input"
               style={styles.input}
-              placeholder="you@example.co.nz"
+              placeholder={t("auth.email_placeholder")}
               placeholderTextColor={colors.textFaint}
               autoCapitalize="none"
               keyboardType="email-address"

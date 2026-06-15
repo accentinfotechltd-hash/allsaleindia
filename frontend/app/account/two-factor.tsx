@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -24,6 +25,7 @@ type Status = { two_factor_enabled: boolean; masked_email: string };
 export default function TwoFactorSettings() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<Status | null>(null);
@@ -155,7 +157,7 @@ export default function TwoFactorSettings() {
           {loading ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
           ) : !user ? (
-            <Text style={styles.muted}>Please sign in to manage 2FA.</Text>
+            <Text style={styles.muted}>{t("two_factor.please_sign_in")}</Text>
           ) : (
             <>
               <View
@@ -172,13 +174,13 @@ export default function TwoFactorSettings() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.statusTitle}>
                     {status?.two_factor_enabled
-                      ? "Two-factor authentication is ON"
-                      : "Two-factor authentication is OFF"}
+                      ? t("two_factor.status_on")
+                      : t("two_factor.status_off")}
                   </Text>
                   <Text style={styles.statusBody}>
                     {status?.two_factor_enabled
-                      ? `When you sign in, we send a 6-digit code to ${status.masked_email}.`
-                      : "Add an extra layer of security by requiring a code from your email at sign in."}
+                      ? t("two_factor.status_on_body", { email: status.masked_email })
+                      : t("two_factor.status_off_body")}
                   </Text>
                 </View>
               </View>
@@ -195,7 +197,7 @@ export default function TwoFactorSettings() {
                       {busy ? (
                         <ActivityIndicator color="#dc2626" />
                       ) : (
-                        <Text style={styles.dangerText}>Turn off 2FA</Text>
+                        <Text style={styles.dangerText}>{t("two_factor.turn_off")}</Text>
                       )}
                     </Pressable>
                   ) : (
@@ -208,7 +210,7 @@ export default function TwoFactorSettings() {
                       {busy ? (
                         <ActivityIndicator color="#fff" />
                       ) : (
-                        <Text style={styles.ctaText}>Turn on 2FA</Text>
+                        <Text style={styles.ctaText}>{t("two_factor.turn_on")}</Text>
                       )}
                     </Pressable>
                   )}
@@ -217,9 +219,7 @@ export default function TwoFactorSettings() {
 
               {phase !== "idle" && (
                 <View style={styles.codeBlock}>
-                  <Text style={styles.codeLabel}>
-                    Enter the 6-digit code we just emailed you:
-                  </Text>
+                  <Text style={styles.codeLabel}>{t("two_factor.code_prompt")}</Text>
                   <TextInput
                     ref={inputRef}
                     testID="2fa-settings-code-input"
@@ -255,7 +255,9 @@ export default function TwoFactorSettings() {
                           phase === "enable_code" ? styles.ctaText : styles.dangerText
                         }
                       >
-                        {phase === "enable_code" ? "Confirm & enable 2FA" : "Confirm & disable 2FA"}
+                        {phase === "enable_code"
+                          ? t("two_factor.confirm_enable")
+                          : t("two_factor.confirm_disable")}
                       </Text>
                     )}
                   </Pressable>
@@ -272,11 +274,7 @@ export default function TwoFactorSettings() {
                 </View>
               )}
 
-              <Text style={styles.helpText}>
-                How it works: after you enter your password we send a 6-digit code to your
-                email. Codes expire after 10 minutes and only 5 attempts are allowed per
-                code.
-              </Text>
+              <Text style={styles.helpText}>{t("two_factor.help_text")}</Text>
             </>
           )}
         </ScrollView>
@@ -363,4 +361,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   muted: { color: colors.textMuted, fontSize: 14, textAlign: "center", marginTop: 40 },
+});
+: colors.textMuted, fontSize: 14, textAlign: "center", marginTop: 40 },
 });

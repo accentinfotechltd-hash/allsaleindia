@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function TwoFactor() {
@@ -25,6 +26,7 @@ export default function TwoFactor() {
     ttl: string;
   }>();
   const { loginVerify2FA, resend2FACode } = useAuth();
+  const { t } = useTranslation();
 
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -117,10 +119,9 @@ export default function TwoFactor() {
             <ShieldCheck size={32} color={colors.primary} />
           </View>
 
-          <Text style={styles.title}>Two-factor sign in</Text>
+          <Text style={styles.title}>{t("two_factor.title")}</Text>
           <Text style={styles.subtitle}>
-            We sent a 6-digit code to <Text style={styles.bold}>{masked || "your email"}</Text>.
-            Enter it below to continue.
+            {t("two_factor.subtitle", { email: masked || t("auth.email").toLowerCase() })}
           </Text>
 
           <TextInput
@@ -154,12 +155,12 @@ export default function TwoFactor() {
             onPress={() => submit()}
             style={[styles.cta, (busy || code.length !== 6) && { opacity: 0.5 }]}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Verify & sign in</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("two_factor.verify")}</Text>}
           </Pressable>
 
           <View style={styles.resendRow}>
             <Text style={styles.timer}>
-              Code expires in {mm}:{ss}
+              {t("two_factor.expires_in", { time: `${mm}:${ss}` })}
             </Text>
             <Pressable
               testID="2fa-resend-btn"
@@ -172,13 +173,13 @@ export default function TwoFactor() {
                   (!canResend || secondsLeft <= 0) && { color: colors.textFaint },
                 ]}
               >
-                Resend code
+                {t("two_factor.resend")}
               </Text>
             </Pressable>
           </View>
 
           <Pressable onPress={() => router.replace("/(auth)/login")} style={styles.cancelBtn}>
-            <Text style={styles.cancelText}>Use a different account</Text>
+            <Text style={styles.cancelText}>{t("two_factor.use_different_account")}</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
