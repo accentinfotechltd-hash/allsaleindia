@@ -24,11 +24,17 @@ import ta from "./locales/ta";
 import id from "./locales/id";
 import ru from "./locales/ru";
 import mi from "./locales/mi";
+import sm from "./locales/sm";
+import to from "./locales/to";
+import fj from "./locales/fj";
 
 const LANG_KEY = "allsale_lang";
 export const SUPPORTED = [
   { code: "en", label: "English", native: "English", flag: "🇬🇧" },
   { code: "mi", label: "Māori", native: "Te Reo Māori", flag: "🇳🇿" },
+  { code: "sm", label: "Samoan", native: "Gagana Sāmoa", flag: "🇼🇸" },
+  { code: "to", label: "Tongan", native: "Lea Faka-Tonga", flag: "🇹🇴" },
+  { code: "fj", label: "Fijian", native: "Vosa Vakaviti", flag: "🇫🇯" },
   { code: "hi", label: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
   { code: "es", label: "Spanish", native: "Español", flag: "🇪🇸" },
   { code: "zh", label: "Chinese (Simplified)", native: "简体中文", flag: "🇨🇳" },
@@ -45,7 +51,7 @@ export const SUPPORTED = [
   { code: "ru", label: "Russian", native: "Русский", flag: "🇷🇺" },
 ] as const;
 
-export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi });
+export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi, sm, to, fj });
 i18n.enableFallback = true;
 i18n.defaultLocale = "en";
 

@@ -1,0 +1,9 @@
+const sm = {
+  common: { save: "Sefe", cancel: "Soloi", back: "Toʻe", next: "Sosoo ai", confirm: "Faʻamaonia", delete: "Tape", loading: "Utaina…", retry: "Toe taumafai", yes: "Ioe", no: "Leai", language: "Gagana", change_language: "Suia le gagana" },
+  auth: { welcome: "Afio mai i Allsale", subtitle: "Maketi Initia — lafo i le lalolagi atoa", sign_in: "Sain mai", sign_up: "Fai se tusi resitala", sign_out: "Sain ese", email: "Imeli", password: "Upu faʻalilolilo", full_name: "Igoa atoa", forgot_password: "Ua galo lau upu faʻalilolilo?", google: "Faʻaauau ma Google", apple: "Faʻaauau ma Apple", or: "poʻo" },
+  tabs: { home: "Aiga", search: "Saili", cart: "Kato", orders: "Oka", account: "Tusi resitala" },
+  seller: { dashboard: "Laupapa o le tagata faʻatau", profile: "ʻInisinia", payouts: "Totogi", support: "Lagolago", financing: "Tupe muamua", products: "Oloa", orders: "Oka", raise_ticket: "Tuʻu se talosaga" },
+  payouts: { available: "Maua", held: "Taofi", reserve: "Faʻasao", paid_out: "Ua totogi", next_release: "Isi totogi", tier_starter: "Amataga", tier_verified: "Faʻamaonia", tier_trusted: "Talitonu", tier_top: "Maualuga" },
+  settings: { title: "Tuʻuga", language: "Gagana o le polokalama", change: "Suia" }
+};
+export default sm;
