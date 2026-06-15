@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { SellerStatusBanner } from "@/src/components/SellerStatusBanner";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type SellerProfile = {
@@ -36,6 +37,7 @@ type Listing = {
 export default function SellerDashboard() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<SellerProfile | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ export default function SellerDashboard() {
         <Pressable testID="seller-dashboard-back" onPress={() => router.replace("/(tabs)/account")} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Seller dashboard</Text>
+        <Text style={styles.title}>{t("seller.dashboard")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -84,9 +86,9 @@ export default function SellerDashboard() {
         </View>
       ) : !user?.is_seller || !profile ? (
         <View style={styles.center}>
-          <Text style={styles.muted}>Seller profile not found.</Text>
+          <Text style={styles.muted}>{t("seller.profile_not_found")}</Text>
           <Pressable testID="seller-dashboard-onboard-btn" onPress={() => router.push("/seller/welcome")} style={styles.cta}>
-            <Text style={styles.ctaText}>Start seller onboarding</Text>
+            <Text style={styles.ctaText}>{t("seller.start_onboarding")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -121,8 +123,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Package size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Orders</Text>
-                  <Text style={styles.quickSubtitle}>Buyer purchases of your listings</Text>
+                  <Text style={styles.quickTitle}>{t("seller.orders")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.orders_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-payouts-link"
@@ -132,8 +134,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Wallet size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Payouts</Text>
-                  <Text style={styles.quickSubtitle}>Earnings after 15% platform fee</Text>
+                  <Text style={styles.quickTitle}>{t("seller.payouts")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.payouts_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-returns-link"
@@ -143,8 +145,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <RefreshCcw size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Returns</Text>
-                  <Text style={styles.quickSubtitle}>Approve or decline buyer returns</Text>
+                  <Text style={styles.quickTitle}>{t("seller.returns")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.returns_sub")}</Text>
                 </Pressable>
               </View>
 
@@ -157,8 +159,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <BarChart3 size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Analytics</Text>
-                  <Text style={styles.quickSubtitle}>Views, carts, sold & conversion</Text>
+                  <Text style={styles.quickTitle}>{t("seller.analytics")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.analytics_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-bulk-edit-link"
@@ -168,8 +170,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <ClipboardList size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Bulk edit</Text>
-                  <Text style={styles.quickSubtitle}>Update price / stock in one go</Text>
+                  <Text style={styles.quickTitle}>{t("seller.bulk_edit")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.bulk_edit_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-bulk-upload-link"
@@ -179,8 +181,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Upload size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Bulk upload</Text>
-                  <Text style={styles.quickSubtitle}>Add many listings via CSV / Excel</Text>
+                  <Text style={styles.quickTitle}>{t("seller.bulk_upload")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.bulk_upload_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-coupons-link"
@@ -190,8 +192,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Tag size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Coupons</Text>
-                  <Text style={styles.quickSubtitle}>Promo codes & flash deals</Text>
+                  <Text style={styles.quickTitle}>{t("seller.coupons")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.coupons_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-profile-link"
@@ -201,8 +203,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Settings size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Profile settings</Text>
-                  <Text style={styles.quickSubtitle}>Store logo, hours, payouts & password</Text>
+                  <Text style={styles.quickTitle}>{t("seller.profile")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.profile_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-support-link"
@@ -212,20 +214,20 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <LifeBuoy size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Support</Text>
-                  <Text style={styles.quickSubtitle}>Raise a ticket — we reply within 24h</Text>
+                  <Text style={styles.quickTitle}>{t("seller.support")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller.support_sub")}</Text>
                 </Pressable>
               </View>
 
               <View style={styles.listingsHeader}>
-                <Text style={styles.sectionTitle}>My listings ({listings.length})</Text>
+                <Text style={styles.sectionTitle}>{t("seller.my_listings", { count: listings.length })}</Text>
               </View>
 
               {listings.length === 0 ? (
                 <View style={styles.emptyList}>
-                  <Text style={styles.emptyTitle}>No listings yet</Text>
+                  <Text style={styles.emptyTitle}>{t("seller.no_listings")}</Text>
                   <Text style={styles.emptyBody}>
-                    Add your first product — shoppers in NZ will see it on the Allsale home feed.
+                    {t("seller.no_listings_body")}
                   </Text>
                 </View>
               ) : null}
@@ -266,7 +268,7 @@ export default function SellerDashboard() {
             style={({ pressed }) => [styles.fabBtn, pressed && { transform: [{ scale: 0.98 }] }]}
           >
             <Plus size={18} color="#fff" />
-            <Text style={styles.fabText}>Add listing</Text>
+            <Text style={styles.fabText}>{t("seller.add_listing")}</Text>
           </Pressable>
         </SafeAreaView>
       ) : null}

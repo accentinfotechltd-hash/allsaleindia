@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { getAdminSecret, setAdminSecret } from "@/src/lib/adminApi";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Overview = {
@@ -38,6 +39,7 @@ async function adminFetch<T>(path: string, secret: string): Promise<T> {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [secret, setSecret] = useState("");
   const [authed, setAuthed] = useState(false);
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -59,7 +61,7 @@ export default function AdminDashboard() {
       setAuthed(true);
       await setAdminSecret(s);
     } catch (e: any) {
-      Alert.alert("Access denied", e?.message?.startsWith("403") ? "Wrong admin secret." : e?.message || "Try again.");
+      Alert.alert(t("admin.access_denied"), e?.message?.startsWith("403") ? t("admin.wrong_secret") : e?.message || t("common.try_again"));
     } finally {
       setLoading(false);
     }
@@ -119,7 +121,7 @@ export default function AdminDashboard() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Admin · Overview</Text>
+        <Text style={styles.headerTitle}>{t("admin.overview")}</Text>
         <Pressable onPress={() => load(secret)} style={styles.backBtn} testID="admin-refresh">
           <RefreshCw size={18} color={colors.text} />
         </Pressable>
@@ -143,7 +145,7 @@ export default function AdminDashboard() {
           onPress={() => router.push("/admin/sellers")}
           style={({ pressed }) => [styles.reviewBtn, pressed && { opacity: 0.85 }]}
         >
-          <Text style={styles.reviewBtnText}>Review pending sellers →</Text>
+          <Text style={styles.reviewBtnText}>{t("admin.review_pending_sellers")}</Text>
         </Pressable>
 
         <Pressable
@@ -152,7 +154,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.ticketsBtn, pressed && { opacity: 0.85 }]}
         >
           <LifeBuoy size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Open support tickets →</Text>
+          <Text style={styles.reviewBtnText}>{t("admin.open_support_tickets")}</Text>
         </Pressable>
 
         <Pressable
@@ -161,7 +163,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.financingBtn, pressed && { opacity: 0.85 }]}
         >
           <HandCoins size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Financing applications →</Text>
+          <Text style={styles.reviewBtnText}>{t("admin.financing_applications")}</Text>
         </Pressable>
 
         <Pressable
@@ -170,10 +172,10 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.emailBtn, pressed && { opacity: 0.85 }]}
         >
           <Mail size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Email diagnostics →</Text>
+          <Text style={styles.reviewBtnText}>{t("admin.email_diagnostics")}</Text>
         </Pressable>
 
-        <Text style={styles.section}>Sellers ({sellers.length})</Text>
+        <Text style={styles.section}>{t("admin.sellers_count", { count: sellers.length })}</Text>
         {sellers.slice(0, 10).map((s) => (
           <View key={s.id} style={styles.row}>
             <View style={{ flex: 1 }}>
@@ -191,7 +193,7 @@ export default function AdminDashboard() {
           </View>
         ))}
 
-        <Text style={styles.section}>Recent orders ({orders.length})</Text>
+        <Text style={styles.section}>{t("admin.recent_orders", { count: orders.length })}</Text>
         {orders.slice(0, 10).map((o) => (
           <View key={o.id} style={styles.row}>
             <View style={{ flex: 1 }}>

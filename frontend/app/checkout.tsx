@@ -16,12 +16,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import { useTranslation } from "@/src/i18n";
 import { api, ORIGIN_URL } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 export default function Checkout() {
   const router = useRouter();
   const { cart, refresh } = useCart();
+  const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -36,7 +38,7 @@ export default function Checkout() {
   const submit = async () => {
     setErr("");
     if (!fullName || !phone || !line1 || !city || !postcode) {
-      setErr("Please complete your shipping details");
+      setErr(t("checkout.complete_shipping"));
       return;
     }
     setBusy(true);
@@ -67,7 +69,7 @@ export default function Checkout() {
         router.replace({ pathname: "/checkout-status", params: { session_id: res.session_id } });
       }
     } catch (e: any) {
-      setErr(e?.message || "Could not start checkout");
+      setErr(e?.message || t("checkout.could_not_start"));
     } finally {
       setBusy(false);
     }
@@ -79,7 +81,7 @@ export default function Checkout() {
         <Pressable testID="checkout-back-btn" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Checkout</Text>
+        <Text style={styles.title}>{t("checkout.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -92,30 +94,30 @@ export default function Checkout() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.sectionTitle}>Shipping to New Zealand</Text>
+          <Text style={styles.sectionTitle}>{t("checkout.shipping_to")}</Text>
 
-          <Field label="Full name" testID="checkout-name" value={fullName} onChangeText={setFullName} />
+          <Field label={t("checkout.full_name")} testID="checkout-name" value={fullName} onChangeText={setFullName} />
           <Field
-            label="Phone"
+            label={t("checkout.phone")}
             testID="checkout-phone"
             value={phone}
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
-          <Field label="Address line 1" testID="checkout-line1" value={line1} onChangeText={setLine1} />
+          <Field label={t("checkout.address_line1")} testID="checkout-line1" value={line1} onChangeText={setLine1} />
           <Field
-            label="Address line 2 (optional)"
+            label={t("checkout.address_line2")}
             testID="checkout-line2"
             value={line2}
             onChangeText={setLine2}
           />
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Field label="City" testID="checkout-city" value={city} onChangeText={setCity} />
+              <Field label={t("checkout.city")} testID="checkout-city" value={city} onChangeText={setCity} />
             </View>
             <View style={{ flex: 1 }}>
               <Field
-                label="Postcode"
+                label={t("checkout.postcode")}
                 testID="checkout-postcode"
                 value={postcode}
                 onChangeText={setPostcode}
@@ -123,21 +125,21 @@ export default function Checkout() {
               />
             </View>
           </View>
-          <Field label="Region" testID="checkout-region" value={region} onChangeText={setRegion} />
+          <Field label={t("checkout.region")} testID="checkout-region" value={region} onChangeText={setRegion} />
 
           <View style={styles.summaryCard}>
             <View style={styles.summaryHead}>
               <Truck size={16} color={colors.primary} />
-              <Text style={styles.summaryHeadText}>Order summary</Text>
+              <Text style={styles.summaryHeadText}>{t("checkout.order_summary")}</Text>
             </View>
-            <Line label={`${cart.items.length} items subtotal`} value={formatNZD(cart.subtotal_nzd)} />
+            <Line label={t("checkout.items_subtotal", { count: cart.items.length })} value={formatNZD(cart.subtotal_nzd)} />
             <Line
-              label="Shipping to NZ"
-              value={cart.shipping_nzd === 0 ? "FREE" : formatNZD(cart.shipping_nzd)}
+              label={t("checkout.shipping_to_nz")}
+              value={cart.shipping_nzd === 0 ? t("checkout.free") : formatNZD(cart.shipping_nzd)}
               highlight={cart.shipping_nzd === 0}
             />
             <View style={styles.lineDivider} />
-            <Line label="Total (NZD)" value={formatNZD(cart.total_nzd)} bold />
+            <Line label={t("checkout.total_nzd")} value={formatNZD(cart.total_nzd)} bold />
           </View>
 
           {err ? <Text style={styles.error} testID="checkout-error">{err}</Text> : null}
@@ -157,14 +159,14 @@ export default function Checkout() {
             ) : (
               <>
                 <CreditCard size={18} color="#fff" />
-                <Text style={styles.ctaText}>Pay {formatNZD(cart.total_nzd)}</Text>
+                <Text style={styles.ctaText}>{t("checkout.pay", { amount: formatNZD(cart.total_nzd) })}</Text>
               </>
             )}
           </Pressable>
 
           <View style={styles.lockRow}>
             <Lock size={12} color={colors.textMuted} />
-            <Text style={styles.lockText}>Secure payment by Stripe · NZD</Text>
+            <Text style={styles.lockText}>{t("checkout.secure_payment")}</Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
