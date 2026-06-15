@@ -27,6 +27,15 @@ import mi from "./locales/mi";
 import sm from "./locales/sm";
 import to from "./locales/to";
 import fj from "./locales/fj";
+import te from "./locales/te";
+import mr from "./locales/mr";
+import ur from "./locales/ur";
+import gu from "./locales/gu";
+import kn from "./locales/kn";
+import ml from "./locales/ml";
+import pa from "./locales/pa";
+import or_ from "./locales/or";
+import as_ from "./locales/as";
 
 const LANG_KEY = "allsale_lang";
 export const SUPPORTED = [
@@ -36,6 +45,17 @@ export const SUPPORTED = [
   { code: "to", label: "Tongan", native: "Lea Faka-Tonga", flag: "🇹🇴" },
   { code: "fj", label: "Fijian", native: "Vosa Vakaviti", flag: "🇫🇯" },
   { code: "hi", label: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
+  { code: "bn", label: "Bengali", native: "বাংলা", flag: "🇮🇳" },
+  { code: "te", label: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
+  { code: "mr", label: "Marathi", native: "मराठी", flag: "🇮🇳" },
+  { code: "ta", label: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
+  { code: "ur", label: "Urdu", native: "اردو", flag: "🇮🇳" },
+  { code: "gu", label: "Gujarati", native: "ગુજરાતી", flag: "🇮🇳" },
+  { code: "kn", label: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳" },
+  { code: "ml", label: "Malayalam", native: "മലയാളം", flag: "🇮🇳" },
+  { code: "pa", label: "Punjabi", native: "ਪੰਜਾਬੀ", flag: "🇮🇳" },
+  { code: "or", label: "Odia", native: "ଓଡ଼ିଆ", flag: "🇮🇳" },
+  { code: "as", label: "Assamese", native: "অসমীয়া", flag: "🇮🇳" },
   { code: "es", label: "Spanish", native: "Español", flag: "🇪🇸" },
   { code: "zh", label: "Chinese (Simplified)", native: "简体中文", flag: "🇨🇳" },
   { code: "zh-TW", label: "Chinese (Traditional)", native: "繁體中文", flag: "🇹🇼" },
@@ -45,13 +65,11 @@ export const SUPPORTED = [
   { code: "de", label: "German", native: "Deutsch", flag: "🇩🇪" },
   { code: "ja", label: "Japanese", native: "日本語", flag: "🇯🇵" },
   { code: "ko", label: "Korean", native: "한국어", flag: "🇰🇷" },
-  { code: "bn", label: "Bengali", native: "বাংলা", flag: "🇧🇩" },
-  { code: "ta", label: "Tamil", native: "தமிழ்", flag: "🇮🇳" },
   { code: "id", label: "Indonesian", native: "Bahasa Indonesia", flag: "🇮🇩" },
   { code: "ru", label: "Russian", native: "Русский", flag: "🇷🇺" },
 ] as const;
 
-export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi, sm, to, fj });
+export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi, sm, to, fj, te, mr, ur, gu, kn, ml, pa, or: or_, as: as_ });
 i18n.enableFallback = true;
 i18n.defaultLocale = "en";
 

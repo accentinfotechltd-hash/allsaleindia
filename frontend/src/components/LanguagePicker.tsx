@@ -1,5 +1,5 @@
 import { Check, Globe } from "lucide-react-native";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { SUPPORTED, useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -31,6 +31,7 @@ export function LanguagePicker({
             <Globe size={20} color={colors.primary} />
             <Text style={styles.title}>{t("common.change_language")}</Text>
           </View>
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           {SUPPORTED.map((lang) => {
             const active = locale === lang.code;
             return (
@@ -52,6 +53,7 @@ export function LanguagePicker({
               </Pressable>
             );
           })}
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>
@@ -88,6 +90,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: spacing.xl,
     gap: 6,
+    maxHeight: "85%",
+  },
+  scroll: {
+    flexGrow: 0,
   },
   handle: {
     width: 40,
