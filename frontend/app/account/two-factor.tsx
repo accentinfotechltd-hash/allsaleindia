@@ -3,8 +3,8 @@ import { ChevronLeft, ShieldCheck, ShieldOff } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -34,6 +34,8 @@ export default function TwoFactorSettings() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
+  const [success, setSuccess] = useState<{ title: string; body: string } | null>(null);
+  const [showDisableModal, setShowDisableModal] = useState(false);
   const inputRef = useRef<TextInput | null>(null);
 
   const load = useCallback(async () => {
@@ -111,28 +113,26 @@ export default function TwoFactorSettings() {
       setStatus(s);
       setPhase("idle");
       setCode("");
-      Alert.alert(
-        s.two_factor_enabled ? "2FA enabled 🔒" : "2FA disabled",
-        s.two_factor_enabled
-          ? "From now on, you'll need an email code to sign in."
-          : "Your account no longer requires an email code at sign in."
-      );
+      setSuccess({
+        title: s.two_factor_enabled ? t("two_factor.enabled_alert") : t("two_factor.disabled_alert"),
+        body: s.two_factor_enabled
+          ? t("two_factor.enabled_alert_body")
+          : t("two_factor.disabled_alert_body"),
+      });
     } catch (e: any) {
-      setErr(e?.message || "Could not verify code");
+      setErr(e?.message || t("two_factor.could_not_verify"));
     } finally {
       setBusy(false);
     }
   };
 
   const disableConfirm = () => {
-    Alert.alert(
-      "Turn off two-factor authentication?",
-      "Your account will be less secure. We'll send a code to verify it's you.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Turn off", style: "destructive", onPress: requestDisable },
-      ]
-    );
+    setShowDisableModal(true);
+  };
+
+  const doDisable = async () => {
+    setShowDisableModal(false);
+    await requestDisable();
   };
 
   return (
@@ -184,6 +184,22 @@ export default function TwoFactorSettings() {
                   </Text>
                 </View>
               </View>
+
+              {success && (
+                <View testID="2fa-success-banner" style={styles.successBanner}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.successTitle}>{success.title}</Text>
+                    <Text style={styles.successBody}>{success.body}</Text>
+                  </View>
+                  <Pressable
+                    testID="2fa-success-dismiss"
+                    onPress={() => setSuccess(null)}
+                    hitSlop={12}
+                  >
+                    <Text style={styles.successDismiss}>×</Text>
+                  </Pressable>
+                </View>
+              )}
 
               {phase === "idle" && (
                 <View style={{ gap: spacing.sm }}>
@@ -279,6 +295,39 @@ export default function TwoFactorSettings() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={showDisableModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDisableModal(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowDisableModal(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>{t("two_factor.turn_off_title")}</Text>
+            <Text style={styles.modalBody}>{t("two_factor.turn_off_msg")}</Text>
+            <View style={styles.modalButtons}>
+              <Pressable
+                testID="2fa-disable-modal-cancel"
+                onPress={() => setShowDisableModal(false)}
+                style={styles.modalCancel}
+              >
+                <Text style={styles.modalCancelText}>{t("common.cancel")}</Text>
+              </Pressable>
+              <Pressable
+                testID="2fa-disable-modal-confirm"
+                onPress={doDisable}
+                style={styles.modalConfirm}
+              >
+                <Text style={styles.modalConfirmText}>{t("two_factor.turn_off")}</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -361,4 +410,49 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   muted: { color: colors.textMuted, fontSize: 14, textAlign: "center", marginTop: 40 },
+  successBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: "#ecfdf5",
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+    padding: spacing.md,
+    borderRadius: radius.lg,
+  },
+  successTitle: { fontSize: 15, fontWeight: "700", color: "#065f46", marginBottom: 2 },
+  successBody: { fontSize: 13, color: "#047857", lineHeight: 18 },
+  successDismiss: { fontSize: 24, color: "#065f46", fontWeight: "700", paddingHorizontal: 4 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.lg,
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#fff",
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  modalTitle: { fontSize: 17, fontWeight: "700", color: colors.text },
+  modalBody: { fontSize: 14, color: colors.textMuted, lineHeight: 20, marginBottom: spacing.sm },
+  modalButtons: { flexDirection: "row", gap: spacing.sm, justifyContent: "flex-end" },
+  modalCancel: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: radius.md,
+    backgroundColor: "#f1f5f9",
+  },
+  modalCancelText: { color: colors.text, fontWeight: "600", fontSize: 14 },
+  modalConfirm: {
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: radius.md,
+    backgroundColor: "#dc2626",
+  },
+  modalConfirmText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 });
