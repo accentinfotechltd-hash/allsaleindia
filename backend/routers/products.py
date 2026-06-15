@@ -61,6 +61,8 @@ async def list_products(
     age_group: Optional[str] = Query(default=None, description="baby | kids | adult"),
     sizes: Optional[List[str]] = Query(default=None, description="Filter by available size(s)"),
     colors: Optional[List[str]] = Query(default=None, description="Filter by available color(s)"),
+    limit: int = Query(default=200, ge=1, le=500, description="Max products to return"),
+    skip: int = Query(default=0, ge=0, description="Number of products to skip for pagination"),
 ):
     """List the catalog with optional filters and sort.
 
@@ -159,6 +161,7 @@ async def list_products(
     cursor = db.products.find(query, {"_id": 0})
     if sort_spec:
         cursor = cursor.sort(sort_spec)
+    cursor = cursor.skip(skip).limit(limit)
     out: list[Product] = []
     async for p in cursor:
         try:
