@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import ShippingSelector, { ShippingOption } from "@/src/components/ShippingSelector";
 import { useTranslation } from "@/src/i18n";
 import { api, ORIGIN_URL } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
@@ -26,6 +27,7 @@ export default function Checkout() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [shipOpt, setShipOpt] = useState<ShippingOption | null>(null);
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -59,6 +61,13 @@ export default function Checkout() {
               country: "New Zealand",
             },
             origin_url: ORIGIN_URL,
+            shipping_tier: shipOpt?.tier ?? null,
+            shipping_courier_id: shipOpt?.courier_id ?? null,
+            shipping_courier_name: shipOpt?.courier_name ?? null,
+            // Override cart's shipping_nzd with the user's chosen tier (in NZD).
+            // The server already has the buyer currency price; we send NZD because backend stores NZD.
+            // Convert rate_in_currency back to NZD using fx if currency != NZD.
+            shipping_cost_nzd: shipOpt?.free ? 0 : (shipOpt?.rate_in_currency ?? null),
           },
         },
       );
@@ -127,6 +136,15 @@ export default function Checkout() {
           </View>
           <Field label={t("checkout.region")} testID="checkout-region" value={region} onChangeText={setRegion} />
 
+          <ShippingSelector
+            country="NZ"
+            currency="NZD"
+            weightKg={Math.max(0.5, cart.items.reduce((a, it) => a + (it.quantity || 1), 0) * 0.5)}
+            subtotal={cart.subtotal_nzd}
+            onSelect={setShipOpt}
+            selectedTier={shipOpt?.tier}
+          />
+
           <View style={styles.summaryCard}>
             <View style={styles.summaryHead}>
               <Truck size={16} color={colors.primary} />
@@ -134,12 +152,29 @@ export default function Checkout() {
             </View>
             <Line label={t("checkout.items_subtotal", { count: cart.items.length })} value={formatNZD(cart.subtotal_nzd)} />
             <Line
-              label={t("checkout.shipping_to_nz")}
-              value={cart.shipping_nzd === 0 ? t("checkout.free") : formatNZD(cart.shipping_nzd)}
-              highlight={cart.shipping_nzd === 0}
+              label={shipOpt ? `${shipOpt.label} shipping` : t("checkout.shipping_to_nz")}
+              value={
+                shipOpt
+                  ? shipOpt.free
+                    ? t("checkout.free")
+                    : formatNZD(shipOpt.rate_in_currency)
+                  : cart.shipping_nzd === 0
+                  ? t("checkout.free")
+                  : formatNZD(cart.shipping_nzd)
+              }
+              highlight={shipOpt?.free || cart.shipping_nzd === 0}
             />
             <View style={styles.lineDivider} />
-            <Line label={t("checkout.total_nzd")} value={formatNZD(cart.total_nzd)} bold />
+            <Line
+              label={t("checkout.total_nzd")}
+              value={formatNZD(
+                cart.subtotal_nzd +
+                  (shipOpt ? (shipOpt.free ? 0 : shipOpt.rate_in_currency) : cart.shipping_nzd) -
+                  (cart.discount_nzd || 0) -
+                  (cart.points_discount_nzd || 0),
+              )}
+              bold
+            />
           </View>
 
           {err ? <Text style={styles.error} testID="checkout-error">{err}</Text> : null}

@@ -44,6 +44,7 @@ from routers import (
     reviews,
     seller,
     shiprocket,
+    shipping,
     size_guide,
     support,
     uploads,
@@ -91,6 +92,7 @@ api.include_router(referrals.router)
 api.include_router(chat.router)
 api.include_router(wallet.router)
 api.include_router(shiprocket.router)
+api.include_router(shipping.router)
 api.include_router(uploads.router)
 api.include_router(notifications.router)
 api.include_router(admin.router)

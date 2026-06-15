@@ -512,6 +512,11 @@ class Address(BaseModel):
 class CheckoutRequest(BaseModel):
     address: Address
     origin_url: str  # e.g. https://allsale-shop.preview.emergentagent.com
+    # Optional shipping tier override (from new 3-tier selector at checkout)
+    shipping_tier: Optional[str] = None  # 'economy' | 'standard' | 'express' | 'heavy'
+    shipping_courier_id: Optional[int] = None  # Shiprocket courier_id
+    shipping_courier_name: Optional[str] = None
+    shipping_cost_nzd: Optional[float] = None  # overrides cart.shipping_nzd if set
 
 
 class OrderItem(BaseModel):

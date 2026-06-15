@@ -256,12 +256,27 @@ async def book_shiprocket_shipment(order_id: str) -> Optional[dict]:
 
     courier = await _cheapest_courier(token, seller, order)
     awb_resp: dict = {}
-    if courier and sr_shipment_id:
+    # If the buyer chose a specific tier at checkout, honor that courier_id
+    forced_courier_id = order.get("shipping_courier_id")
+    forced_courier_name = order.get("shipping_courier_name")
+    if sr_shipment_id and forced_courier_id:
+        awb_resp = await _assign_awb(token, sr_shipment_id, forced_courier_id) or {}
+        # If forced courier fails, fall back to cheapest available
+        if not (awb_resp.get("response") or {}).get("data", {}).get("awb_code"):
+            logger.warning(f"Forced courier {forced_courier_id} failed, falling back to cheapest")
+            if courier:
+                awb_resp = await _assign_awb(token, sr_shipment_id, courier.get("courier_company_id")) or {}
+    elif courier and sr_shipment_id:
         awb_resp = await _assign_awb(token, sr_shipment_id, courier.get("courier_company_id")) or {}
 
     awb_data = (awb_resp.get("response") or {}).get("data") or {}
     awb_code = awb_data.get("awb_code") or f"SR{uuid.uuid4().hex[:10].upper()}"
-    carrier_name = awb_data.get("courier_name") or (courier or {}).get("courier_name") or "Shiprocket X"
+    carrier_name = (
+        awb_data.get("courier_name")
+        or forced_courier_name
+        or (courier or {}).get("courier_name")
+        or "Shiprocket X"
+    )
 
     shipment = {
         "id": f"shp_{uuid.uuid4().hex[:12]}",

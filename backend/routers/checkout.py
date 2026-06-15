@@ -34,6 +34,16 @@ async def create_checkout_session(
     if not cart.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
+    # Apply 3-tier shipping override if provided
+    if body.shipping_cost_nzd is not None and body.shipping_cost_nzd >= 0:
+        cart.shipping_nzd = float(body.shipping_cost_nzd)
+        cart.total_nzd = (
+            float(cart.subtotal_nzd)
+            + float(cart.shipping_nzd)
+            - float(getattr(cart, "discount_nzd", 0.0) or 0.0)
+            - float(getattr(cart, "points_discount_nzd", 0.0) or 0.0)
+        )
+
     order_id = f"order_{uuid.uuid4().hex[:12]}"
     order_items: list[OrderItem] = []
     for it in cart.items:
@@ -102,6 +112,9 @@ async def create_checkout_session(
         "points_used": int(getattr(cart, "points_used", 0) or 0),
         "points_discount_nzd": float(getattr(cart, "points_discount_nzd", 0.0) or 0.0),
         "address": body.address.model_dump(),
+        "shipping_tier": body.shipping_tier,
+        "shipping_courier_id": body.shipping_courier_id,
+        "shipping_courier_name": body.shipping_courier_name,
         "status": "pending",
         "payment_status": "initiated",
         "session_id": session.session_id,
