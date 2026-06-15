@@ -16,6 +16,36 @@ logger = logging.getLogger("allsale")
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
+# Visibility for deployment debugging — log the host (NEVER the full URI with creds)
+# so we can confirm in production logs whether we're talking to Atlas or localhost.
+def _mongo_host_safe(uri: str) -> str:
+    """Extract just host[:port] from a mongo URI without leaking credentials."""
+    try:
+        # Strip scheme prefix
+        tail = uri.split("://", 1)[1] if "://" in uri else uri
+        # Strip userinfo (anything before '@')
+        tail = tail.split("@", 1)[-1]
+        # Strip path/query (anything after '/' or '?')
+        for sep in ("/", "?"):
+            if sep in tail:
+                tail = tail.split(sep, 1)[0]
+        return tail or "(unknown)"
+    except Exception:
+        return "(unparseable)"
+
+logger.info(
+    "Mongo client initialized — host=%s db=%s",
+    _mongo_host_safe(MONGO_URL),
+    DB_NAME,
+)
+# Also print to stderr so the host is visible even before basicConfig runs.
+import sys as _sys
+print(
+    f"[allsale] Mongo client initialized — host={_mongo_host_safe(MONGO_URL)} db={DB_NAME}",
+    file=_sys.stderr,
+    flush=True,
+)
+
 
 async def ensure_indexes() -> None:
     """Create idempotent indexes on the collections we use."""
