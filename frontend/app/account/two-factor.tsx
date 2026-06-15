@@ -362,5 +362,3 @@ const styles = StyleSheet.create({
   },
   muted: { color: colors.textMuted, fontSize: 14, textAlign: "center", marginTop: 40 },
 });
-: colors.textMuted, fontSize: 14, textAlign: "center", marginTop: 40 },
-});

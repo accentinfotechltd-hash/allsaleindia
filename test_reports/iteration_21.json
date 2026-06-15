@@ -1,0 +1,92 @@
+{
+  "summary": "Email OTP 2FA UI E2E tested at mobile viewport 420x880. Phases A/B/C PASS. Phase D FAILS due to react-native-web 0.21 Alert.alert no-op: the 'Turn off two-factor authentication?' confirm dialog never appears so the user can't disable 2FA from the web preview. Same root cause silently drops the '2FA enabled 🔒' / '2FA disabled' success toasts — no user feedback on web after confirm. Also fixed a CRITICAL syntax error in /app/frontend/app/account/two-factor.tsx (4 trailing lines of duplicated StyleSheet garbage at lines 365-368 that were crashing the Babel bundler).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "account/two-factor.tsx → disableConfirm()",
+        "issue": "Alert.alert(title, body, [{Cancel},{Turn off}]) is a no-op in react-native-web ~0.21.0. Browser dialog never fires; 'Turn off' onPress (which calls requestDisable) is never invoked. Result: the disable-2FA flow is completely unreachable on web — code-input phase never appears after tapping `2fa-disable-btn`. Verified empirically: window.alert/confirm work, but Alert.alert from 'react-native' did not fire any dialog across Phase A success, Phase D confirm, or Phase D success.",
+        "testID": "2fa-disable-btn",
+        "priority": "CRITICAL"
+      },
+      {
+        "component": "account/two-factor.tsx → confirm() success feedback",
+        "issue": "Alert.alert('2FA enabled 🔒', …) and Alert.alert('2FA disabled', …) at lines 114-119 also silently drop on web. User gets no confirmation toast after enabling/disabling. Status card flips, which is the only signal.",
+        "testID": "2fa-settings-confirm-btn",
+        "priority": "HIGH"
+      },
+      {
+        "component": "account/two-factor.tsx (syntax)",
+        "issue": "File had 4 trailing duplicate/garbage lines after the StyleSheet `});` (lines 365-368: orphan `: colors.textMuted, fontSize:…` + extra `});`). Babel was throwing during bundling. Fixed by removing the duplicated tail. Reference: /app/frontend/app/account/two-factor.tsx:364-368",
+        "testID": "n/a",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Phase D — Disable 2FA from settings",
+        "issue": "Tapping 2fa-disable-btn does nothing visible on web. Alert.alert with multi-button options is silently dropped by react-native-web 0.21. The companion requestDisable() never runs; no OTP is sent; no code-input phase rendered.",
+        "affected_testIDs": ["2fa-disable-btn", "2fa-settings-code-input", "2fa-settings-confirm-btn"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "(auth)/two-factor.tsx",
+        "issues": [
+          "Single masked OTP TextInput (testID 2fa-code-input) with letterSpacing:12 reads as separate digits but is one field — fine for OTP autofill but not segmented. Acceptable UX.",
+          "`Resend code` link is initially disabled (canResend = seconds <= 4*60+30) — disabled state styling could be more obvious (it's already textFaint).",
+          "Auto-submit on 6th digit works as documented; confirmed by typing via keyboard.type one char at a time."
+        ]
+      },
+      {
+        "screen": "account/two-factor.tsx",
+        "issues": [
+          "Status card design is clear (green ON / grey OFF). Touch targets meet 44px. Spacing 16px consistent."
+        ]
+      }
+    ],
+    "react_native_issues": [
+      {
+        "component": "Alert.alert (react-native) on web",
+        "issue": "react-native-web ~0.21.0 treats Alert.alert as a no-op. Any flow that depends on a multi-button confirm (e.g. destructive 'Turn off 2FA') or a success Alert toast is broken on the web preview. Replace with a cross-platform modal (custom Modal/Pressable) or wrap with Platform.OS === 'web' branch using window.confirm/custom in-app toast. Reference: /app/frontend/app/account/two-factor.tsx:114 and :128"
+      }
+    ]
+  },
+  "test_report_links": [
+    "/tmp/A_off.png",
+    "/tmp/A_after.png",
+    "/tmp/B_challenge.png",
+    "/tmp/B_after.png",
+    "/tmp/C_wrong.png",
+    "/tmp/D_on.png",
+    "/tmp/D_no_input.png",
+    "/tmp/get_otp_helper.py"
+  ],
+  "action_items": [
+    "CRITICAL: Replace Alert.alert(...) in /app/frontend/app/account/two-factor.tsx → disableConfirm() with a custom in-app confirmation modal (using <Modal> + <Pressable>) so destructive confirms work on web. Suggested testIDs: `2fa-disable-confirm-modal`, `2fa-disable-confirm-yes`, `2fa-disable-confirm-cancel`.",
+    "HIGH: Replace the post-confirm Alert.alert success toasts at lines 114-119 with an in-app toast/banner (e.g. existing Toast/Snackbar pattern if available, or set local `info` state). Otherwise users on web get no feedback after enable/disable.",
+    "Consider adding a global Platform.OS==='web' Alert polyfill or replacing all Alert.alert usages app-wide (grep finds: \"Alert.alert\" likely in multiple screens beyond 2FA).",
+    "After fixing, re-run Phase D only — Phase A/B/C are passing."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/app/account/two-factor.tsx had stray duplicated style lines after StyleSheet.create's closing }); — this would have crashed the Metro/Babel bundler for the whole route. Already fixed in this iteration; verify diff before merge.",
+    "Phase B verified that auto-submit fires once the 6th digit is typed (per logic `if (digits.length === 6 && !busy) submit(digits)`). Navigation to /(tabs)/home occurs cleanly.",
+    "Phase C error message 'Wrong code. 4 attempts left.' renders correctly; input clears and refocuses for retry — good UX.",
+    "Token storage: localStorage check returned no 'auth_token' key — auth is probably stored under a different key (SecureStore/AsyncStorage adapter on web). Not a bug, just a note: /api/auth/me returns 200 in backend logs after Phase B, confirming JWT is set."
+  ],
+  "updated_files": [
+    "/app/frontend/app/account/two-factor.tsx (removed 4 trailing duplicate lines fixing Babel parse error)"
+  ],
+  "success_rate": {
+    "backend": "n/a — frontend-only review per request",
+    "frontend": "75% (Phase A, B, C pass; Phase D blocked by RN-Web Alert.alert no-op)"
+  },
+  "seed_data_creation": "Created 2 fresh test users via /api/auth/register on localhost:8001 (Cloudflare 403's external POSTs from container): uitest_1781506486@allsale.co.nz (Phase A enable started but not completed in run 1), uifull_1781506695@allsale.co.nz (completed Phase A enable + has 2FA ON). Helper at /tmp/get_otp_helper.py reads OTPs from MongoDB email_otps collection.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "After fix: re-run Phase D end-to-end with a fresh user. Use /tmp/get_otp_helper.py <email> <purpose> to extract OTPs (purpose ∈ enable_2fa | login_2fa | disable_2fa). Register via http://localhost:8001/api/auth/register (external preview URL returns 403 from inside container). Mobile viewport 420x880. testIDs: account-2fa-btn, 2fa-enable-btn, 2fa-disable-btn, 2fa-settings-code-input, 2fa-settings-confirm-btn, 2fa-code-input (login challenge). Auto-submit on 6th digit confirmed working.",
+  "rca_of_issue": "Phase D root cause: react-native-web ~0.21.0 has Alert.alert implemented as a no-op (or stripped). When disableConfirm() calls Alert.alert('Turn off two-factor authentication?', body, [Cancel, Turn off]), no browser dialog/window.confirm is emitted (verified — playwright dialog listener captured 0 dialogs across the whole flow, while a direct window.alert/window.confirm injection fired correctly). Consequence: the 'Turn off' button's onPress (which calls requestDisable -> POST /api/auth/2fa/request-disable) never runs; the screen stays on `phase='idle'` showing only the disable button. Mitigation: build a custom <Modal>-based confirm component for destructive actions (and similarly for the success toasts after confirm-enable/disable). The fix is localized to /app/frontend/app/account/two-factor.tsx and any other screen using Alert.alert with multi-button options."
+}
