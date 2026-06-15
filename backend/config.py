@@ -12,10 +12,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ROOT_DIR = Path(__file__).parent
-# override=True ensures values in backend/.env (Stripe live keys, Shiprocket
-# creds, etc.) win over any stale process-level env vars baked into the
-# container image.
-load_dotenv(ROOT_DIR / ".env", override=True)
+# override=False ensures that environment variables injected by the deployment
+# platform (e.g. Kubernetes-provided MONGO_URL pointing to Atlas, production
+# secrets) take precedence over local backend/.env values. The .env file only
+# fills in variables that are not already set in the process environment,
+# which is the correct behavior for both local dev and production deploys.
+load_dotenv(ROOT_DIR / ".env", override=False)
 
 # ---------------------------------------------------------------------------
 # Env-driven secrets / endpoints
