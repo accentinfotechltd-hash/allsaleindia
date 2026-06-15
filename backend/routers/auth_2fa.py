@@ -79,11 +79,12 @@ def _decode_ephemeral_token(token: str) -> str:
             JWT_SECRET,
             algorithms=[JWT_ALG],
             audience=_EPHEMERAL_AUDIENCE,
+            options={"require_aud": True},
         )
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired 2FA session — please log in again")
     uid = payload.get("sub")
-    if not uid:
+    if not uid or payload.get("aud") != _EPHEMERAL_AUDIENCE:
         raise HTTPException(status_code=401, detail="Invalid 2FA session")
     return uid
 
