@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, HandCoins, LifeBuoy, RefreshCw, ShieldAlert } from "lucide-react-native";
+import { ChevronLeft, HandCoins, LifeBuoy, Mail, RefreshCw, ShieldAlert } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -164,6 +164,15 @@ export default function AdminDashboard() {
           <Text style={styles.reviewBtnText}>Financing applications →</Text>
         </Pressable>
 
+        <Pressable
+          testID="admin-email-btn"
+          onPress={() => router.push("/admin/email")}
+          style={({ pressed }) => [styles.emailBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Mail size={18} color="#fff" />
+          <Text style={styles.reviewBtnText}>Email diagnostics →</Text>
+        </Pressable>
+
         <Text style={styles.section}>Sellers ({sellers.length})</Text>
         {sellers.slice(0, 10).map((s) => (
           <View key={s.id} style={styles.row}>
@@ -254,6 +263,17 @@ const styles = StyleSheet.create({
   },
   financingBtn: {
     backgroundColor: "#9333EA",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    marginTop: spacing.sm,
+  },
+  emailBtn: {
+    backgroundColor: "#10B981",
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: radius.lg,

@@ -145,6 +145,51 @@ async def admin_process_due_payouts(
     return await release_due_payouts()
 
 
+# ---------------------------------------------------------------------------
+# Email diagnostics — used after Resend DNS verification.
+# ---------------------------------------------------------------------------
+class _TestEmailBody(BaseModel):
+    to: str
+    subject: Optional[str] = "Allsale Resend test ✉️"
+
+
+@router.get("/admin/email/status")
+async def admin_email_status(
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    """Returns Resend config diagnostics (no secrets leaked)."""
+    _require(x_admin_secret)
+    from services.email import email_config_status
+
+    return email_config_status()
+
+
+@router.post("/admin/email/test")
+async def admin_email_test(
+    body: _TestEmailBody,
+    x_admin_secret: Annotated[Optional[str], Header()] = None,
+):
+    """Send a one-off test email through Resend to verify domain + DNS."""
+    _require(x_admin_secret)
+    from services.email import send_email
+
+    html = (
+        "<div style='font-family:system-ui,sans-serif;padding:24px;"
+        "background:#f8fafc;color:#0f172a'>"
+        "<h2 style='margin:0 0 12px;color:#7c3aed'>Allsale ✓ Resend wired up</h2>"
+        "<p>This is a test email sent from your Allsale backend via "
+        "Resend. If you can read it, your <strong>shop.allsale.co.nz</strong> "
+        "DNS is verified and transactional email is fully working.</p>"
+        "<p style='font-size:12px;color:#64748b;margin-top:24px'>"
+        "Sent from Allsale admin → Email diagnostics</p></div>"
+    )
+    result = send_email(body.to, body.subject or "Allsale Resend test", html)
+    if not result.get("sent") and not result.get("skipped"):
+        # Surface the error message back to the admin tool
+        raise HTTPException(status_code=502, detail=result.get("error", "send failed"))
+    return result
+
+
 @router.post("/admin/sellers/{user_id}/approve")
 async def admin_approve_seller(
     user_id: str,
