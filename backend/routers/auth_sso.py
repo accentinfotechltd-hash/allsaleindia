@@ -106,9 +106,9 @@ async def sso_callback(body: SsoCallbackRequest, request: Request):
     # 6) Find or create user
     user = await db.users.find_one({"email": email})
     if not user:
-        from utils import generate_id  # type: ignore
+        import uuid
         user_doc = {
-            "id": generate_id(),
+            "id": uuid.uuid4().hex,
             "email": email,
             "full_name": full_name,
             "country": "NZ",
