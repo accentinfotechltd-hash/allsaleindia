@@ -1,0 +1,43 @@
+{
+  "summary": "Backend-only end-to-end testing of the new Email OTP 2FA feature. Wrote /app/backend/tests/test_email_otp_2fa.py with 8 pytest cases covering all 9 requested scenarios. Final result: 8/8 PASSED. Happy path (register→enable→login phase1→phase2→JWT), wrong-code countdown messages, 5-attempt cap, code-reuse-blocked, OTP-issuance per-email rate limit (5/hour via injected docs), enable→disable round-trip with login reverting to direct JWT, malformed ephemeral_token rejection, and non-2FA user unaffected — all working as specified. Found one MINOR hardening issue: `_decode_ephemeral_token` calls jose.jwt.decode with audience=2fa-login, but `create_token` doesn't emit an `aud` claim and python-jose silently accepts JWTs lacking an aud — so a regular access_token decodes as an ephemeral_token (no escalation possible because the OTP code is still required, but audience-binding is not actually enforced).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/2fa/login-verify",
+        "issue": "Audience claim is not actually enforced. `_decode_ephemeral_token` calls `jose.jwt.decode(..., audience='2fa-login')`, but `create_token` issues JWTs with no `aud` claim and python-jose accepts them (returns 400 'Two-factor authentication is not enabled' instead of 401). Hardening: make `_issue_ephemeral_token` include a distinct claim (e.g. `purpose='2fa-login'`) AND check it explicitly inside `_decode_ephemeral_token`, OR upgrade decode call with `options={'require_aud': True}` (python-jose) so missing-aud is rejected. Reference: /app/backend/routers/auth_2fa.py:75-88."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_email_otp_2fa.py",
+    "/app/test_reports/pytest/email_otp_2fa.xml"
+  ],
+  "action_items": [
+    "(Optional hardening) Strict-bind ephemeral 2FA tokens to their audience. Either (a) set `options={'require_aud': True, 'verify_aud': True}` in `_decode_ephemeral_token`, or (b) add a `purpose: '2fa-login'` claim in `_issue_ephemeral_token` and require it explicitly. Without this, any valid access_token decodes as an ephemeral_token (still safe because login-verify also requires a valid OTP code).",
+    "(Optional) Add `OTP_PEPPER` to /app/backend/.env so changing it can rotate hashes — current default 'allsale-otp-pepper-change-me' is fine for dev but production must override."
+  ],
+  "critical_code_review_comments": [
+    "otp.py:124 — UTC tzinfo re-attach is well-handled (was an earlier bug per backend logs, now fixed).",
+    "otp.py:135-140 — `remaining = MAX_ATTEMPTS - (doc['attempts'] + 1)` reads stale `doc.attempts` (pre-$inc) which is correct because we just incremented; verified the countdown text in test (Wrong code. N attempts left.).",
+    "auth.py:107 — /auth/login is declared without response_model when 2FA is enabled, which is fine since it returns two distinct shapes. Frontend must branch on `requires_2fa` flag.",
+    "auth_2fa.py:140 — login-verify correctly invalidates the used code via verify_otp's used_at marker; subsequent reuse returns 'No active code' (verified).",
+    "auth_2fa.py:75-88 — Audience enforcement on ephemeral token is incomplete (see minor finding)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_email_otp_2fa.py (created)",
+    "/app/test_reports/pytest/email_otp_2fa.xml (junit results)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not_tested"},
+  "seed_data_creation": "Each test class registers its own TEST_otp_* user (deleted at end of suite). The rate-limit test additionally seeds 5 dummy email_otps docs to isolate the per-email OTP cap from the per-IP HTTP rate limit. All test users + otp docs cleaned up after the run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Test file is at /app/backend/tests/test_email_otp_2fa.py. Re-runnable as `pytest tests/test_email_otp_2fa.py -v`. NOTE: The suite hits the /auth/2fa/request-enable IP rate limit (5/min). If you re-run it back-to-back within a minute, the TestDisableFlow test has a 20s retry, but consider sleeping ~65s between successive runs. OTP plaintext is extracted by brute-forcing the SHA-256 hash (pepper from env defaults to 'allsale-otp-pepper-change-me'). Mongo collection: db.email_otps; DB_NAME=allsale_database.",
+  "rca_of_issue": "No production bugs found. Earlier 500 'TypeError: can't compare offset-naive and offset-aware datetimes' in confirm-enable (seen in backend logs from 06:02) was already fixed in services/otp.py:119-123 before this test run — the tz.utc re-attach now handles Mongo strip behavior."
+}

@@ -172,6 +172,13 @@ export default function Account() {
             subtitle="Refund if item not delivered"
           />
           <Row
+            icon={<ShieldCheck size={18} color={colors.primary} />}
+            label="Two-factor authentication"
+            subtitle="Email code at sign in for extra security"
+            onPress={() => router.push("/account/two-factor")}
+            testID="account-2fa-btn"
+          />
+          <Row
             icon={<Settings size={18} color={colors.text} />}
             label="Preferences"
             onPress={() => {}}

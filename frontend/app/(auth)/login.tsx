@@ -34,7 +34,18 @@ export default function Login() {
     }
     setBusy(true);
     try {
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password);
+      if (result.kind === "2fa_required") {
+        router.replace({
+          pathname: "/(auth)/two-factor",
+          params: {
+            token: result.ephemeralToken,
+            masked: result.maskedEmail,
+            ttl: String(result.ttlMinutes),
+          },
+        });
+        return;
+      }
       router.replace("/(tabs)/home");
     } catch (e: any) {
       setErr(e?.message || "Login failed");

@@ -25,6 +25,7 @@ from db import client, db, ensure_indexes
 from routers import (
     admin,
     auth,
+    auth_2fa,
     bulk_listings,
     cart,
     chat,
@@ -72,6 +73,7 @@ app = FastAPI(title="Allsale API", version="1.0.0")
 # Group all routes under the /api prefix.
 api = APIRouter(prefix="/api")
 api.include_router(auth.router)
+api.include_router(auth_2fa.router)
 api.include_router(products.router)
 api.include_router(cart.router)
 api.include_router(seller.router)

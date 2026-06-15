@@ -17,13 +17,24 @@ type AuthState = {
   user: User | null;
   loading: boolean;
   googleSigningIn: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<LoginResult>;
+  loginVerify2FA: (ephemeralToken: string, code: string) => Promise<void>;
+  resend2FACode: (ephemeralToken: string) => Promise<{ masked_email: string }>;
   register: (email: string, password: string, fullName: string) => Promise<void>;
   loginWithGoogle: () => Promise<{ cancelled: boolean }>;
   loginWithApple: (identityToken: string, fullName?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
 };
+
+export type LoginResult =
+  | { kind: "success" }
+  | {
+      kind: "2fa_required";
+      ephemeralToken: string;
+      maskedEmail: string;
+      ttlMinutes: number;
+    };
 
 const AuthCtx = createContext<AuthState | undefined>(undefined);
 
@@ -125,14 +136,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [exchangeSessionId]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api<{ user: User; access_token: string }>("/auth/login", {
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    const res = await api<
+      | { user: User; access_token: string }
+      | { requires_2fa: true; ephemeral_token: string; masked_email: string; ttl_minutes: number }
+    >("/auth/login", {
       method: "POST",
       auth: false,
       body: { email, password },
     });
+    if ("requires_2fa" in res && res.requires_2fa) {
+      return {
+        kind: "2fa_required",
+        ephemeralToken: res.ephemeral_token,
+        maskedEmail: res.masked_email,
+        ttlMinutes: res.ttl_minutes,
+      };
+    }
+    const ok = res as { user: User; access_token: string };
+    await setToken(ok.access_token);
+    setUser(ok.user);
+    return { kind: "success" };
+  }, []);
+
+  const loginVerify2FA = useCallback(async (ephemeralToken: string, code: string) => {
+    const res = await api<{ user: User; access_token: string }>("/auth/2fa/login-verify", {
+      method: "POST",
+      auth: false,
+      body: { ephemeral_token: ephemeralToken, code },
+    });
     await setToken(res.access_token);
     setUser(res.user);
+  }, []);
+
+  const resend2FACode = useCallback(async (ephemeralToken: string) => {
+    return api<{ sent: boolean; masked_email: string }>("/auth/2fa/resend", {
+      method: "POST",
+      auth: false,
+      body: { ephemeral_token: ephemeralToken },
+    });
   }, []);
 
   const register = useCallback(async (email: string, password: string, fullName: string) => {
@@ -186,7 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthCtx.Provider
-      value={{ user, loading, googleSigningIn, login, register, loginWithGoogle, loginWithApple, logout, refresh }}
+      value={{ user, loading, googleSigningIn, login, loginVerify2FA, resend2FACode, register, loginWithGoogle, loginWithApple, logout, refresh }}
     >
       {children}
     </AuthCtx.Provider>

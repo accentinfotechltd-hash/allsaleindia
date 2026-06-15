@@ -104,7 +104,7 @@ async def register(body: UserCreate, request: Request):
     return AuthResponse(user=public_user(user_doc), access_token=token)
 
 
-@router.post("/auth/login", response_model=AuthResponse)
+@router.post("/auth/login")
 async def login(body: UserLogin, request: Request):
     email = body.email.lower()
     await enforce_ip_rate_limit(request, "auth/login", max_requests=10, window_seconds=60)
@@ -118,8 +118,12 @@ async def login(body: UserLogin, request: Request):
         await record_failed_login(email)
         raise HTTPException(status_code=401, detail="Invalid email or password")
     await clear_login_attempts(email)
+    # If 2FA is enabled, do NOT return a JWT yet — send OTP + ephemeral token.
+    if user.get("two_factor_enabled"):
+        from routers.auth_2fa import begin_two_factor_login
+        return await begin_two_factor_login(user)
     token = create_token(user["id"])
-    return AuthResponse(user=public_user(user), access_token=token)
+    return AuthResponse(user=public_user(user), access_token=token).model_dump()
 
 
 @router.post("/auth/apple-session", response_model=AuthResponse)
