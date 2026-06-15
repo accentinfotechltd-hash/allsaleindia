@@ -162,6 +162,34 @@ async def _on_payment_succeeded(session_id: str, user_id: str, order_id: str) ->
     except Exception:
         pass
 
+    # Best-effort order confirmation email
+    try:
+        from services.email import send_email
+
+        order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+        user = await db.users.find_one({"id": user_id}, {"_id": 0, "email": 1, "full_name": 1})
+        if order and user and user.get("email"):
+            short = order_id.replace("order_", "")[:8].upper()
+            items_html = "".join(
+                f"<li>{i.get('quantity', 1)} × {i.get('product_name', 'item')} — "
+                f"NZD {float(i.get('price_nzd') or 0):.2f}</li>"
+                for i in (order.get("items") or [])
+            )
+            send_email(
+                user["email"],
+                f"Order #{short} confirmed — Allsale",
+                f"""<div style='font-family:system-ui,sans-serif;padding:24px;background:#f8fafc;color:#0f172a'>
+                <h1 style='color:#7c3aed;margin:0 0 8px'>Order confirmed!</h1>
+                <p>Hi {user.get('full_name') or 'there'}, thanks for your order.</p>
+                <p><strong>Order #:</strong> {short}<br>
+                <strong>Total:</strong> NZD {float(order.get('total_nzd') or 0):.2f}</p>
+                <h3>Items</h3><ul>{items_html}</ul>
+                <p>We'll email you again once your seller dispatches it. Track at any time inside the app.</p>
+                <p style='color:#64748b;font-size:12px;margin-top:24px'>Allsale — Indian Bazaar</p></div>""",
+            )
+    except Exception:
+        pass
+
     # Award + redeem loyalty points (best-effort, both idempotent)
     try:
         from services.points import award_order_points, redeem_for_order

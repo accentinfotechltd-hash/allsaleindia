@@ -130,6 +130,27 @@ async def admin_mark_payout_paid(
         {"$set": {"status": "paid_out", "paid_out_at": now_utc()}},
     )
     fresh = await db.payouts.find_one({"id": payout_id}, {"_id": 0})
+    # Best-effort payout-sent email to the seller
+    try:
+        from services.email import send_email
+
+        seller = await db.users.find_one(
+            {"id": fresh.get("seller_id")}, {"_id": 0, "email": 1, "full_name": 1}
+        )
+        if seller and seller.get("email"):
+            send_email(
+                seller["email"],
+                f"Payout sent — NZD {fresh.get('net_payable_nzd', 0):.2f}",
+                f"""<div style='font-family:system-ui,sans-serif;padding:24px;background:#f8fafc;color:#0f172a'>
+                <h1 style='color:#10b981;margin:0 0 8px'>💰 Payout on its way</h1>
+                <p>Hi {seller.get('full_name') or 'there'}, we&#39;ve just sent your payout of
+                <strong>NZD {fresh.get('net_payable_nzd', 0):.2f}</strong>
+                for order #{fresh.get('order_id', '').replace('order_', '')[:8].upper()}.</p>
+                <p>It should reflect in your bank account within 1-3 business days.</p>
+                <p style='color:#64748b;font-size:12px;margin-top:24px'>Allsale — Indian Bazaar</p></div>""",
+            )
+    except Exception:
+        pass
     return Payout(**fresh)
 
 

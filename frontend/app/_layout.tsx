@@ -10,11 +10,16 @@ import { AuthProvider } from "@/src/contexts/AuthContext";
 import { CartProvider } from "@/src/contexts/CartContext";
 import { RegionProvider } from "@/src/contexts/RegionContext";
 import { WishlistProvider } from "@/src/contexts/WishlistContext";
+import { loadStoredLanguage } from "@/src/i18n";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [loaded, error] = useIconFonts();
+
+  useEffect(() => {
+    loadStoredLanguage();
+  }, []);
 
   useEffect(() => {
     if (loaded || error) {

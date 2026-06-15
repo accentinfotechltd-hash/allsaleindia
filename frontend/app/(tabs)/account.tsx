@@ -1,8 +1,10 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { Bell, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, MapPin, MessageCircle, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
+import { Bell, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, MapPin, MessageCircle, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { LanguagePicker, LanguagePill } from "@/src/components/LanguagePicker";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -17,6 +19,7 @@ export default function Account() {
   const { count: wishlistCount } = useWishlist();
   const [unread, setUnread] = useState(0);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const regionFlag = info.flag;
   const regionName = info.name;
   const regionCurrency = info.currency;
@@ -48,20 +51,24 @@ export default function Account() {
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Account</Text>
-          <Pressable
-            testID="account-notifications-btn"
-            onPress={() => router.push("/notifications")}
-            style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.8 }]}
-            hitSlop={10}
-          >
-            <Bell size={20} color={colors.text} />
-            {unread > 0 ? (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unread > 9 ? "9+" : unread}</Text>
-              </View>
-            ) : null}
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <LanguagePill onPress={() => setLangOpen(true)} />
+            <Pressable
+              testID="account-notifications-btn"
+              onPress={() => router.push("/notifications")}
+              style={({ pressed }) => [styles.bellBtn, pressed && { opacity: 0.8 }]}
+              hitSlop={10}
+            >
+              <Bell size={20} color={colors.text} />
+              {unread > 0 ? (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{unread > 9 ? "9+" : unread}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
         </View>
+        <LanguagePicker visible={langOpen} onClose={() => setLangOpen(false)} />
 
         <View style={styles.profileCard}>
           <View style={styles.avatar}>

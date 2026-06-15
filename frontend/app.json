@@ -55,11 +55,11 @@
           "cameraPermission": "Take photos of your products to sell on Allsale"
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true
     }
   }
 }
-

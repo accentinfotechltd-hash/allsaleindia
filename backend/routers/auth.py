@@ -85,6 +85,22 @@ async def register(body: UserCreate, request: Request):
     except Exception:
         pass
     token = create_token(uid)
+    # Best-effort welcome email
+    try:
+        from services.email import send_email
+        send_email(
+            body.email,
+            "Welcome to Allsale — Indian Bazaar 🛍️",
+            f"""<div style='font-family:system-ui,sans-serif;padding:24px;background:#f8fafc;color:#0f172a'>
+            <h1 style='color:#7c3aed;margin:0 0 8px'>Welcome to Allsale, {body.full_name or 'friend'}!</h1>
+            <p>Thanks for joining India's cross-border bazaar. Discover authentic Indian products shipped worldwide.</p>
+            <ul><li>🛒 Shop from thousands of verified Indian sellers</li>
+            <li>💳 Pay in your local currency (NZD/AUD/USD/GBP/CAD)</li>
+            <li>🚚 Global shipping via Shiprocket</li></ul>
+            <p style='color:#64748b;font-size:12px;margin-top:24px'>Got questions? Reply to this email.</p></div>""",
+        )
+    except Exception:
+        pass
     return AuthResponse(user=public_user(user_doc), access_token=token)
 
 
