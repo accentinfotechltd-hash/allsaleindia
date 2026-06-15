@@ -61,6 +61,13 @@ export default function TwoFactorSettings() {
     }
   }, [phase]);
 
+  // Auto-dismiss success banner after 5s
+  useEffect(() => {
+    if (!success) return;
+    const tid = setTimeout(() => setSuccess(null), 5000);
+    return () => clearTimeout(tid);
+  }, [success]);
+
   const requestEnable = async () => {
     setErr("");
     setInfo("");
