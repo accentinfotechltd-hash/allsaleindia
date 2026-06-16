@@ -270,16 +270,12 @@ async def delete_my_account(
 ):
     """Soft-delete the signed-in user's account.
 
-    What we do:
-      * Scrub PII (name, picture, phone)
-      * Replace email with an unrecoverable, unique tombstone so the row
-        can no longer be logged into and the unique-email index stays clean
-      * Bump token_version → invalidates every existing JWT immediately
-      * Mark `deleted_at` so admin tooling can hide / purge later
-      * Remove personal data: cart, addresses, wishlists, recently-viewed
-      * Leave orders, reviews, payouts intact (legal record + seller data)
+    The caller MUST send {'confirm': 'DELETE'} — an empty body or any other
+    value is rejected (4xx) to prevent accidental deletions when the screen
+    forgets to wire up the confirm payload.
     """
-    if body and body.confirm and body.confirm.strip().upper() != "DELETE":
+    confirm = ((body.confirm if body else None) or "").strip().upper()
+    if confirm != "DELETE":
         raise HTTPException(
             status_code=400,
             detail="Send {'confirm': 'DELETE'} to confirm account deletion.",

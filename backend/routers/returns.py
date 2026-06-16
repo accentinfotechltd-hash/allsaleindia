@@ -362,9 +362,17 @@ async def account_returns_alias(user=Depends(get_current_user)):
 
 @router.get("/account/returns/{return_id}", response_model=ReturnRequest)
 async def account_return_detail(return_id: str, user=Depends(get_current_user)):
-    """Single return detail scoped to the current buyer."""
+    """Single return detail scoped to the current buyer.
+
+    Returns docs use `user_id` as the canonical FK; we also accept `buyer_id`
+    for legacy rows that may pre-date the rename.
+    """
     doc = await db.returns.find_one(
-        {"id": return_id, "buyer_id": user["id"]}, {"_id": 0}
+        {
+            "id": return_id,
+            "$or": [{"user_id": user["id"]}, {"buyer_id": user["id"]}],
+        },
+        {"_id": 0},
     )
     if not doc:
         raise HTTPException(status_code=404, detail="Return not found")
