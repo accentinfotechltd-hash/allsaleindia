@@ -28,6 +28,7 @@ from routers import (
     admin_team,
     auth,
     auth_pwd_reset,
+    auth_email_verify,
     events,
     auth_2fa,
     auth_sso,
@@ -44,6 +45,7 @@ from routers import (
     orders,
     points,
     products,
+    recommendations,
     referrals,
     returns,
     reviews,
@@ -105,6 +107,8 @@ api.include_router(admin.router)
 api.include_router(admin_team.router)
 api.include_router(account_addresses.router)
 api.include_router(auth_pwd_reset.router)
+api.include_router(auth_email_verify.router)
+api.include_router(recommendations.router)
 api.include_router(events.router)
 api.include_router(geo.router)
 api.include_router(health.router)

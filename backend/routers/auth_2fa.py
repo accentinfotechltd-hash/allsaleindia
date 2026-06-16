@@ -138,7 +138,7 @@ async def login_verify(body: LoginVerifyRequest, request: Request):
         raise HTTPException(status_code=400, detail="Two-factor authentication is not enabled on this account")
     await verify_otp(email=user["email"], purpose="login_2fa", code=body.code)
     await db.users.update_one({"id": uid}, {"$set": {"last_login_at": now_utc()}})
-    return AuthResponse(user=public_user(user), access_token=create_token(uid))
+    return AuthResponse(user=public_user(user), access_token=create_token(uid, user.get("token_version") or 0))
 
 
 @router.get("/auth/2fa/status", response_model=TwoFactorStatus)

@@ -152,3 +152,26 @@ async def get_shipment(order_id: str, current=Depends(get_current_user)):
     if not s:
         raise HTTPException(status_code=404, detail="Shipment not yet created")
     return Shipment(**{k: s[k] for k in Shipment.model_fields.keys() if k in s})
+
+
+# ---------------------------------------------------------------------------
+# REST aliases (June 2026 — web agent parity)
+# ---------------------------------------------------------------------------
+@router.get("/account/orders", response_model=List[Order])
+async def account_orders_alias(current=Depends(get_current_user)):
+    """Alias for GET /orders — the buyer's own order list."""
+    return await list_orders(current)  # type: ignore[name-defined]
+
+
+@router.get("/account/orders/{order_id}", response_model=Order)
+async def account_order_detail_alias(
+    order_id: str, current=Depends(get_current_user)
+):
+    """Alias for GET /orders/{order_id}."""
+    return await get_order(order_id, current)  # type: ignore[name-defined]
+
+
+@router.get("/me/orders", response_model=List[Order])
+async def me_orders_alias(current=Depends(get_current_user)):
+    """Alias for GET /orders."""
+    return await list_orders(current)  # type: ignore[name-defined]

@@ -134,7 +134,7 @@ async def sso_callback(body: SsoCallbackRequest, request: Request):
     )
 
     # 8) Issue Allsale JWT
-    return AuthResponse(user=public_user(user), access_token=create_token(user["id"]))
+    return AuthResponse(user=public_user(user), access_token=create_token(user["id"], user.get("token_version") or 0))
 
 
 @router.get("/auth/sso/healthcheck")

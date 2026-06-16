@@ -377,6 +377,15 @@ async def seller_reply(
     return _review_public(fresh)
 
 
+@router.get("/{review_id}", response_model=Review)
+async def get_review(review_id: str):
+    """Public single-review lookup (used by deep-link URLs)."""
+    doc = await db.reviews.find_one({"id": review_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return _review_public(doc)
+
+
 # ---------------------------------------------------------------------------
 # Delete (only the author can delete their own review)
 # ---------------------------------------------------------------------------

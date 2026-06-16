@@ -302,3 +302,28 @@ async def get_recommendations(product_id: str, limit: int = 8):
     for p in out:
         p.pop("_score", None)
     return [Product(**p) for p in out[:limit]]
+
+
+# ---------------------------------------------------------------------------
+# REST alias: /api/products/{product_id}/reviews
+# (Delegates to the reviews router so business logic stays in one place.)
+# ---------------------------------------------------------------------------
+@router.get("/products/{product_id}/reviews")
+async def product_reviews_alias(
+    product_id: str,
+    sort: str = Query(
+        "recent", description="recent | helpful | rating_desc | rating_asc"
+    ),
+    authorization: Optional[str] = None,
+):
+    """Alias for GET /reviews/product/{product_id}.
+
+    Returns the same ReviewsPage payload (summary, items, can_review,
+    eligible_order_ids).  The Authorization header is forwarded so the
+    `can_review` flag is computed correctly when the caller is signed in.
+    """
+    from routers.reviews import list_product_reviews
+
+    return await list_product_reviews(
+        product_id=product_id, sort=sort, authorization=authorization
+    )

@@ -84,8 +84,7 @@ async def register(body: UserCreate, request: Request):
         await ensure_referral_code(uid)
     except Exception:
         pass
-    token = create_token(uid)
-    # Best-effort welcome email
+    token = create_token(uid, user_doc.get("token_version") or 0)
     try:
         from services.email import send_email
         send_email(
@@ -122,7 +121,7 @@ async def login(body: UserLogin, request: Request):
     if user.get("two_factor_enabled"):
         from routers.auth_2fa import begin_two_factor_login
         return await begin_two_factor_login(user)
-    token = create_token(user["id"])
+    token = create_token(user["id"], user.get("token_version") or 0)
     return AuthResponse(user=public_user(user), access_token=token).model_dump()
 
 
@@ -191,7 +190,7 @@ async def apple_session(body: AppleSessionRequest, request: Request):
                 pass
 
     user = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
-    token = create_token(uid)
+    token = create_token(uid, (user or {}).get("token_version") or 0)
     return AuthResponse(user=public_user(user), access_token=token)
 
 
@@ -246,7 +245,7 @@ async def google_session(body: GoogleSessionRequest):
             await award_welcome_bonus(uid)
         except Exception:
             pass
-    token = create_token(uid)
+    token = create_token(uid, (await db.users.find_one({"id": uid}, {"_id": 0, "token_version": 1}) or {}).get("token_version") or 0)
     user = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
     return AuthResponse(user=public_user(user), access_token=token)
 
@@ -254,6 +253,130 @@ async def google_session(body: GoogleSessionRequest):
 @router.get("/auth/me", response_model=UserPublic)
 async def me(current=Depends(get_current_user)):
     return public_user(current)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/auth/me — GDPR-style account deletion
+# ---------------------------------------------------------------------------
+class DeleteMeBody(BaseModel):
+    confirm: Optional[str] = None  # client sends "DELETE" to confirm
+    reason: Optional[str] = None
+
+
+@router.delete("/auth/me")
+async def delete_my_account(
+    body: Optional[DeleteMeBody] = None,
+    current=Depends(get_current_user),
+):
+    """Soft-delete the signed-in user's account.
+
+    What we do:
+      * Scrub PII (name, picture, phone)
+      * Replace email with an unrecoverable, unique tombstone so the row
+        can no longer be logged into and the unique-email index stays clean
+      * Bump token_version → invalidates every existing JWT immediately
+      * Mark `deleted_at` so admin tooling can hide / purge later
+      * Remove personal data: cart, addresses, wishlists, recently-viewed
+      * Leave orders, reviews, payouts intact (legal record + seller data)
+    """
+    if body and body.confirm and body.confirm.strip().upper() != "DELETE":
+        raise HTTPException(
+            status_code=400,
+            detail="Send {'confirm': 'DELETE'} to confirm account deletion.",
+        )
+
+    uid = current["id"]
+    tombstone_email = f"deleted+{uid}@allsale-deleted.local"
+    now = now_utc()
+
+    # 1. Scrub PII on the user doc + invalidate sessions.
+    await db.users.update_one(
+        {"id": uid},
+        {
+            "$set": {
+                "email": tombstone_email,
+                "original_email_hash": (current.get("email") or "")[:64],
+                "full_name": "Deleted account",
+                "picture": None,
+                "phone": None,
+                "apple_email": None,
+                "deleted_at": now,
+                "deletion_reason": (body.reason if body else None),
+                # Wipe credentials so the row can no longer authenticate.
+                "password_hash": None,
+                "google_id": None,
+                "apple_sub": None,
+                "two_factor_enabled": False,
+                "two_factor_secret_hash": None,
+            },
+            "$inc": {"token_version": 1},
+        },
+    )
+
+    # 2. Best-effort cleanup of strictly-personal collections.
+    for coll in ("carts", "addresses", "wishlists", "product_views"):
+        try:
+            await db[coll].delete_many({"user_id": uid})
+        except Exception:
+            pass
+
+    return {"ok": True, "deleted_at": now.isoformat()}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/account/export — GDPR data portability
+# ---------------------------------------------------------------------------
+@router.get("/account/export")
+async def export_my_data(current=Depends(get_current_user)):
+    """Return a JSON dump of everything we hold about the signed-in user.
+
+    Intended for "Download your data" buttons.  Excludes other users'
+    data (e.g. a seller's reply on the buyer's review is kept but the
+    seller's contact info is NOT included).
+    """
+    uid = current["id"]
+
+    profile = await db.users.find_one(
+        {"id": uid},
+        {
+            "_id": 0,
+            "password_hash": 0,
+            "two_factor_secret_hash": 0,
+            "google_id": 0,
+            "apple_sub": 0,
+        },
+    )
+
+    async def _dump(coll: str, query: dict, limit: int = 500) -> list:
+        out: list = []
+        try:
+            async for r in db[coll].find(query, {"_id": 0}).limit(limit):
+                out.append(r)
+        except Exception:
+            pass
+        return out
+
+    payload = {
+        "exported_at": now_utc().isoformat(),
+        "user": profile,
+        "orders": await _dump("orders", {"user_id": uid}, limit=2000),
+        "addresses": await _dump("addresses", {"user_id": uid}),
+        "wishlist": await _dump("wishlists", {"user_id": uid}),
+        "cart": await _dump("carts", {"user_id": uid}, limit=1),
+        "reviews": await _dump("reviews", {"user_id": uid}, limit=2000),
+        "returns": await _dump("returns", {"user_id": uid}, limit=2000),
+        "notifications": await _dump(
+            "notifications", {"user_id": uid}, limit=1000
+        ),
+        "loyalty_points": await _dump(
+            "points_ledger", {"user_id": uid}, limit=2000
+        ),
+        "referrals": await _dump(
+            "referrals", {"referrer_id": uid}, limit=500
+        ),
+        "recently_viewed": await _dump("product_views", {"user_id": uid}),
+    }
+    return payload
 
 
 class CountryUpdate(BaseModel):

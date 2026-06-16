@@ -369,3 +369,48 @@ async def account_return_detail(return_id: str, user=Depends(get_current_user)):
     if not doc:
         raise HTTPException(status_code=404, detail="Return not found")
     return ReturnRequest(**doc)
+
+
+# ---------------------------------------------------------------------------
+# Extra REST aliases requested by the parallel web agent (June 2026).
+# These all delegate to the canonical handlers above so business logic stays
+# in one place.
+# ---------------------------------------------------------------------------
+@router.get("/returns/mine", response_model=List[ReturnRequest])
+async def returns_mine_alias(user=Depends(get_current_user)):
+    """Alias for GET /returns/me."""
+    return await my_returns(user)  # type: ignore[name-defined]
+
+
+@router.get("/me/returns", response_model=List[ReturnRequest])
+async def me_returns_alias(user=Depends(get_current_user)):
+    """Alias for GET /returns/me."""
+    return await my_returns(user)  # type: ignore[name-defined]
+
+
+@router.post("/returns", response_model=List[ReturnRequest])
+async def returns_post_alias(
+    body: ReturnRequestCreate, user=Depends(get_current_user)
+):
+    """Alias for POST /returns/request (no /request suffix)."""
+    return await create_return_requests(body, user)  # type: ignore[name-defined]
+
+
+@router.post("/orders/{order_id}/returns", response_model=List[ReturnRequest])
+async def order_returns_plural_alias(
+    order_id: str,
+    body: ReturnRequestCreate,
+    user=Depends(get_current_user),
+):
+    """Plural alias for POST /orders/{order_id}/return."""
+    if hasattr(body, "order_id"):
+        body.order_id = order_id  # type: ignore[attr-defined]
+    return await create_return_requests(body, user)  # type: ignore[name-defined]
+
+
+@router.get("/orders/{order_id}/returns", response_model=List[ReturnRequest])
+async def order_returns_get_alias(
+    order_id: str, user=Depends(get_current_user)
+):
+    """Alias for GET /returns/order/{order_id}."""
+    return await returns_for_order(order_id, user)  # type: ignore[name-defined]

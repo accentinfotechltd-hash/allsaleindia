@@ -153,3 +153,21 @@ async def ensure_indexes() -> None:
     )
     await db.client_events.create_index([("user_id", 1), ("created_at", -1)])
     await db.client_events.create_index([("session_id", 1), ("created_at", -1)])
+    # product_views — recently viewed list (per user OR per anon session)
+    await db.product_views.create_index([("user_id", 1), ("viewed_at", -1)])
+    await db.product_views.create_index([("session_id", 1), ("viewed_at", -1)])
+    await db.product_views.create_index(
+        [("user_id", 1), ("product_id", 1)],
+        partialFilterExpression={"user_id": {"$type": "string"}},
+    )
+    await db.product_views.create_index(
+        [("session_id", 1), ("product_id", 1)],
+        partialFilterExpression={"session_id": {"$type": "string"}},
+    )
+    # Auto-purge anonymous (session-only) views after 30 days. Logged-in views
+    # are kept indefinitely so users can revisit "things you looked at last year".
+    await db.product_views.create_index(
+        "viewed_at",
+        expireAfterSeconds=60 * 60 * 24 * 30,
+        partialFilterExpression={"user_id": None},
+    )

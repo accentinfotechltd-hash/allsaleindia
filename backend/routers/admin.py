@@ -428,3 +428,91 @@ async def admin_list_users(
         "skip": skip,
         "has_more": (skip + len(out)) < total,
     }
+
+
+
+# ---------------------------------------------------------------------------
+# Reviews moderation (June 2026)
+# ---------------------------------------------------------------------------
+@router.get("/admin/reviews")
+async def admin_list_reviews(
+    rating_max: Optional[int] = None,
+    rating_min: Optional[int] = None,
+    product_id: Optional[str] = None,
+    seller_id: Optional[str] = None,
+    has_photos: Optional[bool] = None,
+    limit: int = 50,
+    skip: int = 0,
+    admin: dict = Depends(require_roles("manager", "support")),
+):
+    """Paginated review feed for moderation.
+
+    Filters:
+      * `rating_min` / `rating_max` — narrow to 1★ / 2★ / etc.
+      * `product_id`  — all reviews on a specific product
+      * `seller_id`   — all reviews of a specific seller's products
+      * `has_photos`  — only show reviews with attached photos
+    """
+    limit = max(1, min(int(limit), 200))
+    skip = max(0, int(skip))
+
+    q: dict = {}
+    if rating_min is not None:
+        q.setdefault("rating", {})["$gte"] = int(rating_min)
+    if rating_max is not None:
+        q.setdefault("rating", {})["$lte"] = int(rating_max)
+    if product_id:
+        q["product_id"] = product_id
+    if seller_id:
+        q["seller_id"] = seller_id
+    if has_photos is True:
+        q["photos.0"] = {"$exists": True}
+    elif has_photos is False:
+        q["$or"] = [{"photos": {"$size": 0}}, {"photos": None}]
+
+    total = await db.reviews.count_documents(q)
+    out: list[dict] = []
+    async for r in (
+        db.reviews.find(q, {"_id": 0})
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+    ):
+        out.append(r)
+    return {
+        "reviews": out,
+        "total": total,
+        "limit": limit,
+        "skip": skip,
+        "has_more": (skip + len(out)) < total,
+    }
+
+
+@router.delete("/admin/reviews/{review_id}", status_code=204)
+async def admin_delete_review(
+    review_id: str,
+    admin: dict = Depends(require_roles("manager")),
+):
+    """Owner / manager can scrub abusive or spammy reviews.
+
+    Recomputes the product's aggregate rating after deletion.
+    """
+    doc = await db.reviews.find_one(
+        {"id": review_id}, {"_id": 0, "product_id": 1}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Review not found")
+    await db.reviews.delete_one({"id": review_id})
+    # Best-effort rating recompute (lazy import to avoid circular deps).
+    try:
+        from routers.reviews import _recompute_product_rating
+
+        await _recompute_product_rating(doc["product_id"])
+    except Exception:
+        pass
+    await log_admin_action(
+        admin_id=admin["id"],
+        action="review.delete",
+        meta={"review_id": review_id, "product_id": doc.get("product_id")},
+    )
+    return None
