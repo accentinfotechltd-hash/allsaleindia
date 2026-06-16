@@ -110,6 +110,15 @@ export default function Login() {
           {err ? <Text style={styles.error} testID="login-error">{err}</Text> : null}
 
           <Pressable
+            testID="login-forgot-password"
+            onPress={() => router.push("/(auth)/forgot-password")}
+            style={styles.forgotBtn}
+            hitSlop={8}
+          >
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </Pressable>
+
+          <Pressable
             testID="login-submit-btn"
             disabled={busy}
             onPress={submit}
@@ -195,4 +204,6 @@ const styles = StyleSheet.create({
   footer: { flexDirection: "row", justifyContent: "center", marginTop: spacing.xl },
   footerText: { color: colors.textMuted, fontSize: 14 },
   footerLink: { color: colors.primary, fontSize: 14, fontWeight: "700" },
+  forgotBtn: { alignSelf: "flex-end", paddingVertical: 6, marginTop: -4 },
+  forgotText: { color: colors.primary, fontSize: 13, fontWeight: "600" },
 });
