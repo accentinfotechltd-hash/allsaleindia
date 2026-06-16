@@ -4,24 +4,11 @@ These wrap the bare Stripe SDK so the rest of the codebase can stay agnostic
 to whether a particular order is Connect-routed (seller has stripe_account_id)
 or plain platform charges (legacy/non-Connect sellers).
 
-Usage from `routers/checkout.py` once it migrates off `emergentintegrations`:
-
-    from services.stripe_connect_svc import (
-        connect_payment_intent_params, refund_for_order
-    )
-
-    # Charge time — only wire Connect params if the seller is fully onboarded.
-    extra = connect_payment_intent_params(
-        seller=seller, total_in_cents=total_in_cents
-    )
-    intent = stripe.PaymentIntent.create(
-        amount=total_in_cents, currency="nzd",
-        **base_params, **extra,
-    )
-
-    # Refund time — automatically reverses the transfer if the original payment
-    # was a destination charge; falls back to a plain refund otherwise.
-    refund = await refund_for_order(order_id=order["id"])
+Tiered commission (June 16, 2026):
+The platform commission varies by product category so we charge less on
+low-margin commodities (electronics) and more on high-margin luxuries
+(jewellery), mirroring Amazon's headline rates while staying meaningfully
+cheaper across the board.
 """
 from __future__ import annotations
 
@@ -39,44 +26,94 @@ load_dotenv()
 logger = logging.getLogger("allsale.stripe_connect_svc")
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_API_KEY") or ""
 
-# Allsale's marketplace commission — kept here so it's easy to tune later
-# without hunting through checkout code.  Apply only to the product subtotal,
-# never to shipping costs (we pass those through 1:1 to Shiprocket).
-PLATFORM_COMMISSION_BPS = 1200  # 12.00% in basis points
+DEFAULT_COMMISSION_BPS = 1200  # 12.00%
+
+# Tiered commission — basis points (1 bp = 0.01%).  Match Amazon's
+# category-by-category headline rates while staying cheaper across the board.
+CATEGORY_COMMISSION_BPS: dict[str, int] = {
+    # Low-margin commodities → match Amazon's 8% to stay price-competitive
+    "electronics": 800, "computers": 800, "phones": 800, "mobile": 800,
+    # Mid-tier (12%, our standard)
+    "books": 1200, "stationery": 1200, "home": 1200, "furniture": 1200,
+    "kitchen": 1200, "decor": 1200, "apparel": 1200, "clothing": 1200,
+    "fashion": 1200, "accessories": 1200, "beauty": 1200,
+    "personal-care": 1200, "personal_care": 1200, "grocery": 1200,
+    "food": 1200, "toys": 1200, "sports": 1200, "garden": 1200, "pets": 1200,
+    # Higher-margin luxuries (15%, still 5pp below Amazon's 20%)
+    "jewellery": 1500, "jewelry": 1500, "watches": 1500, "luxury": 1500,
+    "art": 1500, "handicraft": 1500, "handicrafts": 1500,
+    "antique": 1500, "antiques": 1500,
+}
+
+# Back-compat for any old call sites that referenced the flat rate constant.
+PLATFORM_COMMISSION_BPS = DEFAULT_COMMISSION_BPS
 
 
-def calculate_application_fee(subtotal_in_cents: int) -> int:
+def _norm(s: str) -> str:
+    return (s or "").strip().lower().replace(" ", "-").replace("_", "-")
+
+
+def get_commission_bps_for_product(product: Optional[dict]) -> int:
+    """Resolve the platform commission rate (in basis points) for a product.
+
+    Looks at `product.category` first, then `product.tags`; first hit wins,
+    falling back to `DEFAULT_COMMISSION_BPS`.  Slug-normalises lookup keys so
+    "Jewellery", "Jewelry", and "jewellery" all hit the same bucket.
+    """
+    if not product:
+        return DEFAULT_COMMISSION_BPS
+    cat = _norm(product.get("category") or "")
+    if cat:
+        bps = CATEGORY_COMMISSION_BPS.get(cat) or CATEGORY_COMMISSION_BPS.get(
+            cat.replace("-", "_")
+        )
+        if bps:
+            return bps
+    for tag in product.get("tags") or []:
+        bps = CATEGORY_COMMISSION_BPS.get(_norm(tag))
+        if bps:
+            return bps
+    return DEFAULT_COMMISSION_BPS
+
+
+def calculate_application_fee(
+    subtotal_in_cents: int,
+    *,
+    bps: Optional[int] = None,
+    product: Optional[dict] = None,
+) -> int:
     """Return the platform commission for a given product subtotal.
 
-    Rounds down (floor) so we never overcharge a seller by a sub-cent.
+    Pass `bps` for an explicit rate, `product` to derive from the category
+    tier, or neither to get the flat 12% default.  Rounds down so we never
+    overcharge a seller by a sub-cent.
     """
     if subtotal_in_cents <= 0:
         return 0
-    return math.floor(subtotal_in_cents * PLATFORM_COMMISSION_BPS / 10_000)
+    rate_bps = bps if bps is not None else get_commission_bps_for_product(product)
+    return math.floor(subtotal_in_cents * rate_bps / 10_000)
 
 
 def connect_payment_intent_params(
-    seller: dict, total_in_cents: int, product_subtotal_in_cents: Optional[int] = None
+    seller: dict,
+    total_in_cents: int,
+    product_subtotal_in_cents: Optional[int] = None,
+    product: Optional[dict] = None,
 ) -> dict:
     """Return the extra kwargs to merge into `stripe.PaymentIntent.create(...)`.
 
-    Returns `{}` when the seller is NOT a fully-onboarded Connect account —
-    the caller's existing flow (platform-collects-then-pays-out-manually) keeps
-    working untouched.
-
-    When the seller IS onboarded:
-        application_fee_amount   = 12% of product subtotal
-        transfer_data.destination = seller's Stripe Express acct_…
+    Empty when the seller is NOT a fully-onboarded Connect account, so the
+    existing platform-collects flow keeps working untouched.
     """
     account_id = seller.get("stripe_account_id")
     if not account_id:
         return {}
     if not (seller.get("stripe_charges_enabled") and seller.get("stripe_payouts_enabled")):
-        # Onboarding incomplete — keep money on the platform until they finish.
         return {}
-
-    subtotal = product_subtotal_in_cents if product_subtotal_in_cents is not None else total_in_cents
-    fee = calculate_application_fee(subtotal)
+    subtotal = (
+        product_subtotal_in_cents if product_subtotal_in_cents is not None else total_in_cents
+    )
+    fee = calculate_application_fee(subtotal, product=product)
     return {
         "application_fee_amount": fee,
         "transfer_data": {"destination": account_id},
@@ -86,17 +123,7 @@ def connect_payment_intent_params(
 async def refund_for_order(
     order_id: str, amount_in_cents: Optional[int] = None
 ) -> dict:
-    """Issue a refund for an Allsale order, handling both Connect and non-Connect cases.
-
-    * If the original PaymentIntent had a `transfer_data.destination` (i.e. was
-      a destination charge), Stripe will reverse the transfer so the seller's
-      payout is clawed back proportionally.
-    * If the order used the legacy non-Connect flow, falls back to a plain
-      refund on the platform account.
-
-    Looks up the Stripe charge/PI id off the `orders` collection.  Returns the
-    Stripe Refund object as a dict.
-    """
+    """Issue a refund, auto-handling Connect vs platform-only orders."""
     order = await db.orders.find_one(
         {"id": order_id},
         {"_id": 0, "stripe_payment_intent_id": 1, "stripe_charge_id": 1, "total_cents": 1},
@@ -117,13 +144,21 @@ async def refund_for_order(
     if amount_in_cents is not None:
         refund_args["amount"] = amount_in_cents
 
-    # Decide whether this is a Connect destination charge by probing the PI.
     was_destination_charge = False
     try:
         if pi_id:
             pi = stripe.PaymentIntent.retrieve(pi_id)
-            transfer_data = (pi.get("transfer_data") or {}) if isinstance(pi, dict) else (getattr(pi, "transfer_data", None) or {})
-            was_destination_charge = bool(transfer_data and (transfer_data.get("destination") if isinstance(transfer_data, dict) else getattr(transfer_data, "destination", None)))
+            transfer_data = (
+                (pi.get("transfer_data") or {}) if isinstance(pi, dict)
+                else (getattr(pi, "transfer_data", None) or {})
+            )
+            was_destination_charge = bool(
+                transfer_data
+                and (
+                    transfer_data.get("destination") if isinstance(transfer_data, dict)
+                    else getattr(transfer_data, "destination", None)
+                )
+            )
     except Exception as e:
         logger.warning("Couldn't probe PI %s for transfer_data: %s", pi_id, e)
 

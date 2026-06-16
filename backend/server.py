@@ -26,6 +26,8 @@ from routers import (
     account_addresses,
     admin,
     admin_team,
+    admin_commission,
+    allsale_pro,
     auth,
     auth_pwd_reset,
     auth_email_verify,
@@ -107,6 +109,7 @@ api.include_router(uploads.router)
 api.include_router(notifications.router)
 api.include_router(admin.router)
 api.include_router(admin_team.router)
+api.include_router(admin_commission.router)
 api.include_router(account_addresses.router)
 api.include_router(auth_pwd_reset.router)
 api.include_router(auth_email_verify.router)
@@ -114,6 +117,8 @@ api.include_router(recommendations.router)
 api.include_router(policies.router)
 api.include_router(stripe_connect.router)
 api.include_router(stripe_connect.webhook_router)
+api.include_router(allsale_pro.router)
+api.include_router(allsale_pro.webhook_router)
 api.include_router(events.router)
 api.include_router(geo.router)
 api.include_router(health.router)
