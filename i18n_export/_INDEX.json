@@ -1,0 +1,177 @@
+{
+  "generated_at": "2026-06-16T02:34:48.656Z",
+  "source_app": "allsale-shop (Expo mobile)",
+  "target_app": "allsale-web (Next.js)",
+  "locale_count": 28,
+  "locales": [
+    {
+      "code": "ar",
+      "name": "العربية (Arabic)",
+      "file": "ar.json",
+      "keys": 6
+    },
+    {
+      "code": "as",
+      "name": "অসমীয়া (Assamese)",
+      "file": "as.json",
+      "keys": 6
+    },
+    {
+      "code": "bn",
+      "name": "বাংলা (Bengali)",
+      "file": "bn.json",
+      "keys": 6
+    },
+    {
+      "code": "de",
+      "name": "Deutsch (German)",
+      "file": "de.json",
+      "keys": 6
+    },
+    {
+      "code": "en",
+      "name": "English",
+      "file": "en.json",
+      "keys": 12
+    },
+    {
+      "code": "es",
+      "name": "Español (Spanish)",
+      "file": "es.json",
+      "keys": 6
+    },
+    {
+      "code": "fj",
+      "name": "Vosa Vakaviti (Fijian)",
+      "file": "fj.json",
+      "keys": 6
+    },
+    {
+      "code": "fr",
+      "name": "Français (French)",
+      "file": "fr.json",
+      "keys": 6
+    },
+    {
+      "code": "gu",
+      "name": "ગુજરાતી (Gujarati)",
+      "file": "gu.json",
+      "keys": 6
+    },
+    {
+      "code": "hi",
+      "name": "हिन्दी (Hindi)",
+      "file": "hi.json",
+      "keys": 12
+    },
+    {
+      "code": "id",
+      "name": "Bahasa Indonesia",
+      "file": "id.json",
+      "keys": 6
+    },
+    {
+      "code": "ja",
+      "name": "日本語 (Japanese)",
+      "file": "ja.json",
+      "keys": 6
+    },
+    {
+      "code": "kn",
+      "name": "ಕನ್ನಡ (Kannada)",
+      "file": "kn.json",
+      "keys": 6
+    },
+    {
+      "code": "ko",
+      "name": "한국어 (Korean)",
+      "file": "ko.json",
+      "keys": 6
+    },
+    {
+      "code": "mi",
+      "name": "Te Reo Māori",
+      "file": "mi.json",
+      "keys": 6
+    },
+    {
+      "code": "ml",
+      "name": "മലയാളം (Malayalam)",
+      "file": "ml.json",
+      "keys": 6
+    },
+    {
+      "code": "mr",
+      "name": "मराठी (Marathi)",
+      "file": "mr.json",
+      "keys": 6
+    },
+    {
+      "code": "or",
+      "name": "ଓଡ଼ିଆ (Odia)",
+      "file": "or.json",
+      "keys": 6
+    },
+    {
+      "code": "pa",
+      "name": "ਪੰਜਾਬੀ (Punjabi)",
+      "file": "pa.json",
+      "keys": 6
+    },
+    {
+      "code": "pt",
+      "name": "Português (Portuguese)",
+      "file": "pt.json",
+      "keys": 6
+    },
+    {
+      "code": "ru",
+      "name": "Русский (Russian)",
+      "file": "ru.json",
+      "keys": 6
+    },
+    {
+      "code": "sm",
+      "name": "Gagana Samoa",
+      "file": "sm.json",
+      "keys": 6
+    },
+    {
+      "code": "ta",
+      "name": "தமிழ் (Tamil)",
+      "file": "ta.json",
+      "keys": 6
+    },
+    {
+      "code": "te",
+      "name": "తెలుగు (Telugu)",
+      "file": "te.json",
+      "keys": 6
+    },
+    {
+      "code": "to",
+      "name": "Lea Faka-Tonga (Tongan)",
+      "file": "to.json",
+      "keys": 6
+    },
+    {
+      "code": "ur",
+      "name": "اردو (Urdu)",
+      "file": "ur.json",
+      "keys": 6
+    },
+    {
+      "code": "zh-TW",
+      "name": "繁體中文 (Chinese Traditional)",
+      "file": "zh-TW.json",
+      "keys": 6
+    },
+    {
+      "code": "zh",
+      "name": "简体中文 (Chinese Simplified)",
+      "file": "zh.json",
+      "keys": 6
+    }
+  ],
+  "usage": "Copy all *.json files to /app/frontend/messages/<lang>.json in the new allsale-web project. Each JSON is a flat key/value map of i18n strings. Use next-intl's getRequestConfig() to load them per locale."
+}

@@ -1,0 +1,63 @@
+{
+  "common": {
+    "save": "সংৰক্ষণ কৰক",
+    "cancel": "বাতিল কৰক",
+    "back": "পিছলৈ",
+    "next": "পৰৱৰ্তী",
+    "confirm": "নিশ্চিত কৰক",
+    "delete": "মচক",
+    "loading": "ল’ড হৈ আছে…",
+    "retry": "পুনৰ চেষ্টা কৰক",
+    "yes": "হয়",
+    "no": "নহয়",
+    "language": "ভাষা",
+    "change_language": "ভাষা সলনি কৰক"
+  },
+  "auth": {
+    "welcome": "অলছেললৈ স্বাগতম",
+    "subtitle": "ইণ্ডিয়ান বজাৰ — বিশ্বজুৰি পঠিয়োৱা হয়",
+    "sign_in": "ছাইন ইন",
+    "sign_up": "একাউণ্ট সৃষ্টি কৰক",
+    "sign_out": "ছাইন আউট",
+    "email": "ইমেইল",
+    "password": "পাছৱৰ্ড",
+    "full_name": "সম্পূৰ্ণ নাম",
+    "forgot_password": "পাছৱৰ্ড পাহৰিলে?",
+    "google": "Google ৰ সৈতে আগবাঢ়ক",
+    "apple": "Apple ৰ সৈতে আগবাঢ়ক",
+    "or": "নাইবা"
+  },
+  "tabs": {
+    "home": "হোম",
+    "search": "সন্ধান কৰক",
+    "cart": "কাৰ্ট",
+    "orders": "অৰ্ডাৰ",
+    "account": "একাউণ্ট"
+  },
+  "seller": {
+    "dashboard": "বিক্ৰেতা ডেচব’ৰ্ড",
+    "profile": "প্ৰ’ফাইল ছেটিংছ",
+    "payouts": "পে’আউট আৰু টিয়াৰ",
+    "support": "সহায়",
+    "financing": "কেছ এডভান্স",
+    "products": "উৎপাদনসমূহ",
+    "orders": "অৰ্ডাৰ",
+    "raise_ticket": "টিকট সৃষ্টি কৰক"
+  },
+  "payouts": {
+    "available": "উপলব্ধ",
+    "held": "ৰখা হৈছে",
+    "reserve": "ৰিজাৰ্ভ",
+    "paid_out": "পৰিশোধ কৰা হ’ল",
+    "next_release": "পৰৱৰ্তী ৰিলিজ",
+    "tier_starter": "ষ্টাৰ্টাৰ",
+    "tier_verified": "যাচাইকৃত",
+    "tier_trusted": "বিশ্বাসযোগ্য",
+    "tier_top": "শীৰ্ষ বিক্ৰেতা"
+  },
+  "settings": {
+    "title": "ছেটিংছ",
+    "language": "এপ ভাষা",
+    "change": "সলনি কৰক"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "common": {
+    "save": "जतन करा",
+    "cancel": "रद्द करा",
+    "back": "मागे",
+    "next": "पुढे",
+    "confirm": "पुष्टी करा",
+    "delete": "हटवा",
+    "loading": "लोड होत आहे…",
+    "retry": "पुन्हा प्रयत्न करा",
+    "yes": "होय",
+    "no": "नाही",
+    "language": "भाषा",
+    "change_language": "भाषा बदला"
+  },
+  "auth": {
+    "welcome": "ऑलसेलमध्ये स्वागत आहे",
+    "subtitle": "इंडियन बझार — जगभर पाठवले जाते",
+    "sign_in": "साइन इन",
+    "sign_up": "खाते तयार करा",
+    "sign_out": "साइन आउट",
+    "email": "ईमेल",
+    "password": "पासवर्ड",
+    "full_name": "पूर्ण नाव",
+    "forgot_password": "पासवर्ड विसरलात?",
+    "google": "Google सह सुरू ठेवा",
+    "apple": "Apple सह सुरू ठेवा",
+    "or": "किंवा"
+  },
+  "tabs": {
+    "home": "होम",
+    "search": "शोधा",
+    "cart": "कार्ट",
+    "orders": "ऑर्डर",
+    "account": "खाते"
+  },
+  "seller": {
+    "dashboard": "विक्रेता डॅशबोर्ड",
+    "profile": "प्रोफाइल सेटिंग्ज",
+    "payouts": "पेआउट आणि टियर",
+    "support": "मदत",
+    "financing": "कॅश ॲडव्हान्स",
+    "products": "उत्पादने",
+    "orders": "ऑर्डर",
+    "raise_ticket": "तिकीट तयार करा"
+  },
+  "payouts": {
+    "available": "उपलब्ध",
+    "held": "रोखले",
+    "reserve": "रिझर्व्ह",
+    "paid_out": "पेमेंट झाले",
+    "next_release": "पुढील रिलीज",
+    "tier_starter": "स्टार्टर",
+    "tier_verified": "व्हेरिफाइड",
+    "tier_trusted": "ट्रस्टेड",
+    "tier_top": "टॉप विक्रेता"
+  },
+  "settings": {
+    "title": "सेटिंग्ज",
+    "language": "ॲप भाषा",
+    "change": "बदला"
+  }
+}
