@@ -26,6 +26,7 @@ from routers import (
     admin,
     admin_team,
     auth,
+    events,
     auth_2fa,
     auth_sso,
     bulk_listings,
@@ -100,6 +101,7 @@ api.include_router(uploads.router)
 api.include_router(notifications.router)
 api.include_router(admin.router)
 api.include_router(admin_team.router)
+api.include_router(events.router)
 api.include_router(geo.router)
 api.include_router(health.router)
 api.include_router(support.router)

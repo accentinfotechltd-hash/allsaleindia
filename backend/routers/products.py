@@ -61,7 +61,7 @@ async def list_products(
     age_group: Optional[str] = Query(default=None, description="baby | kids | adult"),
     sizes: Optional[List[str]] = Query(default=None, description="Filter by available size(s)"),
     colors: Optional[List[str]] = Query(default=None, description="Filter by available color(s)"),
-    limit: int = Query(default=200, ge=1, le=500, description="Max products to return"),
+    limit: int = Query(default=200, ge=1, le=5000, description="Max products to return"),
     skip: int = Query(default=0, ge=0, description="Number of products to skip for pagination"),
 ):
     """List the catalog with optional filters and sort.

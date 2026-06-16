@@ -141,3 +141,15 @@ async def ensure_indexes() -> None:
     )
     await db.chat_messages.create_index([("conversation_id", 1), ("created_at", 1)])
     await db.chat_messages.create_index("id", unique=True)
+    # client_events — analytics + A/B exposure tracking (auto-expires after 90d).
+    # MongoDB TTL purges any doc whose `created_at` is older than 90 days.
+    await db.client_events.create_index(
+        "created_at", expireAfterSeconds=60 * 60 * 24 * 90
+    )
+    await db.client_events.create_index([("name", 1), ("created_at", -1)])
+    await db.client_events.create_index(
+        [("props.experiment", 1), ("props.variant", 1), ("created_at", -1)],
+        partialFilterExpression={"props.experiment": {"$type": "string"}},
+    )
+    await db.client_events.create_index([("user_id", 1), ("created_at", -1)])
+    await db.client_events.create_index([("session_id", 1), ("created_at", -1)])
