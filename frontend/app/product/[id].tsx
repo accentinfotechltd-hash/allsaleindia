@@ -7,9 +7,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import SizeGuideModal from "@/src/components/SizeGuideModal";
 import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
+import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
+import { useAuth } from "@/src/contexts/AuthContext";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
+import { getAnonSessionId } from "@/src/lib/session";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
@@ -42,6 +45,7 @@ export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { add } = useCart();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,11 +65,24 @@ export default function ProductDetail() {
         if (p.sizes?.length) setSelectedSize(p.sizes[0]);
         // Fire-and-forget analytics ping (anonymous view counter).
         api(`/products/${id}/track-view`, { method: "POST", auth: false }).catch(() => {});
+        // Recently-viewed tracker — auth via JWT when signed in, otherwise via stable anon session_id.
+        (async () => {
+          try {
+            const sessionId = user ? null : await getAnonSessionId();
+            await api(`/products/${id}/view`, {
+              method: "POST",
+              auth: !!user,
+              body: sessionId ? { session_id: sessionId } : {},
+            });
+          } catch {
+            /* swallow — view tracking is best-effort */
+          }
+        })();
       } finally {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, user]);
 
   const [galleryIdx, setGalleryIdx] = useState(0);
   const galleryWidth = Dimensions.get("window").width;
@@ -338,6 +355,7 @@ export default function ProductDetail() {
           />
 
           <RecommendationsSection productId={product.id} />
+          <RecentlyViewedRail excludeId={product.id} limit={10} />
         </View>
       </ScrollView>
 

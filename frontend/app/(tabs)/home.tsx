@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
 import FlashSalesCarousel from "@/src/components/FlashSalesCarousel";
+import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -201,6 +202,9 @@ export default function Home() {
                 </Text>
               </View>
               <Text style={styles.sectionCount}>{filtered.length} items</Text>
+            </View>
+            <View style={{ paddingHorizontal: spacing.lg }}>
+              <RecentlyViewedRail limit={10} />
             </View>
           </View>
         }
