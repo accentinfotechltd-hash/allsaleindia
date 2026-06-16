@@ -327,3 +327,45 @@ async def reject_return(
     if not seller.get("is_seller"):
         raise HTTPException(status_code=403, detail="Seller account required")
     return await _decide_return(return_id, seller["id"], approve=False, note=body.note)
+
+
+# ---------------------------------------------------------------------------
+# REST-friendly aliases for cross-platform clients (web project uses these).
+# Same handlers as /returns/request and /returns/me — just nicer paths.
+# ---------------------------------------------------------------------------
+from typing import Any as _Any  # noqa: E402
+
+
+@router.post("/orders/{order_id}/return", response_model=List[ReturnRequest])
+async def order_return_alias(
+    order_id: str,
+    body: ReturnRequestCreate,
+    user=Depends(get_current_user),
+):
+    """REST-friendly alias for POST /returns/request.
+
+    The legacy endpoint takes order_id IN THE BODY; this version takes it from
+    the URL and overrides whatever the client sent (URL wins — prevents the
+    common bug of clients submitting the wrong order_id by mistake).
+    """
+    # Force the URL order_id into the body so the legacy handler receives it.
+    if hasattr(body, "order_id"):
+        body.order_id = order_id  # type: ignore[attr-defined]
+    return await create_return_requests(body, user)  # type: ignore[name-defined]
+
+
+@router.get("/account/returns", response_model=List[ReturnRequest])
+async def account_returns_alias(user=Depends(get_current_user)):
+    """REST-friendly alias for GET /returns/me."""
+    return await my_returns(user)  # type: ignore[name-defined]
+
+
+@router.get("/account/returns/{return_id}", response_model=ReturnRequest)
+async def account_return_detail(return_id: str, user=Depends(get_current_user)):
+    """Single return detail scoped to the current buyer."""
+    doc = await db.returns.find_one(
+        {"id": return_id, "buyer_id": user["id"]}, {"_id": 0}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Return not found")
+    return ReturnRequest(**doc)

@@ -27,6 +27,7 @@ from routers import (
     admin,
     admin_team,
     auth,
+    auth_pwd_reset,
     events,
     auth_2fa,
     auth_sso,
@@ -103,6 +104,7 @@ api.include_router(notifications.router)
 api.include_router(admin.router)
 api.include_router(admin_team.router)
 api.include_router(account_addresses.router)
+api.include_router(auth_pwd_reset.router)
 api.include_router(events.router)
 api.include_router(geo.router)
 api.include_router(health.router)
