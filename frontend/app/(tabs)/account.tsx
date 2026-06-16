@@ -246,6 +246,13 @@ export default function Account() {
             testID="account-2fa-btn"
           />
           <Row
+            icon={<ShieldCheck size={18} color={colors.text} />}
+            label="Privacy & data"
+            subtitle="Download your data or close your account"
+            onPress={() => router.push("/account/privacy")}
+            testID="account-privacy-btn"
+          />
+          <Row
             icon={<Settings size={18} color={colors.text} />}
             label="Preferences"
             onPress={() => {}}
