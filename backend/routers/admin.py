@@ -1,6 +1,7 @@
 """Admin operations (payouts, seller approval). Guarded by x-admin-secret header."""
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Annotated, Optional, List
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -365,6 +366,7 @@ async def admin_list_users(
     limit: int = 50,
     skip: int = 0,
     search: Optional[str] = None,
+    q: Optional[str] = None,
     role: Optional[str] = None,
     admin=Depends(require_roles("manager", "support")),
 ):
@@ -372,6 +374,9 @@ async def admin_list_users(
 
     Server-side pagination + optional search by email/full_name/company_name,
     and optional `role` filter ("buyer" | "seller").
+
+    The search term accepts either `?search=…` (canonical) or `?q=…` (web-
+    agent-friendly alias); they are interchangeable.
 
     Response shape:
       {
@@ -393,6 +398,11 @@ async def admin_list_users(
             # buyer = not a seller
             query["$or"] = [{"is_seller": {"$exists": False}}, {"is_seller": False}]
 
+    if search:
+        # Accept either ?search= (canonical) or ?q= (alias).
+        pass
+    elif q:
+        search = q
     if search:
         # Case-insensitive partial match on the common identifier fields.
         # We escape any regex metacharacters the user might paste in.
@@ -533,3 +543,92 @@ async def admin_delete_review(
         meta={"review_id": review_id, "product_id": doc.get("product_id")},
     )
     return None
+
+
+# ---------------------------------------------------------------------------
+# Reviews moderation — soft-action endpoints (June 16, 2026)
+#
+# These don't delete the row — they flip moderation flags so the review
+# can be revived (`approve` after hide), audited, or filtered cleanly via
+# the existing `?status=` filter on GET /admin/reviews.
+# ---------------------------------------------------------------------------
+async def _moderate_review(review_id: str, *, hidden: bool, reported: bool, action: str, admin_id: str) -> dict:
+    doc = await db.reviews.find_one({"id": review_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Review not found")
+    set_payload: dict = {
+        "hidden": hidden,
+        "reported": reported,
+        "moderated_at": datetime.now(timezone.utc),
+        "moderated_by": admin_id,
+        "moderation_status": "approved" if (not hidden and not reported) else (
+            "hidden" if hidden else "reported"
+        ),
+    }
+    await db.reviews.update_one({"id": review_id}, {"$set": set_payload})
+    # Re-compute the product's rating only when visibility changed, since
+    # hidden reviews must not count toward the aggregate.
+    try:
+        from routers.reviews import _recompute_product_rating
+
+        await _recompute_product_rating(doc["product_id"])
+    except Exception:
+        pass
+    await log_admin_action(
+        admin_id=admin_id,
+        action=action,
+        meta={"review_id": review_id, "product_id": doc.get("product_id")},
+    )
+    fresh = await db.reviews.find_one({"id": review_id}, {"_id": 0}) or {}
+    return fresh
+
+
+@router.post("/admin/reviews/{review_id}/approve")
+async def admin_approve_review(
+    review_id: str,
+    admin: dict = Depends(require_roles("manager", "support")),
+):
+    """Approve (unhide) a previously hidden/reported review."""
+    return await _moderate_review(
+        review_id,
+        hidden=False,
+        reported=False,
+        action="review.approve",
+        admin_id=admin["id"],
+    )
+
+
+@router.post("/admin/reviews/{review_id}/reject")
+@router.post("/admin/reviews/{review_id}/hide")
+async def admin_hide_review(
+    review_id: str,
+    admin: dict = Depends(require_roles("manager", "support")),
+):
+    """Hide a review from product pages without deleting the row.
+
+    Aggregates exclude hidden reviews so the product's star rating
+    updates immediately.  `/reject` is an alias of `/hide` for whichever
+    verb the web/mobile UI prefers.
+    """
+    return await _moderate_review(
+        review_id,
+        hidden=True,
+        reported=False,
+        action="review.hide",
+        admin_id=admin["id"],
+    )
+
+
+@router.post("/admin/reviews/{review_id}/flag")
+async def admin_flag_review(
+    review_id: str,
+    admin: dict = Depends(require_roles("manager", "support")),
+):
+    """Flag a review for follow-up without hiding it yet."""
+    return await _moderate_review(
+        review_id,
+        hidden=False,
+        reported=True,
+        action="review.flag",
+        admin_id=admin["id"],
+    )

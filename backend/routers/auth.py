@@ -126,6 +126,10 @@ async def login(body: UserLogin, request: Request):
 
 
 @router.post("/auth/apple-session", response_model=AuthResponse)
+@router.post("/auth/apple/signin", response_model=AuthResponse)
+@router.post("/auth/apple/callback", response_model=AuthResponse)
+@router.post("/auth/sign-in/apple", response_model=AuthResponse)
+@router.post("/auth/apple-login", response_model=AuthResponse)
 async def apple_session(body: AppleSessionRequest, request: Request):
     """Verify Apple's RS256 identity token and issue our own JWT.
 
