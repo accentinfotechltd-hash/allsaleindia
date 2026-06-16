@@ -72,6 +72,90 @@ async def get_current_admin(authorization: Optional[str] = Header(None)) -> dict
     return admin
 
 
+# ---------------------------------------------------------------------------
+# Role-based access control (RBAC)
+# ---------------------------------------------------------------------------
+# Supported roles:
+#   - "owner"   : full control — only role that can manage other admins.
+#   - "manager" : payouts, seller approval, orders, financing, returns.
+#   - "support" : seller approval, tickets, read-only orders. NO payouts.
+ALL_ROLES = ("owner", "manager", "support")
+
+
+def _normalize_role(role: Optional[str]) -> str:
+    """Return a clean lowercase role, defaulting to 'owner' for legacy admins."""
+    return (role or "owner").lower().strip()
+
+
+async def require_admin_role(
+    allowed_roles: tuple[str, ...],
+    authorization: Optional[str],
+    x_admin_secret: Optional[str],
+) -> dict:
+    """Hybrid auth used by sensitive admin endpoints.
+
+    Returns the *current admin doc* if the caller is authorised, otherwise
+    raises 401/403. Accepts EITHER:
+
+      * `x-admin-secret: <ADMIN_SECRET>`  → treated as the bootstrap owner.
+        Returns a synthetic admin dict so the caller can log the action.
+      * `Authorization: Bearer <jwt>`     → role must be in `allowed_roles`.
+    """
+    # Legacy bootstrap path — full owner privileges.
+    if x_admin_secret and x_admin_secret == ADMIN_SECRET:
+        return {
+            "id": "bootstrap_owner",
+            "email": "(bootstrap)",
+            "full_name": "Bootstrap Owner",
+            "role": "owner",
+            "is_active": True,
+            "via": "shared_secret",
+        }
+
+    # JWT path
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Admin auth required")
+    token = authorization[7:]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[ALG])
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired admin token")
+    if not payload.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Not an admin account")
+    admin = await db.admin_users.find_one({"id": payload["sub"]})
+    if not admin or not admin.get("is_active", True):
+        raise HTTPException(status_code=403, detail="Admin account not found/inactive")
+    role = _normalize_role(admin.get("role"))
+    if role not in allowed_roles:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{role}' not permitted (requires one of {sorted(allowed_roles)})",
+        )
+    return admin
+
+
+def require_roles(*allowed_roles: str):
+    """Build a FastAPI dependency that allows the listed roles + owner.
+
+    Usage:
+        admin = Depends(require_roles("manager", "support"))
+    """
+    # Owner is implicitly allowed for everything.
+    allowed = tuple({*allowed_roles, "owner"})
+
+    async def _dep(
+        authorization: Optional[str] = Header(None),
+        x_admin_secret: Optional[str] = Header(None, alias="x-admin-secret"),
+    ) -> dict:
+        return await require_admin_role(allowed, authorization, x_admin_secret)
+
+    return _dep
+
+
+# Convenience: owner-only dep (used for sub-admin management).
+require_owner = require_roles("owner")
+
+
 async def log_admin_action(admin_id: str, action: str, target: str = "", meta: dict | None = None):
     """Audit-log every privileged action. Read via /api/admin/activity-log."""
     await db.admin_activity_log.insert_one(

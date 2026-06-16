@@ -13,6 +13,7 @@ from services.admin_auth import (
     authenticate_admin,
     get_current_admin,
     log_admin_action,
+    require_roles,
     _create_admin_token,
 )
 from utils import now_utc
@@ -110,10 +111,8 @@ async def admin_list_payouts(
 @router.post("/admin/payouts/{payout_id}/mark-paid", response_model=Payout)
 async def admin_mark_payout_paid(
     payout_id: str,
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager")),
 ):
-    if x_admin_secret != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
     po = await db.payouts.find_one({"id": payout_id}, {"_id": 0})
     if not po:
         raise HTTPException(status_code=404, detail="Payout not found")
@@ -214,10 +213,8 @@ async def admin_email_test(
 @router.post("/admin/sellers/{user_id}/approve")
 async def admin_approve_seller(
     user_id: str,
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager", "support")),
 ):
-    if x_admin_secret != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
     res1 = await db.users.update_one(
         {"id": user_id, "is_seller": True},
         {"$set": {"seller_verification_status": "approved"}},
@@ -250,10 +247,8 @@ class SellerRejectRequest(BaseModel):
 async def admin_reject_seller(
     user_id: str,
     body: SellerRejectRequest,
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager", "support")),
 ):
-    if x_admin_secret != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
     reason = (body.reason or "").strip() or "Application did not meet our requirements."
     res = await db.users.update_one(
         {"id": user_id, "is_seller": True},

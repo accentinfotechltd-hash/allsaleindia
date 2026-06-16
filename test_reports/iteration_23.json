@@ -1,0 +1,70 @@
+{
+  "summary": "Owner/Sub-Admin RBAC (Phase 1 backend + Phase 2 frontend) tested end-to-end. BACKEND: 35/35 pytest cases pass — owner JWT login, /admin/team CRUD, /admin/team/roles (3 roles), reset-password, last-owner safety (demote/deactivate/delete all blocked), manager+support sub-admin login, RBAC enforcement (support 403 on /admin/team and /admin/payouts/mark-paid; manager+support 404 — i.e. passed RBAC — on /admin/sellers/approve & /reject), legacy x-admin-secret backward-compat (overview/sellers/orders/payouts/mark-paid). FRONTEND: lock screen renders two tabs ('Email + password' default + 'Owner secret'), bootstrap-secret login path works end-to-end (dashboard loads with OWNER banner, owner-only 'Team & Sub-admins' button visible, /admin/team page lists members, invite modal accepts email+name+role, initial-password modal shows the generated password once with correct masking — verified test_ui_*@allsale.co.nz / Nxknoq0gAeZia3ye). ❌ ONE CRITICAL FRONTEND-INTEGRATION BUG: the **email+password login** flow is broken because /admin/overview, /admin/sellers, /admin/orders, /admin/payouts still only accept x-admin-secret (return 403 for JWT). Owner logs in successfully (200 from /api/admin/login) but immediately gets `AdminForbidden` from loadData() → clearAdminAuth() → kicked back to the lock screen with 'Access denied' toast. Same issue blocks ANY manager/support login from ever reaching the dashboard, which makes the support-role 'no payouts/financing' UI gating impossible to verify in-app.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Email + password admin login → dashboard load",
+        "issue": "After successful POST /api/admin/login (200), the dashboard immediately calls GET /admin/overview, /admin/sellers, /admin/orders. All three return 403 because they use `_require(x_admin_secret)` only — they do NOT accept Authorization: Bearer <jwt>. adminApi maps 403→AdminForbidden, AdminDashboard catches it and calls clearAdminAuth() → identity=null → user is bounced back to the lock screen with a red 'Access denied' toast. Reproduces 100% for owner, manager, and support roles via the new email+password tab. Verified with curl: GET /api/admin/overview with valid owner JWT → 403. RCA: routers/admin.py admin_overview / admin_list_sellers / admin_list_orders / admin_list_payouts are still legacy-only; they need to be migrated to `Depends(require_roles(...))` or accept BOTH headers (the same hybrid pattern already used by mark-paid / approve / reject via require_admin_role).",
+        "affected_testIDs": ["admin-login-btn", "admin-team-btn", "admin-refresh"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "/admin lock screen",
+        "issues": [
+          "Two-tab pill picker ('Email + password' / 'Owner secret') renders crisply, password tab is default. Touch targets ~44px — good."
+        ]
+      },
+      {
+        "screen": "/admin (dashboard) — bootstrap-owner session",
+        "issues": [
+          "Role banner shows '(bootstrap) / OWNER' + Log out button — visible & legible.",
+          "Team & Sub-admins button (orange #F97316) only appears for owner — confirmed via screenshot.",
+          "Stats grid responsive at 420px width; Pending payouts / Pending sellers / Open returns show warn-amber background when > 0."
+        ]
+      },
+      {
+        "screen": "/admin/team",
+        "issues": [
+          "Roles legend renders all 3 roles with descriptions.",
+          "Invite modal works: email + name + Owner/Manager/Support pill picker + Create button. Initial-password modal renders the secret in a high-contrast amber callout with 'shown once' warning — UX is correct."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_rbac.py",
+    "/app/test_reports/pytest/iter23_admin_rbac.xml",
+    "/tmp/owner_via_secret.png",
+    "/tmp/team_via_secret.png",
+    "/tmp/created_pwd_modal.png"
+  ],
+  "action_items": [
+    "CRITICAL: Migrate /api/admin/overview, /admin/sellers, /admin/orders, /admin/payouts, /admin/sellers/pending, /admin/payouts/process-due, /admin/email/status, /admin/email/test from `_require(x_admin_secret)` to `Depends(require_roles('manager','support'))` (or the matching role set per endpoint) using the SAME hybrid pattern already used by mark-paid/approve/reject. Until this is done, the new email+password login flow is unusable and the entire Phase-2 frontend cannot be exercised end-to-end for non-owner roles. Suggested mapping: overview/sellers/orders/sellers-pending → require_roles('manager','support'); payouts (list) → require_roles('manager'); payouts/process-due → require_roles('manager'); email status/test → require_owner.",
+    "After the migration, retest: (a) owner JWT login → dashboard loads without 'Access denied', (b) manager JWT → sees Pending payouts stat + Financing button, (c) support JWT → does NOT see Pending payouts stat NOR Financing button, (d) support JWT → no Team & Sub-admins button (already enforced on FE via isOwner check, but verify e2e).",
+    "OPTIONAL: extend the invite-modal validation in /app/frontend/app/admin/team.tsx to also gate on a valid email format (current check is only `email.trim()`) and disable the submit until all 3 fields valid. Minor polish."
+  ],
+  "critical_code_review_comments": [
+    "routers/admin.py: 8 GET/POST endpoints are inconsistent in auth — half use legacy _require(secret), half use Depends(require_roles(...)). Single hybrid approach should be used everywhere. The `_require` helper should be deprecated in favour of the dependency.",
+    "frontend/app/admin/index.tsx loadData() doesn't distinguish between 'token expired' and 'wrong role' — both hit AdminForbidden → clearAdminAuth(). For non-owner roles (when they finally work), losing auth on a single forbidden endpoint is too aggressive. Consider making the three dashboard fetches independent and degrading gracefully when one returns 403 (e.g. support shouldn't be punished if /admin/payouts returns 403).",
+    "services/admin_auth.require_admin_role wisely accepts BOTH x-admin-secret AND JWT — extending this to the legacy GET endpoints is a 1-line change per endpoint and would fix the entire integration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_rbac.py (NEW — 35 pytest cases covering all RBAC scenarios)"
+  ],
+  "success_rate": {
+    "backend": "100% (35/35 pytest cases passed)",
+    "frontend": "60% (lock screen + bootstrap-secret + team-mgmt-UI verified; email+password login + manager/support dashboards blocked by backend bug)"
+  },
+  "seed_data_creation": "Created and deleted ephemeral admins per test class via the API (TEST_manager_*, TEST_support_*, TEST_del_*, TEST_ui_*). The bootstrap owner (owner@allsale.co.nz) was reused. No persistent test data left behind in admin_users (fixtures DELETE on teardown).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "RBAC backend (admin_team + auth helpers) is rock-solid (35/35). The ONLY failing piece is that /admin/overview, /admin/sellers, /admin/orders, /admin/payouts haven't been migrated to the hybrid auth dep yet, which breaks the entire new email+password admin login flow. Once main agent migrates those four endpoints (use the same require_roles + secret-fallback pattern as require_admin_role), rerun: (1) /app/backend/tests/test_admin_rbac.py (must stay green), (2) Playwright e2e: login as owner via password tab → dashboard loads → Team & Sub-admins visible. Then login as the manager and support accounts created in test fixtures (rotate their reset-password modal to get a known password, or hardcode one via POST /admin/team) — manager should see Financing+Pending-payouts, support should NOT.",
+  "rca_of_issue": "Frontend Phase 2 added a JWT-aware adminApi() that sends Authorization: Bearer <jwt> when a token is stored. AdminDashboard.loadData() fans-out to /admin/overview + /admin/sellers + /admin/orders. Those three endpoints in routers/admin.py still call `_require(x_admin_secret)` which returns 403 whenever the header is absent (which it is, since the new flow doesn't send it). The 403 propagates as `AdminForbidden` in adminApi(), AdminDashboard catches it and wipes the auth in clearAdminAuth(), returning the user to the lock screen — making the new login appear to fail. Fix: replace the four `Annotated[Optional[str], Header()]` + `_require(secret)` blocks with `admin: dict = Depends(require_roles(...))`. The hybrid require_admin_role helper already preserves bootstrap-secret backward-compat, so legacy callers (curl scripts, the existing 'Owner secret' tab) keep working unchanged."
+}
