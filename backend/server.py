@@ -54,6 +54,7 @@ from routers import (
     shiprocket,
     shipping,
     size_guide,
+    stripe_connect,
     support,
     uploads,
     wallet,
@@ -111,6 +112,8 @@ api.include_router(auth_pwd_reset.router)
 api.include_router(auth_email_verify.router)
 api.include_router(recommendations.router)
 api.include_router(policies.router)
+api.include_router(stripe_connect.router)
+api.include_router(stripe_connect.webhook_router)
 api.include_router(events.router)
 api.include_router(geo.router)
 api.include_router(health.router)
