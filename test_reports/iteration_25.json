@@ -1,0 +1,34 @@
+{
+  "summary": "Iter 27 — Admin users pagination + A/B Funnel analytics screen. Backend: 18/18 pytest cases pass covering /admin/users pagination/search/role filter/RBAC, /admin/events/funnel variant breakdown + conversion math, /admin/events/recent name filter, anonymous POST /api/events → 204 with persistence verified. Frontend (mobile viewport 375x667): Owner can see A/B Analytics button, screen renders all pickers (experiment/window/conversion event), funnel cards show seeded data (control 3.77%, treatment 9.43%, +159.1% lift chip), empty state appears for unknown experiment id. Support role: A/B Analytics button hidden on /admin home, direct nav to /admin/analytics redirects back to /admin with 'Manager access required' toast.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_users_pagination_and_funnel.py",
+    "/app/test_reports/pytest/iter27_admin_users_funnel.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "admin.py /admin/users correctly excludes password_hash and _id; pagination math (has_more) verified against total/skip/limit. Search escapes regex metacharacters — safe from regex-injection.",
+    "events.py funnel uses require_roles('manager') which expands to {manager,owner} — matches the documented RBAC ('manager+owner only').",
+    "analytics.tsx correctly handles 403 via AdminForbidden -> router.replace('/admin') + toast; gate on /admin home uses canSeePayouts=hasRole(['manager']) which also includes owner — matches requirement."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_users_pagination_and_funnel.py (NEW)"
+  ],
+  "success_rate": {
+    "backend": "100% (18/18)",
+    "frontend": "100% (owner + support gating verified)"
+  },
+  "seed_data_creation": "Created+deleted one TEST support sub-admin per RBAC test (auto-teardown in pytest fixture). Created+deleted one test_support_ui@allsale.co.nz for UI testing (manually cleaned up).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All acceptance criteria for iter27 pass on the public preview URL. Useful seeded analytics fixtures still present: experiment=personalised_rail_v1 with 53/53 exposures + 7 conversions (control 3.77%, treatment 9.43%). Backend test file at backend/tests/test_admin_users_pagination_and_funnel.py is reusable for regression."
+}

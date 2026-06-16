@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, HandCoins, LifeBuoy, LogOut, Mail, RefreshCw, ShieldAlert, Users } from "lucide-react-native";
+import { ChevronLeft, HandCoins, LifeBuoy, LineChart, LogOut, Mail, RefreshCw, ShieldAlert, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -344,6 +344,17 @@ export default function AdminDashboard() {
           </Pressable>
         )}
 
+        {canSeePayouts && (
+          <Pressable
+            testID="admin-analytics-btn"
+            onPress={() => router.push("/admin/analytics")}
+            style={({ pressed }) => [styles.analyticsBtn, pressed && { opacity: 0.85 }]}
+          >
+            <LineChart size={18} color="#fff" />
+            <Text style={styles.reviewBtnText}>A/B Analytics</Text>
+          </Pressable>
+        )}
+
         <Pressable
           testID="admin-email-btn"
           onPress={() => router.push("/admin/email")}
@@ -463,4 +474,5 @@ const styles = StyleSheet.create({
   financingBtn: { marginTop: spacing.sm, backgroundColor: "#7C3AED", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   emailBtn: { marginTop: spacing.sm, backgroundColor: "#10B981", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   teamBtn: { marginTop: spacing.sm, backgroundColor: "#F97316", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
+  analyticsBtn: { marginTop: spacing.sm, backgroundColor: "#0F172A", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
 });

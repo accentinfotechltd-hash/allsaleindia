@@ -361,12 +361,70 @@ async def admin_activity_log(limit: int = 100, admin=Depends(get_current_admin))
 
 
 @router.get("/admin/users")
-async def admin_list_users(limit: int = 100, admin=Depends(get_current_admin)):
-    """Owner-only: list all buyer/seller user accounts (read-only)."""
-    limit = max(1, min(int(limit), 500))
+async def admin_list_users(
+    limit: int = 50,
+    skip: int = 0,
+    search: Optional[str] = None,
+    role: Optional[str] = None,
+    admin=Depends(require_roles("manager", "support")),
+):
+    """List buyer/seller user accounts.
+
+    Server-side pagination + optional search by email/full_name/company_name,
+    and optional `role` filter ("buyer" | "seller").
+
+    Response shape:
+      {
+        "users":  [...],        # current page
+        "total":  <int>,        # total matching, ignoring pagination
+        "limit":  <int>,        # echo of clamped limit
+        "skip":   <int>,        # echo of skip
+        "has_more": <bool>      # quick "next page available?" hint
+      }
+    """
+    limit = max(1, min(int(limit), 200))
+    skip = max(0, int(skip))
+
+    query: dict = {}
+    if role in ("buyer", "seller"):
+        if role == "seller":
+            query["is_seller"] = True
+        else:
+            # buyer = not a seller
+            query["$or"] = [{"is_seller": {"$exists": False}}, {"is_seller": False}]
+
+    if search:
+        # Case-insensitive partial match on the common identifier fields.
+        # We escape any regex metacharacters the user might paste in.
+        import re
+        safe = re.escape(search.strip())
+        if safe:
+            search_clauses = [
+                {"email": {"$regex": safe, "$options": "i"}},
+                {"full_name": {"$regex": safe, "$options": "i"}},
+                {"company_name": {"$regex": safe, "$options": "i"}},
+            ]
+            # Combine with the existing role $or by using $and so we don't
+            # accidentally OR away the role filter.
+            if "$or" in query:
+                existing_or = query.pop("$or")
+                query["$and"] = [{"$or": existing_or}, {"$or": search_clauses}]
+            else:
+                query["$or"] = search_clauses
+
+    total = await db.users.count_documents(query)
     out = []
-    async for u in db.users.find(
-        {}, {"_id": 0, "password_hash": 0}
-    ).sort("created_at", -1).limit(limit):
+    async for u in (
+        db.users.find(query, {"_id": 0, "password_hash": 0})
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+    ):
         out.append(u)
-    return {"users": out, "total": len(out)}
+    return {
+        "users": out,
+        "total": total,
+        "limit": limit,
+        "skip": skip,
+        "has_more": (skip + len(out)) < total,
+    }
