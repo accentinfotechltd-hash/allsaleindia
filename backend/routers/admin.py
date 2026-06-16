@@ -441,6 +441,7 @@ async def admin_list_reviews(
     product_id: Optional[str] = None,
     seller_id: Optional[str] = None,
     has_photos: Optional[bool] = None,
+    status: Optional[str] = None,
     limit: int = 50,
     skip: int = 0,
     admin: dict = Depends(require_roles("manager", "support")),
@@ -452,6 +453,7 @@ async def admin_list_reviews(
       * `product_id`  — all reviews on a specific product
       * `seller_id`   — all reviews of a specific seller's products
       * `has_photos`  — only show reviews with attached photos
+      * `status`      — approved | pending | reported  (defaults: show all)
     """
     limit = max(1, min(int(limit), 200))
     skip = max(0, int(skip))
@@ -469,6 +471,21 @@ async def admin_list_reviews(
         q["photos.0"] = {"$exists": True}
     elif has_photos is False:
         q["$or"] = [{"photos": {"$size": 0}}, {"photos": None}]
+    if status:
+        s = status.strip().lower()
+        if s == "approved":
+            # We don't have a moderation flag yet — treat approved as "not
+            # reported & not hidden" so the filter is forward-compatible.
+            q["$and"] = [
+                {"$or": [{"reported": {"$ne": True}}, {"reported": {"$exists": False}}]},
+                {"$or": [{"hidden": {"$ne": True}}, {"hidden": {"$exists": False}}]},
+            ]
+        elif s == "pending":
+            q["moderation_status"] = "pending"
+        elif s == "reported":
+            q["reported"] = True
+        elif s == "hidden":
+            q["hidden"] = True
 
     total = await db.reviews.count_documents(q)
     out: list[dict] = []

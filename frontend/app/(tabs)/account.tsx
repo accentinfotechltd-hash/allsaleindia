@@ -1,10 +1,11 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Bell, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, MapPin, MessageCircle, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
+import { Bell, BadgeCheck, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LanguagePicker, LanguagePill } from "@/src/components/LanguagePicker";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -20,6 +21,8 @@ export default function Account() {
   const [unread, setUnread] = useState(0);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  const [resendingVerify, setResendingVerify] = useState(false);
+  const toast = useToast();
   const regionFlag = info.flag;
   const regionName = info.name;
   const regionCurrency = info.currency;
@@ -45,6 +48,27 @@ export default function Account() {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  const resendVerification = useCallback(async () => {
+    if (resendingVerify) return;
+    setResendingVerify(true);
+    try {
+      await api("/auth/verify-email/request", { method: "POST", body: {} });
+      toast.show({
+        type: "success",
+        title: "Verification email sent",
+        message: `Open the link in your inbox — it's valid for 24 hours.`,
+      });
+    } catch (e: any) {
+      toast.show({
+        type: "error",
+        title: "Couldn't send email",
+        message: e?.message || "Try again in a moment.",
+      });
+    } finally {
+      setResendingVerify(false);
+    }
+  }, [resendingVerify, toast]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -76,13 +100,49 @@ export default function Account() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.name} testID="account-name">{user?.full_name}</Text>
-            <Text style={styles.email}>{user?.email}</Text>
+            <View style={styles.emailRow}>
+              <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+              {user?.email_verified ? (
+                <View style={styles.verifiedPill} testID="account-email-verified-pill">
+                  <BadgeCheck size={11} color="#16a34a" />
+                  <Text style={styles.verifiedPillText}>Verified</Text>
+                </View>
+              ) : null}
+            </View>
             <View style={styles.regionBadge}>
               <Globe2 size={11} color={colors.textMuted} />
               <Text style={styles.regionText}>Shipping to New Zealand</Text>
             </View>
           </View>
         </View>
+
+        {user && user.email_verified === false ? (
+          <View style={styles.verifyBanner} testID="account-verify-email-banner">
+            <View style={styles.verifyIcon}>
+              <Mail size={18} color="#92400E" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.verifyTitle}>Verify your email</Text>
+              <Text style={styles.verifySubtitle}>
+                Secure your account & unlock checkout shortcuts.
+              </Text>
+            </View>
+            <Pressable
+              testID="account-verify-email-btn"
+              onPress={resendVerification}
+              disabled={resendingVerify}
+              style={({ pressed }) => [
+                styles.verifyCta,
+                pressed && { opacity: 0.85 },
+                resendingVerify && { opacity: 0.6 },
+              ]}
+            >
+              <Text style={styles.verifyCtaText}>
+                {resendingVerify ? "Sending…" : "Verify"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={styles.menuGroup}>
           <Row
@@ -381,6 +441,46 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   regionText: { fontSize: 10, color: colors.textMuted, fontWeight: "600" },
+  emailRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  verifiedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#dcfce7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  verifiedPillText: { fontSize: 10, color: "#166534", fontWeight: "700" },
+  verifyBanner: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    backgroundColor: "#FEF3C7",
+    borderRadius: radius.lg,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  verifyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: "#FDE68A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  verifyTitle: { fontSize: 14, fontWeight: "800", color: "#78350F" },
+  verifySubtitle: { fontSize: 12, color: "#92400E", marginTop: 2 },
+  verifyCta: {
+    backgroundColor: "#D97706",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  verifyCtaText: { color: "#fff", fontSize: 13, fontWeight: "800" },
   menuGroup: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,

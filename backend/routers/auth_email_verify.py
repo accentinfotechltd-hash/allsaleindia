@@ -23,6 +23,8 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from jose import JWTError, jwt
 from pydantic import BaseModel, Field
@@ -69,13 +71,29 @@ def _verify_link(token: str) -> str:
 # Schemas
 # ---------------------------------------------------------------------------
 class VerifyBody(BaseModel):
-    token: str = Field(..., min_length=10, max_length=2048)
+    """Accepts the token under any of the common field names the web /
+    mobile clients might send: `token`, `verification_token`, or `code`.
+    """
+
+    token: Optional[str] = Field(default=None, min_length=10, max_length=2048)
+    verification_token: Optional[str] = Field(
+        default=None, min_length=10, max_length=2048
+    )
+    code: Optional[str] = Field(default=None, min_length=10, max_length=2048)
+
+    def first(self) -> Optional[str]:
+        return self.token or self.verification_token or self.code
 
 
 # ---------------------------------------------------------------------------
 # POST /api/auth/verify-email/request   (auth)
+# Also aliased as:
+#   POST /api/auth/email/send-verification
+#   POST /api/auth/resend-verification
 # ---------------------------------------------------------------------------
 @router.post("/auth/verify-email/request", status_code=204)
+@router.post("/auth/email/send-verification", status_code=204)
+@router.post("/auth/resend-verification", status_code=204)
 async def request_verification(current=Depends(get_current_user)):
     """Email the signed-in user a verification link.
 
@@ -125,12 +143,22 @@ async def request_verification(current=Depends(get_current_user)):
 
 # ---------------------------------------------------------------------------
 # POST /api/auth/verify-email   { token }
+# Also aliased as:
+#   POST /api/auth/email/verify
 # ---------------------------------------------------------------------------
 @router.post("/auth/verify-email")
+@router.post("/auth/email/verify")
 async def confirm_verification(body: VerifyBody):
     """Consume a verification token and mark the user's email as verified."""
+    raw = body.first()
+    if not raw:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide the verification token in 'token', "
+            "'verification_token', or 'code'.",
+        )
     try:
-        payload = jwt.decode(body.token, JWT_SECRET, algorithms=[JWT_ALG])
+        payload = jwt.decode(raw, JWT_SECRET, algorithms=[JWT_ALG])
     except JWTError:
         raise HTTPException(
             status_code=400, detail="Verification link is invalid or expired"

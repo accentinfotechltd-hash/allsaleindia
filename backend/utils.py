@@ -68,16 +68,21 @@ def cancellable_until_from(paid_at: datetime) -> datetime:
 def public_user(doc: dict) -> UserPublic:
     country = (doc.get("country") or DEFAULT_COUNTRY).upper()
     currency_map = {c["code"]: c["currency"] for c in SUPPORTED_COUNTRIES}
+    # Email is considered "verified" implicitly for any non-email provider
+    # (Google + Apple already proved the address before issuing the token).
+    provider = doc.get("provider", "email")
+    email_verified = bool(doc.get("email_verified")) or provider in ("google", "apple")
     return UserPublic(
         id=doc["id"],
         email=doc["email"],
         full_name=doc["full_name"],
         picture=doc.get("picture"),
-        provider=doc.get("provider", "email"),
+        provider=provider,
         is_seller=bool(doc.get("is_seller")),
         seller_verified=doc.get("seller_verification_status") == "auto_verified",
         country=country,
         currency=currency_map.get(country, "NZD"),
+        email_verified=email_verified,
     )
 
 

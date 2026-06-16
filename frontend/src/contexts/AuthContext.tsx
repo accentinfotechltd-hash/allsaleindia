@@ -11,6 +11,11 @@ export type User = {
   full_name: string;
   picture?: string | null;
   provider?: string;
+  is_seller?: boolean;
+  seller_verified?: boolean;
+  email_verified?: boolean;
+  country?: string;
+  currency?: string;
 };
 
 type AuthState = {

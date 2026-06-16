@@ -53,6 +53,7 @@ class UserPublic(BaseModel):
     seller_verified: bool = False
     country: str = "NZ"
     currency: str = "NZD"
+    email_verified: bool = False
 
 
 class AuthResponse(BaseModel):
