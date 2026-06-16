@@ -1,0 +1,63 @@
+{
+  "common": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "confirm": "Bestätigen",
+    "delete": "Löschen",
+    "loading": "Lädt…",
+    "retry": "Erneut versuchen",
+    "yes": "Ja",
+    "no": "Nein",
+    "language": "Sprache",
+    "change_language": "Sprache ändern"
+  },
+  "auth": {
+    "welcome": "Willkommen bei Allsale",
+    "subtitle": "Indischer Basar — weltweiter Versand",
+    "sign_in": "Anmelden",
+    "sign_up": "Konto erstellen",
+    "sign_out": "Abmelden",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "full_name": "Vollständiger Name",
+    "forgot_password": "Passwort vergessen?",
+    "google": "Mit Google fortfahren",
+    "apple": "Mit Apple fortfahren",
+    "or": "oder"
+  },
+  "tabs": {
+    "home": "Start",
+    "search": "Suchen",
+    "cart": "Warenkorb",
+    "orders": "Bestellungen",
+    "account": "Konto"
+  },
+  "seller": {
+    "dashboard": "Verkäufer-Dashboard",
+    "profile": "Profil",
+    "payouts": "Auszahlungen",
+    "support": "Support",
+    "financing": "Vorschuss",
+    "products": "Produkte",
+    "orders": "Bestellungen",
+    "raise_ticket": "Ticket erstellen"
+  },
+  "payouts": {
+    "available": "Verfügbar",
+    "held": "Gehalten",
+    "reserve": "Reserve",
+    "paid_out": "Ausgezahlt",
+    "next_release": "Nächste Freigabe",
+    "tier_starter": "Anfänger",
+    "tier_verified": "Verifiziert",
+    "tier_trusted": "Vertrauenswürdig",
+    "tier_top": "Top"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "language": "App-Sprache",
+    "change": "Ändern"
+  }
+}

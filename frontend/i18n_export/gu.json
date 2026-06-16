@@ -1,0 +1,63 @@
+{
+  "common": {
+    "save": "સાચવો",
+    "cancel": "રદ કરો",
+    "back": "પાછળ",
+    "next": "આગળ",
+    "confirm": "પુષ્ટિ કરો",
+    "delete": "કાઢી નાખો",
+    "loading": "લોડ થઈ રહ્યું છે…",
+    "retry": "ફરી પ્રયાસ કરો",
+    "yes": "હા",
+    "no": "ના",
+    "language": "ભાષા",
+    "change_language": "ભાષા બદલો"
+  },
+  "auth": {
+    "welcome": "ઑલસેલમાં આપનું સ્વાગત છે",
+    "subtitle": "ઇન્ડિયન બજાર — વિશ્વભરમાં ડિલિવરી",
+    "sign_in": "સાઇન ઇન",
+    "sign_up": "એકાઉન્ટ બનાવો",
+    "sign_out": "સાઇન આઉટ",
+    "email": "ઈમેલ",
+    "password": "પાસવર્ડ",
+    "full_name": "પૂરું નામ",
+    "forgot_password": "પાસવર્ડ ભૂલી ગયા?",
+    "google": "Google સાથે ચાલુ રાખો",
+    "apple": "Apple સાથે ચાલુ રાખો",
+    "or": "અથવા"
+  },
+  "tabs": {
+    "home": "હોમ",
+    "search": "શોધો",
+    "cart": "કાર્ટ",
+    "orders": "ઓર્ડર",
+    "account": "એકાઉન્ટ"
+  },
+  "seller": {
+    "dashboard": "સેલર ડેશબોર્ડ",
+    "profile": "પ્રોફાઇલ સેટિંગ્સ",
+    "payouts": "પેઆઉટ અને ટિયર",
+    "support": "સહાય",
+    "financing": "કેશ એડવાન્સ",
+    "products": "ઉત્પાદનો",
+    "orders": "ઓર્ડર",
+    "raise_ticket": "ટિકિટ બનાવો"
+  },
+  "payouts": {
+    "available": "ઉપલબ્ધ",
+    "held": "રોકાયેલું",
+    "reserve": "રિઝર્વ",
+    "paid_out": "ચૂકવાયું",
+    "next_release": "આગામી રિલીઝ",
+    "tier_starter": "સ્ટાર્ટર",
+    "tier_verified": "વેરિફાઇડ",
+    "tier_trusted": "ટ્રસ્ટેડ",
+    "tier_top": "ટોપ સેલર"
+  },
+  "settings": {
+    "title": "સેટિંગ્સ",
+    "language": "ઍપ ભાષા",
+    "change": "બદલો"
+  }
+}
