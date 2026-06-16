@@ -378,7 +378,10 @@ class TestLegacyAdminSecretBackwardCompat:
         r = s.get(f"{BASE_URL}/api/admin/team", headers=secret_h)
         assert r.status_code == 200
 
-    def test_wrong_secret_403(self, s):
+    def test_wrong_secret_401(self, s):
+        # After RBAC migration: wrong x-admin-secret is treated as "no valid
+        # auth at all" (no JWT either), so the API returns 401 — semantically
+        # more correct than the previous flat 403.
         h = {"Content-Type": "application/json", "x-admin-secret": "not-the-secret"}
         r = s.get(f"{BASE_URL}/api/admin/overview", headers=h)
-        assert r.status_code == 403
+        assert r.status_code == 401

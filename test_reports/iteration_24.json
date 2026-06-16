@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 23 critical bug FIXED and re-verified end-to-end. All 9 features in the review request PASS. Backend migration of /admin/overview, /sellers, /orders, /payouts, /sellers/pending to Depends(require_roles(...)) is confirmed via curl: each endpoint returns 200 for BOTH a valid owner JWT AND the legacy x-admin-secret header. Frontend e2e (mobile viewport 390x844) verified: (1) owner email+password login loads the dashboard (was broken in iter 23), (2) owner sees Pending payouts + Team & Sub-admins + Financing buttons, (3) /admin/team lists the owner + invite modal creates manager+support with single-shot initial-password modal, (4) logout returns to lock screen with cleared auth, (5) MANAGER login loads dashboard with Pending-payouts stat + Financing button and NO Team button (hasRole gating correct), (6) SUPPORT login loads dashboard with NO Pending-payouts stat, NO Financing button, NO Team button (correct gating), (7) Owner-secret legacy tab still unlocks dashboard with bootstrap identity. No React Native red screens; only benign 'shadow* style props are deprecated. Use boxShadow' warnings from RNW (cosmetic, no impact).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "/admin (manager + support dashboards)",
+        "issues": [
+          "Stats grid re-flows nicely when Pending-payouts tile is hidden for SUPPORT — no orphan column.",
+          "Role banner clearly shows MANAGER / SUPPORT / OWNER in uppercase with the user email — good visual differentiation between roles.",
+          "Initial-password modal shows the password in a high-contrast amber callout with selectable text — copyable on web."
+        ]
+      }
+    ],
+    "react_native_issues": [
+      {
+        "component": "shadow* deprecated style prop",
+        "issue": "React-Native-Web prints 'shadow* style props are deprecated. Use boxShadow' on every render. Source: shadowColor/shadowOpacity/shadowRadius/shadowOffset/elevation used in styles.tabActive at /app/frontend/app/admin/index.tsx:425. Cosmetic only — does not affect functionality. Consider migrating to the new boxShadow API or splitting platform-specific styles."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/tmp/t1_owner_dashboard.png",
+    "/tmp/mgr_dash.png",
+    "/tmp/sup_dash.png",
+    "/app/test_reports/pytest/iter23_admin_rbac.xml (still green from iter 23)"
+  ],
+  "action_items": [
+    "OPTIONAL (deferred from iter 23): replace shadow* style props in /app/frontend/app/admin/index.tsx styles.tabActive with boxShadow (or use Platform.select) to silence the RNW deprecation warning.",
+    "OPTIONAL: improve invite-modal email validation (currently only checks email.trim() — does not validate format)."
+  ],
+  "critical_code_review_comments": [
+    "Backend RBAC migration looks clean — every GET endpoint in routers/admin.py now accepts BOTH the JWT (via Depends(require_roles(...))) and the legacy x-admin-secret bootstrap header, matching the hybrid pattern used by the write endpoints. Suggest deprecating the standalone _require(secret) helper in a follow-up to enforce a single auth path.",
+    "frontend/app/admin/index.tsx loadData() still wipes ALL auth on any 403. Now that all dashboard endpoints honor RBAC, this is acceptable for owner/manager (they have access). For SUPPORT (verified working) the three calls all succeed because /overview, /sellers, /orders allow manager+support. If a future endpoint becomes manager-only and is added to the fanned load, support users will be kicked out again — recommend wrapping each Promise.all leg in its own try/catch to fail soft."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (5/5 endpoints accept JWT + legacy secret via curl)",
+    "frontend": "100% (9/9 features in review request verified e2e: owner pw login → dashboard, owner sees all stats + team btn, team page CRUD + initial-password modal, logout clears auth, manager dash with payouts+financing+no-team, support dash with no-payouts+no-financing+no-team, owner secret legacy tab still works)"
+  },
+  "seed_data_creation": "Created two ephemeral sub-admins via the UI invite flow (test_mgr_*@allsale.co.nz manager, test_sup_*@allsale.co.nz support), used their JWTs to verify role gating, then DELETEd both via /api/admin/team/{id}. No persistent test data left in admin_users. Bootstrap owner (owner@allsale.co.nz) is untouched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Allsale RBAC Phase 1 (backend) + Phase 2 (frontend) is now FULLY working end-to-end. The hybrid auth dependency (JWT OR x-admin-secret) is consistent across all /api/admin endpoints. UI role-gating uses hasRole(identity, [...]) where owner always passes. testIDs are in place on every interactive element (admin-login-email/password/btn, admin-secret-input, admin-unlock-btn, admin-team-btn, admin-team-invite-btn, team-new-email/name, team-create-submit, admin-logout-btn, admin-refresh, admin-financing-btn, admin-review-sellers-btn, admin-tickets-btn, admin-email-btn). Next iteration should focus on: (a) deprecating _require(secret) in favor of the dependency, (b) silencing the RNW shadow* deprecation warnings, (c) graceful degradation if one of the fanned dashboard fetches returns 403.",
+  "rca_of_issue": "ITER 23 BUG (now resolved): /admin/overview, /sellers, /orders, /payouts, /sellers/pending were still calling `_require(x_admin_secret)` while the new email+password flow only sends `Authorization: Bearer <jwt>` → 403 → AdminForbidden → clearAdminAuth() → user bounced to lock screen with 'Access denied' toast. Main agent migrated all 8 GETs to `Depends(require_roles(...))` with the same hybrid behavior (secret still accepted as bootstrap-owner fallback). Verified by curl on all 5 GETs and by Playwright on the actual UI flow for owner+manager+support."
+}

@@ -28,10 +28,9 @@ def _require(secret: str | None) -> None:
 
 @router.get("/admin/overview")
 async def admin_overview(
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager", "support")),
 ):
-    """One-call dashboard summary."""
-    _require(x_admin_secret)
+    """One-call dashboard summary.  Available to any signed-in admin."""
     users = await db.users.count_documents({})
     sellers = await db.users.count_documents({"is_seller": True})
     products = await db.products.count_documents({})
@@ -65,9 +64,8 @@ async def admin_overview(
 
 @router.get("/admin/sellers")
 async def admin_list_sellers(
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager", "support")),
 ):
-    _require(x_admin_secret)
     out = []
     async for u in db.users.find(
         {"is_seller": True},
@@ -83,9 +81,8 @@ async def admin_list_sellers(
 @router.get("/admin/orders")
 async def admin_list_orders(
     limit: int = 50,
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager", "support")),
 ):
-    _require(x_admin_secret)
     limit = max(1, min(int(limit), 200))
     out = []
     async for o in db.orders.find(
@@ -98,9 +95,8 @@ async def admin_list_orders(
 @router.get("/admin/payouts")
 async def admin_list_payouts(
     status: Optional[str] = None,
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager")),
 ):
-    _require(x_admin_secret)
     q = {"status": status} if status else {}
     out = []
     async for p in db.payouts.find(q, {"_id": 0}).sort("created_at", -1).limit(100):
@@ -155,11 +151,10 @@ async def admin_mark_payout_paid(
 
 @router.post("/admin/payouts/process-due")
 async def admin_process_due_payouts(
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager")),
 ):
     """Cron-callable. Promote ``held`` → ``available`` / ``reserve_held``,
     and release matured reserves back into ``available``."""
-    _require(x_admin_secret)
     from services.payouts import release_due_payouts
 
     return await release_due_payouts()
@@ -175,10 +170,9 @@ class _TestEmailBody(BaseModel):
 
 @router.get("/admin/email/status")
 async def admin_email_status(
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager")),
 ):
     """Returns Resend config diagnostics (no secrets leaked)."""
-    _require(x_admin_secret)
     from services.email import email_config_status
 
     return email_config_status()
@@ -187,10 +181,9 @@ async def admin_email_status(
 @router.post("/admin/email/test")
 async def admin_email_test(
     body: _TestEmailBody,
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager")),
 ):
     """Send a one-off test email through Resend to verify domain + DNS."""
-    _require(x_admin_secret)
     from services.email import send_email
 
     html = (
@@ -279,11 +272,9 @@ async def admin_reject_seller(
 
 @router.get("/admin/sellers/pending")
 async def admin_list_pending_sellers(
-    x_admin_secret: Annotated[Optional[str], Header()] = None,
+    admin: dict = Depends(require_roles("manager", "support")),
 ):
     """List sellers awaiting review (pending_review) sorted by SLA urgency."""
-    if x_admin_secret != ADMIN_SECRET:
-        raise HTTPException(status_code=403, detail="Forbidden")
     from datetime import timedelta, timezone
     now = now_utc()
     sla_cutoff = now - timedelta(days=7)
