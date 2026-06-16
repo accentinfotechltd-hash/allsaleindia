@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   Award,
+  Banknote,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -147,6 +148,24 @@ export default function SellerPayoutsScreen() {
           />
         }
       >
+        {/* Stripe Connect quick-access */}
+        <Pressable
+          testID="seller-stripe-connect-link"
+          onPress={() => router.push("/seller/stripe-connect")}
+          style={({ pressed }) => [styles.stripeBanner, pressed && { opacity: 0.9 }]}
+        >
+          <View style={styles.stripeIcon}>
+            <Banknote size={20} color="#635BFF" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.stripeBannerTitle}>Stripe payouts</Text>
+            <Text style={styles.stripeBannerSub}>
+              Connect or manage your bank account to receive earnings.
+            </Text>
+          </View>
+          <ChevronRight size={18} color={colors.textMuted} />
+        </Pressable>
+
         {/* Tier hero */}
         <View style={[styles.tierCard, { borderColor: tier.tier.color }]}>
           <View style={[styles.tierBadge, { backgroundColor: tier.tier.color }]}>
@@ -433,6 +452,27 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: 10,
   },
+  stripeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: radius.lg,
+    backgroundColor: "#F4F2FF",
+    borderWidth: 1,
+    borderColor: "#E0DCFF",
+    marginBottom: spacing.md,
+  },
+  stripeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stripeBannerTitle: { fontSize: 14, fontWeight: "800", color: "#1E1B4B" },
+  stripeBannerSub: { fontSize: 12, color: "#4338CA", marginTop: 2 },
   tierBadge: {
     flexDirection: "row",
     alignItems: "center",
