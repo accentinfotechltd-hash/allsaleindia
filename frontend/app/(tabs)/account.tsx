@@ -172,6 +172,13 @@ export default function Account() {
             subtitle="Refund if item not delivered"
           />
           <Row
+            icon={<MapPin size={18} color={colors.primary} />}
+            label="Saved addresses"
+            subtitle="Manage shipping addresses"
+            onPress={() => router.push("/account/addresses")}
+            testID="account-addresses-btn"
+          />
+          <Row
             icon={<ShieldCheck size={18} color={colors.primary} />}
             label="Two-factor authentication"
             subtitle="Email code at sign in for extra security"

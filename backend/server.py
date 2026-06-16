@@ -23,6 +23,7 @@ from fastapi.routing import APIRouter
 
 from db import client, db, ensure_indexes
 from routers import (
+    account_addresses,
     admin,
     admin_team,
     auth,
@@ -101,6 +102,7 @@ api.include_router(uploads.router)
 api.include_router(notifications.router)
 api.include_router(admin.router)
 api.include_router(admin_team.router)
+api.include_router(account_addresses.router)
 api.include_router(events.router)
 api.include_router(geo.router)
 api.include_router(health.router)
