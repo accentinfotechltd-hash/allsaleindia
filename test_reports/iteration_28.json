@@ -1,0 +1,35 @@
+{
+  "summary": "Backend-only verification of all P1 web-parity endpoints shipped on June 16, 2026. Created /app/backend/tests/test_june16_p1_parity.py with 38 tests covering email verification (canonical + 2 send aliases + 1 verify alias + 3 field-name aliases), account export, DELETE /auth/me soft-delete + token invalidation, REST aliases for orders/returns/reviews, recently-viewed (auth + anon, dedupe, clear), admin reviews moderation (rating range, has_photos, all 4 status values, RBAC), single-review GET, and the token_version login regression fix. ALL 38 TESTS PASSED on the public preview URL. No issues found in any of the new code paths.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_june16_p1_parity.py",
+    "/app/test_reports/pytest/iter28_june16_p1.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "auth.py DELETE /auth/me: the {'confirm':'DELETE'} check only fires when body.confirm is *non-empty*. An empty body (no JSON) sails through and deletes the account. Tested as test_delete_without_body_works and the API returns 200. This is permissive by design per current implementation but worth flagging if the product expects confirm to be mandatory.",
+    "returns.py account_return_detail() queries {'buyer_id': user['id']} but every other handler/document uses 'user_id'. As written this endpoint will always 404 because the field doesn't exist on return docs. Reference: /app/backend/routers/returns.py:366. Not in today's scope but adjacent to the alias work.",
+    "recommendations.py: GET /recommendations/recently-viewed filters out products where stock_count<=0. If a tracked product runs out of stock the user silently loses it from their rail — acceptable, but worth surfacing in the UI."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_june16_p1_parity.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (38/38)",
+    "frontend": "not_tested (out of scope)"
+  },
+  "seed_data_creation": "Each test self-registers TEST_p1_* users. Two were soft-deleted as part of the deletion test (idempotent — tombstoned emails are unique).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Reusable suite at /app/backend/tests/test_june16_p1_parity.py covers all June-16 P1 endpoints. It uses the public EXPO_PUBLIC_BACKEND_URL, reads JWT_SECRET/JWT_ALG from /app/backend/.env to mint a real verify-email token (the only way to test the happy path without inbox access), and depends on at least 2 products in the catalogue. Owner admin and verified-seller credentials in /app/memory/test_credentials.md are unchanged. Adjacent bug noticed but NOT in scope: returns.account_return_detail uses buyer_id instead of user_id.",
+  "rca_of_issue": "N/A — no issues found. The token_version login regression fix is confirmed working: after triggering /api/auth/forgot-password, a subsequent /api/auth/login still succeeds and the issued JWT works against /api/auth/me. The 5 call sites that needed updating (auth.py register/login/google_session/apple_session and auth_2fa.py) now all read user.get('token_version') or 0 before signing."
+}
