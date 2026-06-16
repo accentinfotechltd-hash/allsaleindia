@@ -16,10 +16,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 type DocSlot = "id_proof" | "business_proof";
 
 export default function SellerDocumentsScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const [idProof, setIdProof] = useState<string | null>(null);
   const [bizProof, setBizProof] = useState<string | null>(null);
@@ -40,11 +42,7 @@ export default function SellerDocumentsScreen() {
   const pick = useCallback(async (slot: DocSlot) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
-        "Permission needed",
-        "We need access to your photos to upload your documents.",
-        [{ text: "OK" }]
-      );
+      show({ title: "Permission needed", message: "We need access to your photos to upload your documents.", kind: "error" });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -63,14 +61,11 @@ export default function SellerDocumentsScreen() {
 
   const submit = useCallback(async () => {
     if (!idProof || !bizProof) {
-      Alert.alert("Both documents required", "Please upload your photo ID and business proof to continue.");
+      show({ title: "Both documents required", message: "Please upload your photo ID and business proof to continue.", kind: "error" });
       return;
     }
     if (!agreePolicy) {
-      Alert.alert(
-        "Seller Policy required",
-        "Please read and accept the Seller Policy, Payment Hold Policy, and Return Policy to submit.",
-      );
+      show({ title: "Seller Policy required", message: "Please read and accept the Seller Policy, Payment Hold Policy, and Return Policy to submit.", kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -93,7 +88,7 @@ export default function SellerDocumentsScreen() {
         ]
       );
     } catch (e: any) {
-      Alert.alert("Upload failed", e?.message || "Please try again.");
+      show({ title: "Upload failed", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setSubmitting(false);
     }

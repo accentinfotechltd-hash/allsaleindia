@@ -4,7 +4,6 @@ import { Camera, ChevronLeft, Image as ImageIcon, Plus, X } from "lucide-react-n
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -19,11 +18,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 const MAX_PHOTOS = 10;
 const DEFAULT_CATEGORIES = ["Ethnic Wear", "Home & Decor", "Spices & Tea", "Jewelry", "Beauty", "Electronics"];
 
 export default function NewListing() {
+  const { show } = useToast();
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -44,7 +45,7 @@ export default function NewListing() {
 
   const pickPhotos = async () => {
     if (photos.length >= MAX_PHOTOS) {
-      Alert.alert("Photo limit reached", `You can add up to ${MAX_PHOTOS} photos per listing.`);
+      show({ title: "Photo limit reached", message: `You can add up to ${MAX_PHOTOS} photos per listing.`, kind: "error" });
       return;
     }
     setPicking(true);
@@ -52,11 +53,7 @@ export default function NewListing() {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         if (!perm.canAskAgain) {
-          Alert.alert(
-            "Photos permission needed",
-            "Open Settings to allow photo access so you can upload product images.",
-            [{ text: "Cancel", style: "cancel" }],
-          );
+          show({ title: "Photos permission needed", message: "Open Settings to allow photo access so you can upload product images.", kind: "error" });
         }
         return;
       }
@@ -85,11 +82,11 @@ export default function NewListing() {
         } catch (e: any) {
           // Fall back to local data URI so the form is not dead-ended.
           setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
-          Alert.alert("Upload warning", e?.message || "Upload failed; using local copy.");
+          show({ title: "Upload warning", message: e?.message || "Upload failed; using local copy.", kind: "error" });
         }
       }
     } catch (e: any) {
-      Alert.alert("Couldn't open photos", e?.message || "Try again.");
+      show({ title: "Couldn't open photos", message: e?.message || "Try again.", kind: "error" });
     } finally {
       setPicking(false);
     }
@@ -119,10 +116,10 @@ export default function NewListing() {
         setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
       } catch (e: any) {
         setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
-        Alert.alert("Upload warning", e?.message || "Upload failed; using local copy.");
+        show({ title: "Upload warning", message: e?.message || "Upload failed; using local copy.", kind: "error" });
       }
     } catch (e: any) {
-      Alert.alert("Couldn't open camera", e?.message || "Try again.");
+      show({ title: "Couldn't open camera", message: e?.message || "Try again.", kind: "error" });
     } finally {
       setPicking(false);
     }

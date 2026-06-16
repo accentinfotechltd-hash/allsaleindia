@@ -26,6 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 const CATEGORIES = [
   { value: "payments", label: "Payments / Payouts" },
@@ -46,6 +47,7 @@ const PRIORITIES = [
 ];
 
 export default function NewTicketScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -56,12 +58,12 @@ export default function NewTicketScreen() {
 
   const pickAttachment = useCallback(async () => {
     if (attachments.length >= 4) {
-      Alert.alert("Limit reached", "You can attach up to 4 screenshots.");
+      show({ title: "Limit reached", message: "You can attach up to 4 screenshots.", kind: "error" });
       return;
     }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permission needed", "We need access to your photos to attach screenshots.");
+      show({ title: "Permission needed", message: "We need access to your photos to attach screenshots.", kind: "error" });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -79,7 +81,7 @@ export default function NewTicketScreen() {
       });
       setAttachments((cur) => [...cur, up.url]);
     } catch (e: any) {
-      Alert.alert("Upload failed", e?.message || "Try again.");
+      show({ title: "Upload failed", message: e?.message || "Try again.", kind: "error" });
     }
   }, [attachments.length]);
 
@@ -93,7 +95,7 @@ export default function NewTicketScreen() {
       return;
     }
     if (description.trim().length < 10) {
-      Alert.alert("Need more detail", "Please describe the issue with at least 10 characters.");
+      show({ title: "Need more detail", message: "Please describe the issue with at least 10 characters.", kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -110,7 +112,7 @@ export default function NewTicketScreen() {
       });
       router.replace(`/seller/support/${t.id}`);
     } catch (e: any) {
-      Alert.alert("Could not raise ticket", e?.message || "Please try again.");
+      show({ title: "Could not raise ticket", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setSubmitting(false);
     }

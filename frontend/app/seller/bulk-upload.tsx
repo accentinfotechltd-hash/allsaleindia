@@ -17,7 +17,6 @@ import {
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -30,6 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ORIGIN_URL, getAuthToken } from "@/src/lib/api";
 import { colors, formatNZD, radius, shadow, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 type PreviewRow = {
   row_number: number;
@@ -68,6 +68,7 @@ type ImportResult = {
 };
 
 export default function BulkUploadScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const [picking, setPicking] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -131,10 +132,10 @@ export default function BulkUploadScreen() {
             UTI: suggestedName.endsWith(".xlsx") ? "com.microsoft.excel.xlsx" : "public.comma-separated-values-text",
           });
         } else {
-          Alert.alert("Downloaded", `Saved to ${r.uri}`);
+          show({ title: "Downloaded", message: `Saved to ${r.uri}`, kind: "error" });
         }
       } catch (e: any) {
-        Alert.alert("Download failed", e?.message || "Could not download file.");
+        show({ title: "Download failed", message: e?.message || "Could not download file.", kind: "error" });
       }
     },
     [],
@@ -191,7 +192,7 @@ export default function BulkUploadScreen() {
         name: asset.name,
       });
     } catch (e: any) {
-      Alert.alert("ZIP upload failed", e?.message || "Please check your ZIP.");
+      show({ title: "ZIP upload failed", message: e?.message || "Please check your ZIP.", kind: "error" });
     } finally {
       setZipUploading(false);
     }
@@ -257,7 +258,7 @@ export default function BulkUploadScreen() {
       }
       setPreview(data as PreviewResponse);
     } catch (e: any) {
-      Alert.alert("Could not read file", e?.message || "Please check your file.");
+      show({ title: "Could not read file", message: e?.message || "Please check your file.", kind: "error" });
       setFileName(null);
     } finally {
       setUploading(false);
@@ -269,7 +270,7 @@ export default function BulkUploadScreen() {
     if (!preview) return;
     const validRows = preview.rows.filter((r) => r.ok).map((r) => r.data);
     if (validRows.length === 0) {
-      Alert.alert("Nothing to import", "All rows have errors. Please fix and try again.");
+      show({ title: "Nothing to import", message: "All rows have errors. Please fix and try again.", kind: "error" });
       return;
     }
     setImporting(true);
@@ -300,7 +301,7 @@ export default function BulkUploadScreen() {
       setResult(data as ImportResult);
       setPreview(null);
     } catch (e: any) {
-      Alert.alert("Import failed", e?.message || "Please try again.");
+      show({ title: "Import failed", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setImporting(false);
     }

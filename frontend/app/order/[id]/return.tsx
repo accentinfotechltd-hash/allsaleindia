@@ -16,7 +16,6 @@ import {
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -30,6 +29,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Order = {
@@ -80,6 +80,7 @@ const REASONS: { value: string; label: string; sub: string; sellerPays: boolean;
 export default function ReturnRequestScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { show } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -120,7 +121,7 @@ export default function ReturnRequestScreen() {
 
   const pickPhoto = useCallback(async () => {
     if (photos.length >= MAX_PHOTOS) {
-      Alert.alert("Limit reached", `You can attach up to ${MAX_PHOTOS} photos.`);
+      show({ title: "Limit reached", message: `You can attach up to ${MAX_PHOTOS} photos.`, kind: "error" });
       return;
     }
     // Request gallery permission first.
@@ -128,17 +129,11 @@ export default function ReturnRequestScreen() {
     if (!perm.granted && perm.canAskAgain) {
       const ask = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!ask.granted) {
-        Alert.alert(
-          "Photos access needed",
-          "Please allow photo library access in Settings to attach proof images.",
-        );
+        show({ title: "Photos access needed", message: "Please allow photo library access in Settings to attach proof images.", kind: "error" });
         return;
       }
     } else if (!perm.granted) {
-      Alert.alert(
-        "Photos access needed",
-        "Please allow photo library access in Settings to attach proof images.",
-      );
+      show({ title: "Photos access needed", message: "Please allow photo library access in Settings to attach proof images.", kind: "error" });
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -160,7 +155,7 @@ export default function ReturnRequestScreen() {
       });
       setPhotos((prev) => [...prev, uploaded.url]);
     } catch (e: any) {
-      Alert.alert("Couldn't upload photo", e?.message || "Please try again.");
+      show({ title: "Couldn't upload photo", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setUploadingPhoto(false);
     }
@@ -171,24 +166,18 @@ export default function ReturnRequestScreen() {
 
   const pickVideo = useCallback(async () => {
     if (videoUrl) {
-      Alert.alert("Only one video allowed", "Remove the current video to add a new one.");
+      show({ title: "Only one video allowed", message: "Remove the current video to add a new one.", kind: "error" });
       return;
     }
     const perm = await ImagePicker.getMediaLibraryPermissionsAsync();
     if (!perm.granted && perm.canAskAgain) {
       const ask = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!ask.granted) {
-        Alert.alert(
-          "Photos access needed",
-          "Please allow photo library access in Settings to attach a proof video.",
-        );
+        show({ title: "Photos access needed", message: "Please allow photo library access in Settings to attach a proof video.", kind: "error" });
         return;
       }
     } else if (!perm.granted) {
-      Alert.alert(
-        "Photos access needed",
-        "Please allow photo library access in Settings to attach a proof video.",
-      );
+      show({ title: "Photos access needed", message: "Please allow photo library access in Settings to attach a proof video.", kind: "error" });
       return;
     }
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -201,10 +190,7 @@ export default function ReturnRequestScreen() {
     if (res.canceled || !res.assets?.length) return;
     const asset = res.assets[0];
     if (asset.duration && asset.duration / 1000 > MAX_VIDEO_SECONDS + 2) {
-      Alert.alert(
-        "Video too long",
-        `Please keep proof clips under ${MAX_VIDEO_SECONDS} seconds.`,
-      );
+      show({ title: "Video too long", message: `Please keep proof clips under ${MAX_VIDEO_SECONDS} seconds.`, kind: "error" });
       return;
     }
     const dataUri = asset.base64
@@ -218,7 +204,7 @@ export default function ReturnRequestScreen() {
       });
       setVideoUrl(uploaded.url);
     } catch (e: any) {
-      Alert.alert("Couldn't upload video", e?.message || "Please try again.");
+      show({ title: "Couldn't upload video", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setUploadingVideo(false);
     }
@@ -227,16 +213,13 @@ export default function ReturnRequestScreen() {
   const submit = useCallback(async () => {
     if (!order || !reason) return;
     if (selectedIds.length === 0) {
-      Alert.alert("Select items", "Please select at least one item to return.");
+      show({ title: "Select items", message: "Please select at least one item to return.", kind: "error" });
       return;
     }
     // Photo proof is required for seller-paid reasons.
     const requiresProof = reason !== "changed_my_mind";
     if (requiresProof && photos.length === 0) {
-      Alert.alert(
-        "Photo proof required",
-        "Please attach at least one photo showing the issue with your item. This helps the seller approve your return faster.",
-      );
+      show({ title: "Photo proof required", message: "Please attach at least one photo showing the issue with your item. This helps the seller approve your return faster.", kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -252,13 +235,10 @@ export default function ReturnRequestScreen() {
           videos: videoUrl ? [videoUrl] : [],
         },
       });
-      Alert.alert(
-        "Return request submitted",
-        "The seller has 48 hours to respond. You'll be notified the moment they do.",
-        [{ text: "OK", onPress: () => router.back() }]
-      );
+      show({ title: "Return request submitted", message: "The seller has 48 hours to respond. You'll be notified the moment they do.", kind: "success" });
+      router.back();
     } catch (e: any) {
-      Alert.alert("Couldn't submit", e?.message || "Please try again.");
+      show({ title: "Couldn't submit", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setSubmitting(false);
     }

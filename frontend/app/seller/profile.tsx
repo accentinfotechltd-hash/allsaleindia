@@ -21,7 +21,6 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -79,6 +78,7 @@ type Settings = {
 };
 
 export default function SellerProfileScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,7 +96,7 @@ export default function SellerProfileScreen() {
       const s = await api<Settings>("/seller/profile/settings");
       setData(s);
     } catch (e: any) {
-      Alert.alert("Could not load settings", e?.message || "Please try again.");
+      show({ title: "Could not load settings", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -125,10 +125,7 @@ export default function SellerProfileScreen() {
     async (slot: "logo" | "banner") => {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert(
-          "Permission needed",
-          "We need access to your photos to upload your store images.",
-        );
+        show({ title: "Permission needed", message: "We need access to your photos to upload your store images.", kind: "error" });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -149,7 +146,7 @@ export default function SellerProfileScreen() {
         if (slot === "logo") set("store_logo_url", up.url);
         else set("store_banner_url", up.url);
       } catch (e: any) {
-        Alert.alert("Upload failed", e?.message || "Please try again.");
+        show({ title: "Upload failed", message: e?.message || "Please try again.", kind: "error" });
       }
     },
     [],
@@ -189,9 +186,9 @@ export default function SellerProfileScreen() {
       });
       setData(fresh);
       setBankAccountInput("");
-      Alert.alert("Saved", "Your store profile has been updated.");
+      show({ title: "Saved", message: "Your store profile has been updated.", kind: "error" });
     } catch (e: any) {
-      Alert.alert("Could not save", e?.message || "Please try again.");
+      show({ title: "Could not save", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setSaving(false);
     }
@@ -199,7 +196,7 @@ export default function SellerProfileScreen() {
 
   const changePassword = useCallback(async () => {
     if (!pwOld || pwNew.length < 8) {
-      Alert.alert("Check your input", "Enter your current password and a new password ≥ 8 chars with a number.");
+      show({ title: "Check your input", message: "Enter your current password and a new password ≥ 8 chars with a number.", kind: "error" });
       return;
     }
     setPwSaving(true);
@@ -211,9 +208,9 @@ export default function SellerProfileScreen() {
       await setToken(res.access_token);
       setPwOld("");
       setPwNew("");
-      Alert.alert("Password updated", "All other devices have been signed out.");
+      show({ title: "Password updated", message: "All other devices have been signed out.", kind: "error" });
     } catch (e: any) {
-      Alert.alert("Could not change password", e?.message || "Please try again.");
+      show({ title: "Could not change password", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setPwSaving(false);
     }

@@ -10,7 +10,6 @@ import {
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminUnauthorized, adminApi } from "@/src/lib/adminApi";
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 type Status = {
   sdk_installed: boolean;
@@ -32,6 +32,7 @@ type Status = {
 };
 
 export default function AdminEmailScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +48,7 @@ export default function AdminEmailScreen() {
       if (e instanceof AdminUnauthorized) {
         router.replace("/admin");
       } else {
-        Alert.alert("Failed", e?.message || "Try again.");
+        show({ title: "Failed", message: e?.message || "Try again.", kind: "error" });
       }
     } finally {
       setLoading(false);
@@ -62,7 +63,7 @@ export default function AdminEmailScreen() {
 
   const send = useCallback(async () => {
     if (!to.includes("@")) {
-      Alert.alert("Enter a valid email", "e.g. you@example.com");
+      show({ title: "Enter a valid email", message: "e.g. you@example.com", kind: "error" });
       return;
     }
     setSending(true);
@@ -72,15 +73,12 @@ export default function AdminEmailScreen() {
         { method: "POST", body: { to } },
       );
       if (r.sent) {
-        Alert.alert("✅ Sent!", `Resend ID: ${r.id || "—"}\nCheck the inbox of ${to}.`);
+        show({ title: "✅ Sent!", message: `Resend ID: ${r.id || "—"}\nCheck the inbox of ${to}.`, kind: "error" });
       } else if (r.skipped) {
-        Alert.alert(
-          "Skipped",
-          `Resend not ready: ${r.reason}\nCheck API key + from email.`,
-        );
+        show({ title: "Skipped", message: `Resend not ready: ${r.reason}\nCheck API key + from email.`, kind: "error" });
       }
     } catch (e: any) {
-      Alert.alert("Send failed", e?.message || "Try again.");
+      show({ title: "Send failed", message: e?.message || "Try again.", kind: "error" });
     } finally {
       setSending(false);
     }

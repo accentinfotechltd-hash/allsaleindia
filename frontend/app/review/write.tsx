@@ -20,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import StarRating from "@/src/components/StarRating";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Terrible",
@@ -32,6 +33,7 @@ const RATING_LABELS: Record<number, string> = {
 const MAX_PHOTOS = 6;
 
 export default function WriteReviewScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const { product_id, order_id, product_name, product_image } =
     useLocalSearchParams<{
@@ -49,7 +51,7 @@ export default function WriteReviewScreen() {
 
   useEffect(() => {
     if (!product_id || !order_id) {
-      Alert.alert("Missing info", "We couldn't load the review form.");
+      show({ title: "Missing info", message: "We couldn't load the review form.", kind: "error" });
       router.back();
     }
   }, [product_id, order_id]);
@@ -58,10 +60,7 @@ export default function WriteReviewScreen() {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (perm.status !== "granted") {
-        Alert.alert(
-          "Permission needed",
-          "Allow photo library access to attach review photos.",
-        );
+        show({ title: "Permission needed", message: "Allow photo library access to attach review photos.", kind: "error" });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -79,7 +78,7 @@ export default function WriteReviewScreen() {
         .filter((p): p is string => Boolean(p));
       setPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
     } catch (e: any) {
-      Alert.alert("Couldn't add photo", e?.message || "Please try again.");
+      show({ title: "Couldn't add photo", message: e?.message || "Please try again.", kind: "error" });
     }
   };
 
@@ -89,14 +88,11 @@ export default function WriteReviewScreen() {
 
   const submit = async () => {
     if (rating === 0) {
-      Alert.alert("Pick a rating", "Tap the stars to rate this product.");
+      show({ title: "Pick a rating", message: "Tap the stars to rate this product.", kind: "error" });
       return;
     }
     if (comment.trim().length < 5) {
-      Alert.alert(
-        "Tell us more",
-        "Please add a short comment (at least 5 characters) about your experience.",
-      );
+      show({ title: "Tell us more", message: "Please add a short comment (at least 5 characters) about your experience.", kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -116,7 +112,7 @@ export default function WriteReviewScreen() {
         { text: "OK", onPress: () => router.back() },
       ]);
     } catch (e: any) {
-      Alert.alert("Couldn't submit", e?.message || "Please try again.");
+      show({ title: "Couldn't submit", message: e?.message || "Please try again.", kind: "error" });
     } finally {
       setSubmitting(false);
     }

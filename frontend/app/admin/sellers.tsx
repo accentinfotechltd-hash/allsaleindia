@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 type PendingSeller = {
   user_id: string;
@@ -52,6 +53,7 @@ async function adminFetch<T>(
 }
 
 export default function AdminSellersScreen() {
+  const { show } = useToast();
   const router = useRouter();
   const [secret, setSecret] = useState("");
   const [sellers, setSellers] = useState<PendingSeller[] | null>(null);
@@ -68,7 +70,7 @@ export default function AdminSellersScreen() {
       );
       setSellers(data.sellers || []);
     } catch (e: any) {
-      Alert.alert("Failed", e.message);
+      show({ title: "Failed", message: e.message, kind: "error" });
       setSellers([]);
     } finally {
       setLoading(false);
@@ -87,9 +89,9 @@ export default function AdminSellersScreen() {
           method: "POST",
         });
         await refresh(secret);
-        Alert.alert("Approved", `${s.company_name || s.email} can now list products.`);
+        show({ title: "Approved", message: `${s.company_name || s.email} can now list products.`, kind: "error" });
       } catch (e: any) {
-        Alert.alert("Failed", e.message);
+        show({ title: "Failed", message: e.message, kind: "error" });
       } finally {
         setBusyId(null);
       }
@@ -111,9 +113,9 @@ export default function AdminSellersScreen() {
               body: { reason: reason.trim() },
             });
             await refresh(secret);
-            Alert.alert("Rejected", `Reason sent to ${s.company_name || s.email}.`);
+            show({ title: "Rejected", message: `Reason sent to ${s.company_name || s.email}.`, kind: "error" });
           } catch (e: any) {
-            Alert.alert("Failed", e.message);
+            show({ title: "Failed", message: e.message, kind: "error" });
           } finally {
             setBusyId(null);
           }
@@ -122,7 +124,7 @@ export default function AdminSellersScreen() {
       );
       // Fallback for Android (no Alert.prompt) — use a generic reason
       if (!(Alert as any).prompt) {
-        Alert.alert("Provide reason on iOS", "Web/Android prompt not supported here — please use the iOS Admin app for rejection with reason.");
+        show({ title: "Provide reason on iOS", message: "Web/Android prompt not supported here — please use the iOS Admin app for rejection with reason.", kind: "error" });
       }
     },
     [secret, refresh],

@@ -29,6 +29,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AdminUnauthorized, adminApi } from "@/src/lib/adminApi";
 import { colors, radius, spacing } from "@/src/lib/theme";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 type App = {
   id: string;
@@ -67,6 +68,7 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
 };
 
 export default function AdminFinancingDetail() {
+  const { show } = useToast();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [app, setApp] = useState<App | null>(null);
@@ -86,7 +88,7 @@ export default function AdminFinancingDetail() {
           { text: "OK", onPress: () => router.replace("/admin") },
         ]);
       } else {
-        Alert.alert("Failed to load", e?.message || "Try again.");
+        show({ title: "Failed to load", message: e?.message || "Try again.", kind: "error" });
       }
     } finally {
       setLoading(false);
@@ -114,7 +116,7 @@ export default function AdminFinancingDetail() {
         });
         setApp(fresh);
       } catch (e: any) {
-        Alert.alert("Update failed", e?.message || "Try again.");
+        show({ title: "Update failed", message: e?.message || "Try again.", kind: "error" });
       } finally {
         setSaving(false);
       }
@@ -131,16 +133,13 @@ export default function AdminFinancingDetail() {
         { method: "POST" },
       );
       setApp(fresh);
-      Alert.alert(
-        "Partner notified",
-        fresh.partner_notification_status === "sent"
+      show({ title: "Partner notified", message: fresh.partner_notification_status === "sent"
           ? "Partner received the application."
           : fresh.partner_notification_status === "skipped_no_channel"
           ? "No webhook/email configured for this partner."
-          : "Notification failed — see error details.",
-      );
+          : "Notification failed — see error details.", kind: "error" });
     } catch (e: any) {
-      Alert.alert("Failed", e?.message || "Try again.");
+      show({ title: "Failed", message: e?.message || "Try again.", kind: "error" });
     } finally {
       setSaving(false);
     }

@@ -3,7 +3,6 @@ import { ChevronLeft, Plus, Power, Trash2, X, Zap } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -37,6 +36,7 @@ type Sale = {
 type Product = { id: string; name: string; price_nzd: number };
 
 export default function SellerFlashSales() {
+  const { show } = useToast();
   const router = useRouter();
   const [items, setItems] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -53,7 +53,7 @@ export default function SellerFlashSales() {
       setItems(sales || []);
       setProducts((listings || []).map((p: any) => ({ id: p.id, name: p.name, price_nzd: p.price_nzd })));
     } catch (e: any) {
-      Alert.alert("Couldn't load", e?.message || "Try again.");
+      show({ title: "Couldn't load", message: e?.message || "Try again.", kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export default function SellerFlashSales() {
       });
       load();
     } catch (e: any) {
-      Alert.alert("Couldn't update", e?.message || "Try again.");
+      show({ title: "Couldn't update", message: e?.message || "Try again.", kind: "error" });
     }
   };
 
@@ -225,18 +225,18 @@ function CreateModal({
 
   const submit = async () => {
     if (!productId) {
-      Alert.alert("Pick a product", "Select which product to put on sale.");
+      show({ title: "Pick a product", message: "Select which product to put on sale.", kind: "error" });
       return;
     }
     const numPrice = parseFloat(price);
     const numDays = Math.max(1, Math.min(7, parseInt(days || "1", 10)));
     const numUnits = parseInt(unitsMax || "1", 10);
     if (!numPrice || numPrice <= 0) {
-      Alert.alert("Invalid price", "Sale price must be greater than 0.");
+      show({ title: "Invalid price", message: "Sale price must be greater than 0.", kind: "error" });
       return;
     }
     if (numUnits < 1) {
-      Alert.alert("Invalid units", "Max units must be at least 1.");
+      show({ title: "Invalid units", message: "Max units must be at least 1.", kind: "error" });
       return;
     }
     const from = new Date();
@@ -257,7 +257,7 @@ function CreateModal({
       });
       onCreated();
     } catch (e: any) {
-      Alert.alert("Couldn't create", e?.message || "Try a different price/duration.");
+      show({ title: "Couldn't create", message: e?.message || "Try a different price/duration.", kind: "error" });
     } finally {
       setBusy(false);
     }

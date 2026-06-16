@@ -3,7 +3,6 @@ import { ChevronLeft, Plus, Power, Tag, Trash2, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -44,6 +43,7 @@ const TYPES: { key: Coupon["type"]; label: string }[] = [
 ];
 
 export default function SellerCoupons() {
+  const { show } = useToast();
   const router = useRouter();
   const [items, setItems] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +55,7 @@ export default function SellerCoupons() {
       const list = await api<Coupon[]>("/seller/coupons");
       setItems(list || []);
     } catch (e: any) {
-      Alert.alert("Couldn't load coupons", e?.message || "Try again later.");
+      show({ title: "Couldn't load coupons", message: e?.message || "Try again later.", kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export default function SellerCoupons() {
       });
       load();
     } catch (e: any) {
-      Alert.alert("Couldn't update", e?.message || "Try again.");
+      show({ title: "Couldn't update", message: e?.message || "Try again.", kind: "error" });
     }
   };
 
@@ -246,20 +246,20 @@ function CreateCouponModal({
   const submit = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 3) {
-      Alert.alert("Code too short", "Code should be at least 3 characters.");
+      show({ title: "Code too short", message: "Code should be at least 3 characters.", kind: "error" });
       return;
     }
     if (description.trim().length < 3) {
-      Alert.alert("Add a description", "Customers see this on the offers page.");
+      show({ title: "Add a description", message: "Customers see this on the offers page.", kind: "error" });
       return;
     }
     const numVal = type === "free_shipping" ? 0 : parseFloat(value || "0");
     if (type === "percent" && !(numVal > 0 && numVal <= 90)) {
-      Alert.alert("Invalid value", "Percent must be 1-90.");
+      show({ title: "Invalid value", message: "Percent must be 1-90.", kind: "error" });
       return;
     }
     if (type === "fixed" && numVal <= 0) {
-      Alert.alert("Invalid value", "Amount must be greater than 0.");
+      show({ title: "Invalid value", message: "Amount must be greater than 0.", kind: "error" });
       return;
     }
     setBusy(true);
@@ -280,7 +280,7 @@ function CreateCouponModal({
       });
       onCreated();
     } catch (e: any) {
-      Alert.alert("Couldn't create", e?.message || "Try again.");
+      show({ title: "Couldn't create", message: e?.message || "Try again.", kind: "error" });
     } finally {
       setBusy(false);
     }

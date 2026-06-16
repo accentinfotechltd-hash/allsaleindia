@@ -82,7 +82,6 @@ export default function AdminFinancingList() {
         Alert.alert(
           "Admin login required",
           "Please unlock the admin dashboard.",
-          [{ text: "Go", onPress: () => router.replace("/admin") }],
         );
       } else {
         Alert.alert("Failed to load", e?.message || "Try again.");
