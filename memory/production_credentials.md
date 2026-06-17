@@ -40,7 +40,9 @@ Already configured in `backend/.env` — Emergent will pick it up automatically:
 
 - **Team ID**: `35MPYHX282`
 - **Bundle Identifier**: `com.allsale.shop` (matches `frontend/app.json` ios.bundleIdentifier and `backend/services/apple_auth.py` APPLE_AUDIENCE)
-- **Capabilities required on the App ID**: ✅ Sign in with Apple (checkbox only — no Service ID / no .p8 key needed for native iOS flow)
+- **App ID Description**: Allsale Indian Bazaar
+- **App ID Registered**: ✅ COMPLETE (17 Jun 2026)
+- **Sign in with Apple capability**: ✅ ENABLED on App ID
 - **Apple ID email (for Publish flow)**: _provided by user at iOS build time_
 - **App-specific password**: _generated at appleid.apple.com → Sign-In and Security → App-Specific Passwords_
 

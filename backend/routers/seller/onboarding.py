@@ -162,4 +162,16 @@ async def seller_me(current=Depends(get_current_user)):
     profile = await db.sellers.find_one({"user_id": current["id"]}, {"_id": 0})
     if not profile:
         raise HTTPException(status_code=404, detail="Seller profile not found")
+    # Defensive: settings-only writes (e.g. vacation toggle for a seller who
+    # hasn't yet completed full onboarding) can leave the doc without every
+    # field the SellerProfile schema marks required.  Pad with safe empty
+    # strings so this endpoint never 500s — the actual onboarding flow still
+    # demands real values via SellerRegister.
+    for required_field in (
+        "business_type", "company_name", "pan",
+        "address_line1", "city", "state", "pincode",
+        "contact_name", "contact_phone",
+    ):
+        profile.setdefault(required_field, "")
+    profile.setdefault("verification_status", current.get("seller_verification_status") or "pending_review")
     return SellerProfile(**profile)
