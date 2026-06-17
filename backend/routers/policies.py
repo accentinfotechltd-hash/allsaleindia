@@ -510,6 +510,11 @@ async def get_policy(slug: str):
         "seller-terms": "seller",
         "cookie-policy": "cookies",
         "cookie": "cookies",
+        # Friendly aliases requested by the web frontend
+        "refunds": "return",
+        "refund-policy": "return",
+        "shipping": "return",        # shipping content is bundled into return
+        "shipping-policy": "return",
     }
     key = aliases.get(key, key)
     policy = POLICIES.get(key)

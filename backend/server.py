@@ -43,6 +43,7 @@ from routers import (
     flash_sales,
     geo,
     health,
+    invoices,
     notifications,
     orders,
     points,
@@ -93,6 +94,7 @@ api.include_router(seller.router)
 api.include_router(size_guide.router)
 api.include_router(bulk_listings.router)
 api.include_router(orders.router)
+api.include_router(invoices.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)

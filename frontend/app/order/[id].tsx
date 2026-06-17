@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
 import * as Linking from "expo-linking";
-import { ChevronLeft, ExternalLink, MapPin, Package, PenSquare, RefreshCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
+import * as Sharing from "expo-sharing";
+import { ChevronLeft, ExternalLink, FileText, MapPin, Package, PenSquare, RefreshCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -17,7 +19,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { api } from "@/src/lib/api";
+import { api, getAuthToken } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
@@ -109,6 +111,7 @@ export default function OrderDetail() {
   const [showCancel, setShowCancel] = useState(false);
   const [reason, setReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -141,6 +144,51 @@ export default function OrderDetail() {
   }, [load]);
 
   const { ms: msLeft, label: countdown } = useCountdown(order?.cancellable_until);
+
+  const downloadInvoice = useCallback(async () => {
+    if (!order || downloadingInvoice) return;
+    setDownloadingInvoice(true);
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error("Please sign in again.");
+      const base = process.env.EXPO_PUBLIC_BACKEND_URL as string;
+      const url = `${base}/api/orders/${order.id}/invoice.pdf`;
+      const shortId = order.id.replace("order_", "").slice(0, 8).toUpperCase();
+      const fileUri = `${FileSystem.cacheDirectory}allsale-invoice-${shortId}.pdf`;
+
+      const dl = await FileSystem.downloadAsync(url, fileUri, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (dl.status !== 200) {
+        throw new Error(`Server returned ${dl.status}`);
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(dl.uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `Allsale invoice ${shortId}`,
+          UTI: "com.adobe.pdf",
+        });
+      } else {
+        // Web fallback — just open in a new tab
+        await Linking.openURL(dl.uri);
+      }
+      toast.show({
+        title: "Invoice ready",
+        body: `Saved as allsale-invoice-${shortId}.pdf`,
+        kind: "success",
+      });
+    } catch (e: any) {
+      toast.show({
+        title: "Couldn't download invoice",
+        body: e?.message || "Please try again in a moment.",
+        kind: "error",
+      });
+    } finally {
+      setDownloadingInvoice(false);
+    }
+  }, [order, downloadingInvoice, toast]);
 
   const canCancel = useMemo(() => {
     if (!order) return false;
@@ -483,9 +531,32 @@ export default function OrderDetail() {
           <Line label="Total (NZD)" value={formatNZD(order.total_nzd)} bold />
         </View>
 
+        {/* Invoice download — only after payment clears */}
+        {order.payment_status === "paid" ? (
+          <Pressable
+            testID="order-download-invoice"
+            disabled={downloadingInvoice}
+            onPress={downloadInvoice}
+            style={({ pressed }) => [
+              styles.invoiceBtn,
+              pressed && { opacity: 0.85 },
+              downloadingInvoice && { opacity: 0.55 },
+            ]}
+          >
+            {downloadingInvoice ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <FileText size={16} color={colors.primary} />
+            )}
+            <Text style={styles.invoiceBtnText}>
+              {downloadingInvoice ? "Generating invoice…" : "Download invoice (PDF)"}
+            </Text>
+          </Pressable>
+        ) : null}
+
         <Pressable
           testID="order-cancel-policy-link"
-          onPress={() => router.push("/help/cancellation-policy")}
+          onPress={() => router.push("/legal/cancellation")}
           style={{ marginTop: spacing.md, alignSelf: "center" }}
         >
           <Text style={styles.policyLink}>Read cancellation & return policies</Text>
@@ -836,6 +907,24 @@ const styles = StyleSheet.create({
   lineBold: { fontSize: 16, fontWeight: "800", color: colors.text },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
   policyLink: { color: colors.primary, fontWeight: "700", fontSize: 12 },
+  invoiceBtn: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: "#fff",
+  },
+  invoiceBtnText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
   modalRoot: { flex: 1, justifyContent: "flex-end" },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
   modalCard: {
