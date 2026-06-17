@@ -35,6 +35,27 @@ Already configured in `backend/.env` — Emergent will pick it up automatically:
 - Frankfurter FX (LIVE, no key needed)
 - Emergent Google OAuth (LIVE, managed)
 
+
+## Apple Developer Program (iOS Build & Sign in with Apple)
+
+- **Team ID**: `35MPYHX282`
+- **Bundle Identifier**: `com.allsale.shop` (matches `frontend/app.json` ios.bundleIdentifier and `backend/services/apple_auth.py` APPLE_AUDIENCE)
+- **Capabilities required on the App ID**: ✅ Sign in with Apple (checkbox only — no Service ID / no .p8 key needed for native iOS flow)
+- **Apple ID email (for Publish flow)**: _provided by user at iOS build time_
+- **App-specific password**: _generated at appleid.apple.com → Sign-In and Security → App-Specific Passwords_
+
+### When clicking Publish for iOS build in Emergent
+Emergent will ask for:
+1. Apple ID email + app-specific password
+2. Team ID: `35MPYHX282`
+3. Bundle Identifier: `com.allsale.shop`
+Emergent handles distribution certificate, provisioning profile, and Apple Sign-In entitlement automatically.
+
+### NOT needed (yet)
+- ❌ Service ID — only for **web** Sign in with Apple
+- ❌ `.p8` private key + Key ID — only for **server-to-server** token refresh / account revocation
+- ❌ Push notification key — push not enabled
+
 ## After successful deployment
 
 - [ ] Rotate `allsale_admin` Atlas password (it was shared in chat → rotate as precaution)
