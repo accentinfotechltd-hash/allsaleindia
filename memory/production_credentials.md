@@ -39,12 +39,33 @@ Already configured in `backend/.env` — Emergent will pick it up automatically:
 ## Apple Developer Program (iOS Build & Sign in with Apple)
 
 - **Team ID**: `35MPYHX282`
-- **Bundle Identifier**: `com.allsale.shop` (matches `frontend/app.json` ios.bundleIdentifier and `backend/services/apple_auth.py` APPLE_AUDIENCE)
+- **Primary App ID**: `com.allsale.shop` (iOS native flow — ✅ registered + Sign in with Apple capability enabled)
+- **Service ID**: `com.allsale.shop.signin` (web OIDC flow — registration pending)
 - **App ID Description**: Allsale Indian Bazaar
-- **App ID Registered**: ✅ COMPLETE (17 Jun 2026)
-- **Sign in with Apple capability**: ✅ ENABLED on App ID
+- **Sign in with Apple Key (`.p8`)**: pending (optional — needed for server-to-server token revocation only)
 - **Apple ID email (for Publish flow)**: _provided by user at iOS build time_
-- **App-specific password**: _generated at appleid.apple.com → Sign-In and Security → App-Specific Passwords_
+
+### Web Sign in with Apple — Service ID configuration (per web agent)
+
+**Service ID identifier**: `com.allsale.shop.signin`
+
+**Domains and Subdomains** (paste each on its own line in Apple form):
+```
+shop.allsale.co.nz
+allsale-store.preview.emergentagent.com
+```
+
+**Return URLs** (paste each on its own line in Apple form):
+```
+https://shop.allsale.co.nz/auth/apple-callback
+https://allsale-store.preview.emergentagent.com/auth/apple-callback
+```
+
+**Primary App ID** (selected from dropdown): `com.allsale.shop`
+
+### Backend integration
+- `POST /api/auth/apple-session` verifies RS256 identity_token against Apple JWKS
+- `APPLE_AUDIENCE` env covers BOTH `com.allsale.shop` (iOS) AND `com.allsale.shop.signin` (web) — confirm in backend `.env` once Service ID is live
 
 ### When clicking Publish for iOS build in Emergent
 Emergent will ask for:

@@ -23,7 +23,15 @@ logger = logging.getLogger("allsale.apple_auth")
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUER = "https://appleid.apple.com"
-APPLE_AUDIENCE = "com.allsale.shop"  # must match ios.bundleIdentifier
+# Allowed audiences (Apple `aud` claim).  Add new ones here when we register
+# additional Service IDs (e.g. a separate Service ID per regional domain).
+#   • com.allsale.shop          — iOS native flow (App ID)
+#   • com.allsale.shop.signin   — web OIDC popup flow (Service ID)
+APPLE_AUDIENCE = "com.allsale.shop"  # kept for back-compat / legacy imports
+ALLOWED_APPLE_AUDIENCES: tuple[str, ...] = (
+    "com.allsale.shop",
+    "com.allsale.shop.signin",
+)
 JWKS_CACHE_SECONDS = 3600  # 1 hour
 
 _keys_by_kid: Dict[str, Any] = {}
@@ -88,7 +96,8 @@ async def verify_apple_identity_token(identity_token: str) -> Dict[str, Any]:
             identity_token,
             key,
             algorithms=["RS256"],
-            audience=APPLE_AUDIENCE,
+            # jose accepts a list — token's `aud` must match ANY of these
+            audience=list(ALLOWED_APPLE_AUDIENCES),
             issuer=APPLE_ISSUER,
             options={"verify_at_hash": False},
         )
