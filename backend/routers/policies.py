@@ -392,6 +392,44 @@ POLICIES: dict = {
              "paragraph": "Items refused at NZ customs are destroyed or returned to sender at the buyer's expense. Allsale will refund the product price (minus inspection and return fees) but cannot refund shipping. Repeat offenders may have their accounts suspended."},
         ],
     },
+    # -----------------------------------------------------------------------
+    "cookies": {
+        "title": "Cookie Policy",
+        "description": "What cookies and similar technologies Allsale uses, and how to control them.",
+        "intro": "Allsale uses cookies and similar local-storage technologies to keep you signed in, remember your cart, and understand how the site is used. This page explains what we use and why.",
+        "contact_email": SUPPORT_EMAIL,
+        "sections": [
+            {"heading": "What is a cookie?",
+             "paragraph": "A cookie is a small text file that a website stores in your browser. On the Allsale mobile app we use the platform-native secure storage (Keychain/Keystore) instead — same purpose, more secure. We refer to both as 'cookies' in this policy for simplicity."},
+            {"heading": "Cookies we use", "bullets": [
+                "Essential — login session token, cart contents, region/currency preference. These cannot be disabled without breaking the app.",
+                "Functional — your wishlist, recently-viewed products, language preference.",
+                "Analytics (anonymised) — page views, click paths, error logs. We use these to improve the product. No third-party ad tracking.",
+                "Stripe payment cookies — set by Stripe-hosted Checkout when you pay. Governed by Stripe's own cookie policy.",
+                "Cloudinary image-CDN cookies — used to serve product images efficiently.",
+            ]},
+            {"heading": "Third-party cookies", "bullets": [
+                "We do NOT use advertising or remarketing cookies.",
+                "We do NOT share cookie data with Facebook, Google Ads, TikTok or any ad network.",
+                "Stripe and Cloudinary may set their own essential cookies when you interact with payment/image features — see their respective policies.",
+            ]},
+            {"heading": "How long cookies last", "bullets": [
+                "Session cookies — deleted when you sign out or close the app.",
+                "Persistent cookies (e.g. 'remember me') — up to 30 days.",
+                "Analytics cookies — up to 12 months, anonymised after 90 days.",
+            ]},
+            {"heading": "How to control cookies", "bullets": [
+                "Mobile app — sign out from Account → Sign out to clear session data.",
+                "Web — clear your browser's site data for shop.allsale.co.nz (Settings → Privacy → Cookies → Site data).",
+                "Opt out of analytics — Account → Privacy & data → Disable analytics. Essential cookies remain on so the app keeps working.",
+                "Do Not Track — we honour the browser's DNT signal where it's set.",
+            ]},
+            {"heading": "Children",
+             "paragraph": "Allsale is not intended for users under 16 and we don't knowingly set cookies for children. If you believe a minor has used the app, email " + SUPPORT_EMAIL + " and we'll delete the data."},
+            {"heading": "Updates",
+             "paragraph": "We'll update this policy as we add or remove cookies. Material changes are surfaced in-app the next time you open it. Continued use = acceptance."},
+        ],
+    },
 }
 
 
@@ -422,7 +460,7 @@ def _to_markdown(policy: dict) -> str:
             for b in sec["bullets"]:
                 out.append(f"- {b}")
             out.append("")
-    out.append(f"---")
+    out.append("---")
     out.append(f"Questions? Email **{policy['contact_email']}**.")
     return "\n".join(out).rstrip() + "\n"
 
@@ -467,6 +505,11 @@ async def get_policy(slug: str):
         "sellers": "seller",
         "prohibited-items": "prohibited",
         "prohibited-list": "prohibited",
+        # Web-agent compatibility aliases
+        "seller-agreement": "seller",
+        "seller-terms": "seller",
+        "cookie-policy": "cookies",
+        "cookie": "cookies",
     }
     key = aliases.get(key, key)
     policy = POLICIES.get(key)
