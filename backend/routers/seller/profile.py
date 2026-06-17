@@ -272,7 +272,15 @@ async def update_settings(
         )
 
     await db.sellers.update_one(
-        {"user_id": current["id"]}, {"$set": updates}, upsert=False
+        {"user_id": current["id"]},
+        {
+            "$set": updates,
+            "$setOnInsert": {
+                "user_id": current["id"],
+                "created_at": now_utc(),
+            },
+        },
+        upsert=True,
     )
 
     fresh_user = await db.users.find_one({"id": current["id"]}, {"_id": 0}) or current
