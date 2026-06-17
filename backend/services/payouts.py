@@ -14,7 +14,7 @@ import uuid
 from datetime import timedelta
 from typing import Optional
 
-from config import PLATFORM_COMMISSION
+from config import PLATFORM_COMMISSION  # noqa: F401  — kept for legacy callers
 from db import db
 from utils import now_utc
 
@@ -23,6 +23,7 @@ from services.seller_tier import (
     compute_seller_metrics,
     pick_tier,
 )
+from services.stripe_connect_svc import get_commission_bps_for_product
 
 
 async def _tier_for(seller_id: str):
@@ -48,20 +49,31 @@ async def create_payouts_for_order(order_id: str) -> None:
         sid = it.get("seller_id")
         if not sid:
             continue
+        # Resolve tiered commission rate for this specific product (8/12/15%
+        # by category — matches what Stripe Connect actually charged via
+        # application_fee_amount at checkout).
+        prod = await db.products.find_one(
+            {"id": it["product_id"]}, {"_id": 0, "category": 1, "tags": 1}
+        )
+        bps = get_commission_bps_for_product(prod)
+        line_gross = float(it["price_nzd"]) * int(it["quantity"])
+        line_commission = round(line_gross * bps / 10000.0, 2)
         bucket = by_seller.setdefault(
             sid,
             {
                 "seller_name": it.get("seller_name") or "Seller",
                 "items_count": 0,
                 "gross": 0.0,
+                "commission": 0.0,
             },
         )
         bucket["items_count"] += int(it["quantity"])
-        bucket["gross"] += float(it["price_nzd"]) * int(it["quantity"])
+        bucket["gross"] += line_gross
+        bucket["commission"] += line_commission
     docs = []
     for sid, agg in by_seller.items():
         gross = round(agg["gross"], 2)
-        commission = round(gross * PLATFORM_COMMISSION, 2)
+        commission = round(agg["commission"], 2)
         net = round(gross - commission, 2)
         tier = await _tier_for(sid)
         reserve = round(net * tier.reserve_pct, 2)
