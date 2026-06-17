@@ -278,6 +278,9 @@ async def update_settings(
             "$setOnInsert": {
                 "user_id": current["id"],
                 "created_at": now_utc(),
+                "contact_phone": current.get("phone") or "",
+                "verification_status": current.get("seller_verification_status") or "pending_review",
+                "submitted_at": now_utc(),
             },
         },
         upsert=True,

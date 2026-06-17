@@ -393,6 +393,15 @@ export default function AdminDashboard() {
           <Text style={styles.reviewBtnText}>Commission analytics</Text>
         </Pressable>
 
+        <Pressable
+          testID="admin-audit-btn"
+          onPress={() => router.push("/admin/audit-log")}
+          style={({ pressed }) => [styles.auditBtn, pressed && { opacity: 0.85 }]}
+        >
+          <ShieldAlert size={18} color="#fff" />
+          <Text style={styles.reviewBtnText}>Audit log</Text>
+        </Pressable>
+
         <Text style={styles.section}>{t("admin.sellers_count", { count: sellers.length })}</Text>
         {sellers.slice(0, 10).map((s) => (
           <View key={s.id} style={styles.row}>
@@ -494,5 +503,6 @@ const styles = StyleSheet.create({
   teamBtn: { marginTop: spacing.sm, backgroundColor: "#F97316", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   reviewsBtn: { marginTop: spacing.sm, backgroundColor: "#8B5CF6", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   commissionBtn: { marginTop: spacing.sm, backgroundColor: "#10B981", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
+  auditBtn: { marginTop: spacing.sm, backgroundColor: "#475569", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   analyticsBtn: { marginTop: spacing.sm, backgroundColor: "#0F172A", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
 });
