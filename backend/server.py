@@ -56,6 +56,7 @@ from routers import (
     seller,
     shiprocket,
     shipping,
+    site,
     size_guide,
     stripe_connect,
     support,
@@ -95,6 +96,7 @@ api.include_router(size_guide.router)
 api.include_router(bulk_listings.router)
 api.include_router(orders.router)
 api.include_router(invoices.router)
+api.include_router(site.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
