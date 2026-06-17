@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, Plus, RefreshCcw, Settings, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, PiggyBank, Plus, RefreshCcw, Settings, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -136,6 +136,17 @@ export default function SellerDashboard() {
                   </View>
                   <Text style={styles.quickTitle}>{t("seller.payouts")}</Text>
                   <Text style={styles.quickSubtitle}>{t("seller.payouts_sub")}</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-earnings-link"
+                  onPress={() => router.push("/seller/earnings")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <PiggyBank size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Earnings</Text>
+                  <Text style={styles.quickSubtitle}>Gross · commission · net</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-returns-link"

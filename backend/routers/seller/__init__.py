@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from . import analytics, listings, onboarding, orders, profile
+from . import analytics, earnings, listings, onboarding, orders, profile
 
 router = APIRouter()
 router.include_router(onboarding.router)
@@ -23,5 +23,7 @@ router.include_router(listings.router)
 router.include_router(orders.router)
 router.include_router(analytics.router)
 router.include_router(profile.router)
+router.include_router(earnings.router)
 
-__all__ = ["router", "onboarding", "listings", "orders", "analytics", "profile"]
+__all__ = ["router", "onboarding", "listings", "orders", "analytics",
+           "profile", "earnings"]

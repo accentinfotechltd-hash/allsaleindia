@@ -2,6 +2,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   Award,
   Banknote,
+  BarChart3,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
@@ -148,6 +149,24 @@ export default function SellerPayoutsScreen() {
           />
         }
       >
+        {/* Earnings dashboard quick-access — NEW */}
+        <Pressable
+          testID="seller-earnings-link"
+          onPress={() => router.push("/seller/earnings")}
+          style={({ pressed }) => [styles.stripeBanner, pressed && { opacity: 0.9 }]}
+        >
+          <View style={[styles.stripeIcon, { backgroundColor: "#ede9fe" }]}>
+            <BarChart3 size={20} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.stripeBannerTitle}>Earnings analytics</Text>
+            <Text style={styles.stripeBannerSub}>
+              Track gross, commission &amp; net by period and category.
+            </Text>
+          </View>
+          <ChevronRight size={18} color={colors.textMuted} />
+        </Pressable>
+
         {/* Stripe Connect quick-access */}
         <Pressable
           testID="seller-stripe-connect-link"
