@@ -133,15 +133,15 @@ export default function Register() {
             </View>
             <Text style={styles.agreeText}>
               I agree to Allsale&apos;s{" "}
-              <Link href="/help/terms-conditions" asChild>
+              <Link href="/legal/terms" asChild>
                 <Text style={styles.agreeLink}>Terms of Service</Text>
               </Link>
               {", "}
-              <Link href="/help/privacy-policy" asChild>
+              <Link href="/legal/privacy" asChild>
                 <Text style={styles.agreeLink}>Privacy Policy</Text>
               </Link>
               {" and "}
-              <Link href="/help/return-policy" asChild>
+              <Link href="/legal/return" asChild>
                 <Text style={styles.agreeLink}>Return Policy</Text>
               </Link>
               .
