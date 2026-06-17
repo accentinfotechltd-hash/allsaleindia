@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from db import db
 from deps import get_current_user
@@ -39,41 +39,72 @@ router = APIRouter(prefix="/account", tags=["account-addresses"])
 # ---------------------------------------------------------------------------
 COUNTRIES_2 = re_compile = None  # avoid bringing `re` into module ns
 
+# ISO-3166-1 alpha-2 → full name (matches checkout schema's `country` strings)
+# Bi-directional so we can accept EITHER form and normalise to ISO-2.
+COUNTRY_NAME_TO_ISO = {
+    "new zealand": "NZ", "australia": "AU", "united states": "US",
+    "usa": "US", "united kingdom": "GB", "uk": "GB",
+    "great britain": "GB", "canada": "CA", "india": "IN",
+}
+
+
+def _normalise_country(v: Optional[str]) -> Optional[str]:
+    if not v:
+        return v
+    v = v.strip()
+    if len(v) == 2:
+        return v.upper()
+    return COUNTRY_NAME_TO_ISO.get(v.lower(), v[:2].upper())
+
 
 class AddressIn(BaseModel):
+    # Accept BOTH `postal_code` (canonical) AND `postcode` (used by checkout)
+    # as input.  Output is always `postal_code` for consistency.
+    model_config = ConfigDict(populate_by_name=True)
+
     label: str = Field(..., min_length=1, max_length=60)
     full_name: str = Field(..., min_length=1, max_length=120)
     phone: Optional[str] = Field(default=None, max_length=40)
     line1: str = Field(..., min_length=1, max_length=200)
     line2: Optional[str] = Field(default=None, max_length=200)
     city: str = Field(..., min_length=1, max_length=100)
-    state: Optional[str] = Field(default=None, max_length=100)
-    postal_code: str = Field(..., min_length=1, max_length=20)
-    country: str = Field(..., min_length=2, max_length=2, description="ISO-3166-1 alpha-2")
+    state: Optional[str] = Field(default=None, max_length=100, validation_alias="region")
+    postal_code: str = Field(..., min_length=1, max_length=20, validation_alias="postcode")
+    country: str = Field(..., min_length=2, max_length=60, description="ISO-3166-1 alpha-2 OR full country name — normalised to ISO-2")
     is_default: bool = False
 
     @field_validator("country")
     @classmethod
     def _upper_iso(cls, v: str) -> str:
-        return v.upper().strip()
+        out = _normalise_country(v)
+        if not out or len(out) != 2:
+            raise ValueError("country must be ISO-3166-1 alpha-2 (e.g. NZ) or a recognised full name")
+        return out
 
 
 class AddressUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     label: Optional[str] = Field(default=None, min_length=1, max_length=60)
     full_name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     phone: Optional[str] = Field(default=None, max_length=40)
     line1: Optional[str] = Field(default=None, min_length=1, max_length=200)
     line2: Optional[str] = Field(default=None, max_length=200)
     city: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    state: Optional[str] = Field(default=None, max_length=100)
-    postal_code: Optional[str] = Field(default=None, min_length=1, max_length=20)
-    country: Optional[str] = Field(default=None, min_length=2, max_length=2)
+    state: Optional[str] = Field(default=None, max_length=100, validation_alias="region")
+    postal_code: Optional[str] = Field(default=None, min_length=1, max_length=20, validation_alias="postcode")
+    country: Optional[str] = Field(default=None, min_length=2, max_length=60)
     is_default: Optional[bool] = None
 
     @field_validator("country")
     @classmethod
     def _upper_iso(cls, v: Optional[str]) -> Optional[str]:
-        return v.upper().strip() if v else v
+        if v is None:
+            return v
+        out = _normalise_country(v)
+        if not out or len(out) != 2:
+            raise ValueError("country must be ISO-3166-1 alpha-2 or full name")
+        return out
 
 
 # ---------------------------------------------------------------------------
