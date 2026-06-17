@@ -3,7 +3,6 @@ import { ChevronLeft, Lock, Send, Star, X as XIcon } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -75,7 +74,7 @@ export default function TicketDetailScreen() {
       setDetail(d);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 50);
     } catch (e: any) {
-      Alert.alert("Could not load ticket", e?.message || "Please try again.");
+      toast.show({ title: "Could not load ticket", body: e?.message || "Please try again.", kind: "success" });
     } finally {
       setLoading(false);
     }
@@ -110,7 +109,7 @@ export default function TicketDetailScreen() {
       setReply("");
       await load();
     } catch (e: any) {
-      Alert.alert("Could not send", e?.message || "Try again.");
+      toast.show({ title: "Could not send", body: e?.message || "Try again.", kind: "success" });
     } finally {
       setSending(false);
     }
@@ -127,7 +126,7 @@ export default function TicketDetailScreen() {
       setRatingOpen(false);
       await load();
     } catch (e: any) {
-      Alert.alert("Could not submit rating", e?.message || "Try again.");
+      toast.show({ title: "Could not submit rating", body: e?.message || "Try again.", kind: "success" });
     } finally {
       setRatingSaving(false);
     }

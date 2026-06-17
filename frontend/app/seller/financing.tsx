@@ -1,4 +1,5 @@
 import * as Linking from "expo-linking";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { useFocusEffect, useRouter } from "expo-router";
 import {
   AlertTriangle,
@@ -17,7 +18,6 @@ import {
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -74,6 +74,7 @@ const STATUS_LABEL: Record<string, { bg: string; fg: string; label: string }> = 
 };
 
 export default function FinancingScreen() {
+  const toast = useToast();
   const router = useRouter();
   const [data, setData] = useState<PartnersResp | null>(null);
   const [apps, setApps] = useState<Application[]>([]);
@@ -108,7 +109,7 @@ export default function FinancingScreen() {
 
   const openApply = (p: Partner) => {
     if (!data?.eligibility.eligible) {
-      Alert.alert("Not eligible yet", data?.eligibility.reason || "Reach Verified tier first.");
+      toast.show({ title: "Not eligible yet", body: data?.eligibility.reason || "Reach Verified tier first.", kind: "success" });
       return;
     }
     setSelected(p);
@@ -122,7 +123,7 @@ export default function FinancingScreen() {
     if (!selected) return;
     const amount = parseFloat(advance);
     if (!amount || amount < 100) {
-      Alert.alert("Enter advance amount", "Please enter at least NZD 100.");
+      toast.show({ title: "Enter advance amount", body: "Please enter at least NZD 100.", kind: "success" });
       return;
     }
     setSubmitting(true);
@@ -139,12 +140,13 @@ export default function FinancingScreen() {
       });
       setSelected(null);
       await load();
-      Alert.alert(
-        "Interest noted",
-        `${selected.name} will be in touch within ${selected.turnaround_hours}h. We've also notified Allsale support.`,
-      );
+      toast.show({
+        title: "Interest noted",
+        body: `${selected.name} will be in touch within ${selected.turnaround_hours}h. We've also notified Allsale support.`,
+        kind: "success",
+      });
     } catch (e: any) {
-      Alert.alert("Could not apply", e?.message || "Please try again.");
+      toast.show({ title: "Could not apply", body: e?.message || "Please try again.", kind: "error" });
     } finally {
       setSubmitting(false);
     }

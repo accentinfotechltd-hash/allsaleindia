@@ -77,16 +77,12 @@ export default function SellerDocumentsScreen() {
           business_proof_url: bizProof,
         },
       });
-      Alert.alert(
-        "Documents submitted ✓",
-        "Your application is under review. We'll respond within 7 business days.",
-        [
-          {
-            text: "OK",
-            onPress: () => router.replace("/seller/dashboard"),
-          },
-        ]
-      );
+      toast.show({
+        title: "Documents submitted ✓",
+        body: "Your application is under review. We'll respond within 7 business days.",
+        kind: "success",
+      });
+      router.replace("/seller/dashboard");
     } catch (e: any) {
       show({ title: "Upload failed", message: e?.message || "Please try again.", kind: "error" });
     } finally {

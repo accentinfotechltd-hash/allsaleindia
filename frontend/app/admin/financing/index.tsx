@@ -1,4 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,7 +11,6 @@ import {
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Pressable,
   ScrollView,
@@ -61,6 +61,7 @@ const PARTNERS = [
 ];
 
 export default function AdminFinancingList() {
+  const toast = useToast();
   const router = useRouter();
   const [items, setItems] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,7 +85,7 @@ export default function AdminFinancingList() {
           "Please unlock the admin dashboard.",
         );
       } else {
-        Alert.alert("Failed to load", e?.message || "Try again.");
+        toast.show({ title: "Failed to load", body: e?.message || "Try again.", kind: "error" });
       }
     } finally {
       setLoading(false);

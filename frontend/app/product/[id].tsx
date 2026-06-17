@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, Globe2, PackageX, Ruler, ShieldCheck, ShoppingBag, Star, Truck } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { Dimensions, ScrollView, StyleSheet, Text, View, Alert, ActivityIndicator, Image, Pressable, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { Dimensions, ScrollView, StyleSheet, Text, View, ActivityIndicator, Image, Pressable, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import SizeGuideModal from "@/src/components/SizeGuideModal";
@@ -9,6 +9,7 @@ import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useCart } from "@/src/contexts/CartContext";
 import { api } from "@/src/lib/api";
@@ -47,6 +48,7 @@ export default function ProductDetail() {
   const { add } = useCart();
   const { user } = useAuth();
   const { t } = useTranslation();
+  const toast = useToast();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -125,7 +127,7 @@ export default function ProductDetail() {
       setAdded(true);
       setTimeout(() => setAdded(false), 1500);
     } catch (e: any) {
-      Alert.alert("Couldn't add", e?.message || "Please try again.");
+      toast.show({ title: "Couldn't add", body: e?.message || "Please try again.", kind: "error" });
     } finally {
       setAdding(false);
     }

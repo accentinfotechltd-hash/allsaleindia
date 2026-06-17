@@ -11,7 +11,6 @@ import {
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -47,6 +46,7 @@ const PRIORITIES = [
 ];
 
 export default function NewTicketScreen() {
+  const toast = useToast();
   const { show } = useToast();
   const router = useRouter();
   const [subject, setSubject] = useState("");
@@ -91,7 +91,7 @@ export default function NewTicketScreen() {
 
   const submit = useCallback(async () => {
     if (subject.trim().length < 4) {
-      Alert.alert("Subject too short", "Please give your ticket a clear subject (4+ chars).");
+      toast.show({ title: "Subject too short", body: "Please give your ticket a clear subject (4+ chars).", kind: "error" });
       return;
     }
     if (description.trim().length < 10) {

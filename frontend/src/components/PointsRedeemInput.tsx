@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -22,6 +22,7 @@ type Balance = {
 };
 
 export default function PointsRedeemInput() {
+  const toast = useToast();
   const { user } = useAuth();
   const { cart, refresh } = useCart();
   const [balance, setBalance] = useState<Balance | null>(null);
@@ -52,7 +53,7 @@ export default function PointsRedeemInput() {
   const apply = async (raw: string) => {
     const n = parseInt(raw, 10);
     if (!n || n < 100) {
-      Alert.alert("Min 100 points", "Use 100 pts or more (each 100 pts = $1).");
+      toast.show({ title: "Min 100 points", body: "Use 100 pts or more (each 100 pts = $1).", kind: "success" });
       return;
     }
     setBusy(true);
@@ -62,7 +63,7 @@ export default function PointsRedeemInput() {
       await load();
       setInput("");
     } catch (e: any) {
-      Alert.alert("Couldn't apply points", e?.message || "Try a smaller amount.");
+      toast.show({ title: "Couldn't apply points", body: e?.message || "Try a smaller amount.", kind: "error" });
     } finally {
       setBusy(false);
     }

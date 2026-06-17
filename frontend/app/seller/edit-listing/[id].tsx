@@ -106,7 +106,7 @@ export default function EditListing() {
         }
       }
     } catch (e: any) {
-      Alert.alert("Couldn't open photos", e?.message || "Try again.");
+      toast.show({ title: "Couldn't open photos", body: e?.message || "Try again.", kind: "error" });
     } finally {
       setPicking(false);
     }
@@ -191,9 +191,8 @@ export default function EditListing() {
           stock_count: stock,
         },
       });
-      Alert.alert("Listing updated", "Your changes are now live.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      toast.show({ title: "Listing updated", body: "Your changes are now live.", kind: "success" });
+      router.back();
     } catch (e: any) {
       setErr(e?.message || "Could not save changes");
     } finally {

@@ -4,7 +4,6 @@ import { ChevronLeft, ExternalLink, MapPin, Package, PenSquare, RefreshCcw, Shie
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -20,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Order = {
@@ -101,6 +101,7 @@ function useCountdown(targetIso?: string | null) {
 export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const [order, setOrder] = useState<Order | null>(null);
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
@@ -164,14 +165,15 @@ export default function OrderDetail() {
         setShowCancel(false);
         setReason("");
       }
-      Alert.alert(
-        "Order cancelled",
-        updated.refund_id
+      toast.show({
+        title: "Order cancelled",
+        body: updated.refund_id
           ? `Your refund of ${formatNZD(updated.refund_amount_nzd || 0)} is on the way. It typically appears within 5–10 business days.`
           : "Your cancellation has been received. Your refund will be processed shortly.",
-      );
+        kind: "success",
+      });
     } catch (e: any) {
-      Alert.alert("Couldn't cancel", e?.message || "Please try again.");
+      toast.show({ title: "Couldn't cancel", body: e?.message || "Please try again.", kind: "error" });
     } finally {
       if (mounted.current) setCancelling(false);
     }

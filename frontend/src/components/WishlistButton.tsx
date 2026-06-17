@@ -25,16 +25,18 @@ export default function WishlistButton({
   const onPress = async (e?: any) => {
     e?.stopPropagation?.();
     if (!user) {
-      Alert.alert("Sign in to save", "Create an account to start your wishlist.", [
-        { text: "Not now", style: "cancel" },
-        { text: "Sign in", onPress: () => router.push("/(auth)/login") },
-      ]);
+      toast.show({
+        title: "Sign in to save",
+        body: "Create an account to start your wishlist.",
+        kind: "info",
+      });
+      router.push("/(auth)/login");
       return;
     }
     try {
       await toggle(productId);
     } catch (e: any) {
-      Alert.alert("Couldn't update wishlist", e?.message || "Try again.");
+      toast.show({ title: "Couldn't update wishlist", body: e?.message || "Try again.", kind: "error" });
     }
   };
 

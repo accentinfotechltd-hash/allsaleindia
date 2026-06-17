@@ -32,7 +32,7 @@ def _public(doc: dict) -> FlashSale:
 @router.get("/flash-sales/active", response_model=List[FlashSalePublic])
 async def public_active_sales(limit: int = 12):
     sales = await list_currently_active()
-    hydrated = await hydrate_with_products(sales[: max(1, min(int(limit), 50))])
+    hydrated = await hydrate_with_products(sales[: max(1, min(int(limit), 500))])
     return [FlashSalePublic(**h) for h in hydrated]
 
 

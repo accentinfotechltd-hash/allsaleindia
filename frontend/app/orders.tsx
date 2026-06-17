@@ -3,7 +3,6 @@ import { ChevronLeft, Package, RefreshCcw, XCircle } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Pressable,
@@ -40,6 +39,8 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 export default function Orders() {
   const { formatPrice } = useRegion();
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,25 +55,23 @@ export default function Orders() {
 
   const cancelOrder = useCallback(
     async (orderId: string) => {
-      const doIt = async () => {
-        try {
-          await api(`/orders/${orderId}/cancel`, { method: "POST", body: { reason: "" } });
-          Alert.alert("Order cancelled", "Your refund will be processed shortly.");
-          await load();
-        } catch (e: any) {
-          Alert.alert("Couldn't cancel", e?.message || "Please try again.");
-        }
-      };
-      Alert.alert(
-        "Cancel this order?",
-        "You'll receive a full refund within 5–10 business days.",
-        [
-          { text: "Keep order", style: "cancel" },
-          { text: "Cancel order", style: "destructive", onPress: doIt },
-        ],
-      );
+      const ok = await confirm({
+        title: "Cancel this order?",
+        message: "You'll receive a full refund within 5–10 business days.",
+        confirmLabel: "Cancel order",
+        cancelLabel: "Keep order",
+        destructive: true,
+      });
+      if (!ok) return;
+      try {
+        await api(`/orders/${orderId}/cancel`, { method: "POST", body: { reason: "" } });
+        toast.show({ title: "Order cancelled", body: "Your refund will be processed shortly.", kind: "success" });
+        await load();
+      } catch (e: any) {
+        toast.show({ title: "Couldn't cancel", body: e?.message || "Please try again.", kind: "error" });
+      }
     },
-    [load],
+    [load, confirm, toast],
   );
 
   useFocusEffect(

@@ -1,0 +1,45 @@
+{
+  "summary": "Backend-only validation of native Stripe SDK migration + Stripe Connect destination charges + tiered commission (8/12/15%). 73 passed / 4 failed / 1 skipped in the focused validation set. All 4 failures are PRE-EXISTING in test_seller_payouts.py (verified by reverting checkout/stripe_svc/payouts/flash_sales to pre-refactor commit — same 4 failures reproduce), they are NOT caused by this iteration's work. New test file test_stripe_connect_payouts_e2e.py adds 3 focused tests that prove (a) create_payouts_for_order uses per-line tiered commission (multi-category order → commission_nzd = 8 + 12 + 30 = 50.0 NZD, NOT a flat rate), (b) the new commission ledger fields persist on the order doc after /checkout/session, and (c) webhook idempotency via stripe_events collection works (replay returns idempotent:true). Checkout still returns a real Stripe-hosted URL (verified — sessions created live against api.stripe.com). Webhook dev-mode (no STRIPE_WEBHOOK_SECRET) correctly accepts unsigned payloads. Connect routing is correctly NOT triggered because no Indian seller has stripe_charges_enabled=true (Stripe blocks NZ→IN platforms per /app/memory/test_credentials.md) — application_fee_minor=0 in this env as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_stripe_connect_payouts_e2e.py",
+    "/app/test_reports/pytest/iter29_stripe_connect.xml",
+    "/app/test_reports/pytest/iter29_payouts_e2e.xml",
+    "/app/test_reports/pytest/iter29_full.xml"
+  ],
+  "action_items": [
+    "(Optional, pre-existing — NOT this iteration) Fix test_seller_payouts.py: TestSellerOrders.test_orders_filtered_per_seller & TestPayoutCreation.test_payouts_created_per_seller_idempotent fail because /api/seller/products returns 403 'Please upload your ID proof and business proof to continue' — the seller-verification middleware needs the test fixture to either auto-verify created sellers or upload mock docs.",
+    "(Optional, pre-existing) Fix test_seller_payouts.py: TestPayoutCreation.test_seeded_items_yield_no_payout — 'no seeded product found' suggests the platform-owned seed catalog product filter has drifted.",
+    "(Optional, pre-existing) Fix test_seller_payouts.py: TestAdminMarkPaid.test_forbidden_without_secret expects 403 but gets 401 — admin auth middleware now returns 401 (Unauthorized) instead of 403 (Forbidden) when x-admin-secret is missing. Either the middleware or the test needs to be aligned.",
+    "Production: set STRIPE_WEBHOOK_SECRET in /app/backend/.env once the webhook endpoint is registered in the Stripe Dashboard. Right now dev mode skips signature verification with a logged warning (safe for dev/CI, NOT production)."
+  ],
+  "critical_code_review_comments": [
+    "services/stripe_svc.py: `to_minor_units` correctly handles zero-decimal currencies and rounds half-up; calculate_application_fee floors to never overcharge — both verified by pure unit tests.",
+    "services/stripe_svc.py:_plan_commission_for_items: looks up product.category + tags via get_commission_bps_for_product for every line — n+1 query, fine at small carts but worth a $in batch lookup if average cart grows >20 items.",
+    "routers/checkout.py: _on_payment_succeeded is correctly idempotent (set is naturally idempotent and create_payouts/notify_order_placed/decrement_stock all have their own existence guards). Verified via webhook replay test (idempotent:true).",
+    "services/stripe_svc.py:verify_webhook: when STRIPE_WEBHOOK_SECRET unset it logs a WARNING per request — fine for dev, but consider rate-limiting the warning to avoid log spam in CI.",
+    "services/payouts.py now sources commission BPS from get_commission_bps_for_product per item — matches what Connect actually charged at checkout (good, no commission drift between Stripe app_fee and our payout ledger).",
+    "Refund clawback path (issue_stripe_refund / issue_partial_refund / refund_for_order in stripe_connect_svc.py): correctly probes PaymentIntent.transfer_data to set reverse_transfer + refund_application_fee. Could NOT do a true E2E refund test in this environment because no order in this DB has a live stripe_payment_intent_id from a Connect destination charge (Stripe blocks NZ→IN platform → Indian Connect accounts) — the no-PI graceful-fallback path IS verified; the actual Connect refund branch should be smoke-tested once an NZ/AU/US/UK/CA seller account is onboarded."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_stripe_connect_payouts_e2e.py (NEW — 3 tests, all passing)"
+  ],
+  "success_rate": {
+    "backend": "94.8% (73/77 in focused set; 100% on this iteration's changes — Stripe Connect + tiered commission + webhook idempotency + checkout ledger persistence + refund graceful fallback)",
+    "frontend": "not tested (backend-only review request)"
+  },
+  "seed_data_creation": "test_stripe_connect_payouts_e2e.py temporarily inserts a 3-line multi-category order (Electronics + Apparel + Jewellery) under TEST_seller_tiered_payout and cleans up via try/finally. No persistent seed data left behind.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 4 failing tests in test_seller_payouts.py are pre-existing — DO NOT flag as regressions from the Stripe Connect work. Verified by reverting routers/checkout.py + services/stripe_svc.py + services/payouts.py + routers/flash_sales.py to pre-refactor commit (7c0167a~1) and running test_seller_payouts.py → exact same 4 failures reproduce. Connect refund clawback (reverse_transfer + refund_application_fee) is wired correctly in code but couldn't be E2E tested because Stripe blocks NZ→IN Connect accounts, so no order in this env has a real Connect-routed PaymentIntent. Recommend smoke-testing the clawback path once an NZ-country seller is onboarded via Stripe Connect Express.",
+  "rca_of_issue": "Not applicable — no bugs found in this iteration's changes. The 4 pre-existing failures in test_seller_payouts.py are unrelated to Stripe Connect: 2 are caused by seller-verification middleware blocking POST /api/seller/products (HTTP 403 — needs ID proof), 1 is a missing seeded product, 1 is admin-secret middleware returning 401 instead of 403 (off-by-one HTTP code on a permission-vs-auth distinction)."
+}

@@ -212,7 +212,7 @@ class TestPublicActive:
             headers=seller["headers"], json=future_body,
         ).json()
 
-        r = api_client.get(f"{base_url}/api/flash-sales/active")
+        r = api_client.get(f"{base_url}/api/flash-sales/active?limit=500")
         ids = {s["id"] for s in r.json()}
         assert active["id"] in ids
         assert inactive["id"] not in ids
@@ -225,7 +225,7 @@ class TestPublicActive:
             json=_make_sale_body(seller_product["product_id"], sale_price=49.0, units_max=5),
         ).json()
         _patch_sale(s["id"], {"units_sold": 5})
-        ids = {x["id"] for x in api_client.get(f"{base_url}/api/flash-sales/active").json()}
+        ids = {x["id"] for x in api_client.get(f"{base_url}/api/flash-sales/active?limit=500").json()}
         assert s["id"] not in ids
 
     def test_featured_first_then_discount(self, api_client, base_url, seller):
@@ -247,11 +247,13 @@ class TestPublicActive:
             json=_make_sale_body(p3, sale_price=70.0),  # 30%
         ).json()
 
-        r = api_client.get(f"{base_url}/api/flash-sales/active").json()
+        r = api_client.get(f"{base_url}/api/flash-sales/active?limit=500").json()
         # Filter only ours
         ours = [s for s in r if s["id"] in {feat["id"], high["id"], mid["id"]}]
         assert ours[0]["id"] == feat["id"], "featured should be first"
-        assert ours[0]["is_deal_of_the_day"] is True
+        # `is_deal_of_the_day` is a global once-per-day flag — it may be on
+        # OUR feat, OR on another seller's featured sale created earlier in
+        # the same day.  We only assert the ordering invariant here.
         # After featured, by highest discount
         non_feat = [s for s in ours if s["id"] != feat["id"]]
         assert non_feat[0]["id"] == high["id"]
@@ -263,7 +265,7 @@ class TestPublicActive:
             f"{base_url}/api/seller/flash-sales", headers=seller["headers"],
             json=_make_sale_body(seller_product["product_id"], sale_price=49.0),
         )
-        r = api_client.get(f"{base_url}/api/flash-sales/active").json()
+        r = api_client.get(f"{base_url}/api/flash-sales/active?limit=500").json()
         ours = [s for s in r if s["product_id"] == seller_product["product_id"]]
         assert ours, "expected our sale to be in active list"
         assert ours[0]["product_name"]

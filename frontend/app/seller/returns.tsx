@@ -1,10 +1,10 @@
 import { useFocusEffect, useRouter } from "expo-router";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import * as Linking from "expo-linking";
 import { Check, ChevronLeft, Film, Play, RefreshCcw, X } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -55,6 +55,7 @@ const REASON_LABEL: Record<string, string> = {
 };
 
 export default function SellerReturnsScreen() {
+  const toast = useToast();
   const router = useRouter();
   const [returns, setReturns] = useState<Return[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,14 +91,15 @@ export default function SellerReturnsScreen() {
       setReturns((prev) => prev.map((r) => (r.id === rtn.id ? updated : r)));
       setPending(null);
       setNote("");
-      Alert.alert(
-        action === "approve" ? "Return approved" : "Return declined",
-        action === "approve"
+      toast.show({
+        title: action === "approve" ? "Return approved" : "Return declined",
+        body: action === "approve"
           ? `A refund of ${formatNZD(updated.refund_amount_nzd)} has been initiated to the buyer.`
           : "The buyer has been notified.",
-      );
+        kind: "success",
+      });
     } catch (e: any) {
-      Alert.alert("Couldn't update", e?.message || "Please try again.");
+      toast.show({ title: "Couldn't update", body: e?.message || "Please try again.", kind: "error" });
     } finally {
       setBusyId(null);
     }

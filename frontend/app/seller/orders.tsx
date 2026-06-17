@@ -1,9 +1,9 @@
 import { useFocusEffect, useRouter } from "expo-router";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { ChevronLeft, Download, MapPin, Package } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Linking,
@@ -40,6 +40,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 };
 
 export default function SellerOrders() {
+  const toast = useToast();
   const router = useRouter();
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,7 +95,7 @@ export default function SellerOrders() {
         await Linking.openURL(path);
       }
     } catch (e: any) {
-      Alert.alert("Couldn't download", e?.message || "Please try again.");
+      toast.show({ title: "Couldn't download", body: e?.message || "Please try again.", kind: "error" });
     }
   }, []);
 

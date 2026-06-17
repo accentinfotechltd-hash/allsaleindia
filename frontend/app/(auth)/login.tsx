@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -136,6 +137,11 @@ export default function Login() {
           <GoogleSignInButton
             testID="login-google-btn"
             label="Continue with Google"
+            redirectTo="/(tabs)/home"
+          />
+
+          <AppleSignInButton
+            testID="login-apple-btn"
             redirectTo="/(tabs)/home"
           />
 

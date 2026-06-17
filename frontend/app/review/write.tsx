@@ -108,9 +108,12 @@ export default function WriteReviewScreen() {
           photos,
         },
       });
-      Alert.alert("Thanks for your review! ⭐", "It's live now.", [
-        { text: "OK", onPress: () => router.back() },
-      ]);
+      toast.show({
+        title: "Thanks for your review! ⭐",
+        body: "It's live now.",
+        kind: "success",
+      });
+      router.back();
     } catch (e: any) {
       show({ title: "Couldn't submit", message: e?.message || "Please try again.", kind: "error" });
     } finally {

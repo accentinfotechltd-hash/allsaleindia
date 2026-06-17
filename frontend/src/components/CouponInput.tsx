@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -29,6 +29,7 @@ type ActiveCoupon = {
 };
 
 export default function CouponInput() {
+  const toast = useToast();
   const { cart, applyCoupon, removeCoupon } = useCart();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -63,7 +64,7 @@ export default function CouponInput() {
       setCode("");
       setBrowseOpen(false);
     } catch (e: any) {
-      Alert.alert("Coupon not applied", e?.message || "Try a different code.");
+      toast.show({ title: "Coupon not applied", body: e?.message || "Try a different code.", kind: "error" });
     } finally {
       setBusy(false);
     }

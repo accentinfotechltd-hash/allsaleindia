@@ -1,9 +1,9 @@
 import { useRouter } from "expo-router";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { ChevronLeft, Copy, Gift, Share2, UserPlus } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   Share,
@@ -37,6 +37,7 @@ type Me = {
 };
 
 export default function ReferralsScreen() {
+  const toast = useToast();
   const router = useRouter();
   const [data, setData] = useState<Me | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,9 +64,9 @@ export default function ReferralsScreen() {
         // @ts-ignore
         await navigator.clipboard.writeText(data.code);
       }
-      Alert.alert("Code copied!", `${data.code} is ready to paste.`);
+      toast.show({ title: "Code copied!", body: `${data.code} is ready to paste.`, kind: "success" });
     } catch {
-      Alert.alert("Your code", data.code);
+      toast.show({ title: "Your code", body: data.code, kind: "success" });
     }
   };
 
@@ -74,7 +75,7 @@ export default function ReferralsScreen() {
     try {
       await Share.share({ message: data.share_message });
     } catch (e: any) {
-      Alert.alert("Couldn't share", e?.message || "Try again.");
+      toast.show({ title: "Couldn't share", body: e?.message || "Try again.", kind: "error" });
     }
   };
 
