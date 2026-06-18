@@ -94,7 +94,8 @@ class AmbassadorPublic(BaseModel):
     name: str
     code: str
     primary_platform: Optional[str]
-    program: Literal["B2C", "B2B"]
+    program: Literal["B2C", "B2B", "BOTH"]
+    code_b2b: Optional[str] = None  # set only when program == "BOTH"
 
 
 class TierInfo(BaseModel):
@@ -106,12 +107,13 @@ class TierInfo(BaseModel):
 
 class AmbassadorMe(BaseModel):
     id: str
-    code: str
+    code: str                              # primary B2C code (everyone has one)
+    code_b2b: Optional[str] = None         # set only for Indian ambassadors
     name: str
     email: EmailStr
     country: str
     payout_currency: str
-    program: Literal["B2C", "B2B"]
+    program: Literal["B2C", "B2B", "BOTH"]
     status: Literal["active", "dormant", "suspended", "forfeited"]
     tier: TierInfo
     next_tier: Optional[TierInfo]
@@ -227,10 +229,15 @@ def _short_oid(oid: str) -> str:
 @router.get("/ambassadors/by-code/{code}", response_model=AmbassadorPublic)
 async def lookup_code(code: str):
     """Public lookup. Returns 404 if code isn't a real ambassador code.
-    Use this on share-link landing pages: `allsale.co.nz/r/SARAH5`."""
+    Matches against EITHER the B2C code or the B2B code (Indian ambassadors
+    have both)."""
     code = (code or "").upper().strip()
     user = await db.users.find_one(
-        {"ambassador_profile.code": code, "ambassador_profile.status": {"$ne": "suspended"}},
+        {"$or": [
+            {"ambassador_profile.code": code},
+            {"ambassador_profile.code_b2b": code},
+         ],
+         "ambassador_profile.status": {"$ne": "suspended"}},
         {"_id": 0, "full_name": 1, "ambassador_profile": 1},
     )
     if not user or not user.get("ambassador_profile"):
@@ -239,6 +246,7 @@ async def lookup_code(code: str):
     return AmbassadorPublic(
         name=user.get("full_name") or "Ambassador",
         code=prof["code"],
+        code_b2b=prof.get("code_b2b"),
         primary_platform=prof.get("primary_platform"),
         program=prof["program"],
     )
@@ -258,9 +266,15 @@ async def join_program(body: JoinRequest, request: Request):
         )
 
     payout_ccy = COUNTRY_PAYOUT_CCY[country]
-    suffix = "5" if program == "B2C" else "BIZ"
-    desired_code = _generate_code(body.name, suffix)
-    code = await _ensure_code_unique(desired_code)
+    # Everyone gets a B2C-style code.  Indian ambassadors ALSO get a B2B code
+    # since they can drive both customer sales (to diaspora abroad) AND seller
+    # recruitment (in India).
+    desired_b2c = _generate_code(body.name, "5")
+    code_b2c = await _ensure_code_unique(desired_b2c)
+    code_b2b: Optional[str] = None
+    if program in ("B2B", "BOTH"):
+        desired_b2b = _generate_code(body.name, "BIZ")
+        code_b2b = await _ensure_code_unique(desired_b2b)
 
     # Reuse existing user account if email already on file; otherwise create
     # a "passwordless" stub user — they can claim it by setting a password
@@ -269,7 +283,8 @@ async def join_program(body: JoinRequest, request: Request):
                                         {"_id": 0})
     now = datetime.now(timezone.utc)
     profile_doc = {
-        "code": code,
+        "code": code_b2c,
+        "code_b2b": code_b2b,
         "country": country,
         "payout_currency": payout_ccy,
         "primary_platform": body.primary_platform,
@@ -366,6 +381,7 @@ async def _build_me_response(user_id: str) -> AmbassadorMe:
     return AmbassadorMe(
         id=user_id,
         code=prof["code"],
+        code_b2b=prof.get("code_b2b"),
         name=user.get("full_name") or "",
         email=user["email"],
         country=prof["country"],
@@ -569,9 +585,10 @@ class AdminAmbRow(BaseModel):
     name: str
     email: EmailStr
     code: str
+    code_b2b: Optional[str] = None
     country: str
     payout_currency: str
-    program: Literal["B2C", "B2B"]
+    program: Literal["B2C", "B2B", "BOTH"]
     status: str
     tier_key: str
     unpaid_balance: float
@@ -611,6 +628,7 @@ async def admin_list_ambassadors(
             name=u.get("full_name") or "",
             email=u["email"],
             code=prof["code"],
+            code_b2b=prof.get("code_b2b"),
             country=prof["country"],
             payout_currency=prof["payout_currency"],
             program=prof["program"],
