@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import {
   Camera,
+  Check,
   ChevronLeft,
   Copy,
   Share2,
@@ -23,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { ApiError } from "@/src/lib/api";
 import {
   AmbassadorMe,
   ContentSubmission,
@@ -178,6 +180,19 @@ export default function AmbassadorDashboard() {
       <RejectedDashboard
         me={me}
         onReapply={() => router.replace("/ambassadors/join")}
+        onBack={() => router.back()}
+      />
+    );
+  }
+
+  // Pending applications: show the in-review interstitial with T&Cs and
+  // resend-email actions. No share/withdraw/KPIs/tier widgets — the code
+  // isn't live yet.
+  if (me.status === "pending_approval") {
+    return (
+      <PendingDashboard
+        me={me}
+        onChange={(m) => setMe(m)}
         onBack={() => router.back()}
       />
     );
@@ -723,6 +738,254 @@ function statusStyle(status: ContentSubmission["status"]) {
   return { backgroundColor: colors.surfaceMuted };
 }
 
+/**
+ * Pending-state dashboard shown to ambassadors awaiting admin approval.
+ * Three sticky tasks: read T&Cs → accept → resend activation email if lost.
+ * Suppresses share/withdraw/KPIs/tier widgets because the code isn't live yet.
+ */
+function PendingDashboard({
+  me,
+  onChange,
+  onBack,
+}: {
+  me: AmbassadorMe;
+  onChange: (m: AmbassadorMe) => void;
+  onBack: () => void;
+}) {
+  const toast = useToast();
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
+  const [resending, setResending] = useState(false);
+  // Local cooldown countdown (seconds remaining). Seeded from a 429
+  // response's Retry-After OR a successful response's next_allowed_at.
+  const [cooldownSecs, setCooldownSecs] = useState<number>(0);
+
+  // Tick the countdown down once per second when active.
+  useEffect(() => {
+    if (cooldownSecs <= 0) return;
+    const t = setTimeout(() => setCooldownSecs((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(t);
+  }, [cooldownSecs]);
+
+  const onAcceptTerms = async () => {
+    setAcceptingTerms(true);
+    try {
+      const { acceptTerms, getMe } = await import("@/src/lib/ambassadors");
+      await acceptTerms("v1");
+      const fresh = await getMe();
+      onChange(fresh);
+      toast.show({
+        title: "Terms accepted ✓",
+        body: "Our team will review your application within 2 business days.",
+        kind: "success",
+      });
+    } catch (e: any) {
+      toast.show({ title: "Couldn't accept", body: e?.message || "", kind: "error" });
+    } finally {
+      setAcceptingTerms(false);
+    }
+  };
+
+  const onResend = async () => {
+    setResending(true);
+    try {
+      const { resendActivation } = await import("@/src/lib/ambassadors");
+      const res = await resendActivation();
+      const next = res.next_allowed_at ? new Date(res.next_allowed_at) : null;
+      if (next) {
+        const secs = Math.max(0, Math.ceil((next.getTime() - Date.now()) / 1000));
+        setCooldownSecs(secs);
+      }
+      toast.show({
+        title: "Email sent 📨",
+        body: "Check your inbox (and your spam folder, just in case).",
+        kind: "success",
+      });
+    } catch (e: any) {
+      if (e instanceof ApiError) {
+        if (e.status === 429 && e.retryAfter) {
+          setCooldownSecs(e.retryAfter);
+          toast.show({
+            title: "Slow down — please wait",
+            body: e.message,
+            kind: "info",
+          });
+        } else if (e.status === 401 || e.status === 403) {
+          toast.show({ title: "Sign-in required", body: e.message, kind: "error" });
+        } else {
+          toast.show({ title: "Couldn't resend", body: e.message, kind: "error" });
+        }
+      } else {
+        toast.show({ title: "Couldn't resend", body: String(e), kind: "error" });
+      }
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const mmss = formatMmSs(cooldownSecs);
+  const termsAccepted = !!me.terms_accepted_at;
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <Pressable onPress={onBack} style={styles.backBtn} testID="amb-pending-back">
+          <ChevronLeft size={22} color={colors.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Ambassador</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.pendingScroll}>
+        {/* Status hero */}
+        <View style={styles.pendingHero} testID="amb-status-pending">
+          <View style={styles.pendingPill}><Text style={styles.pendingPillText}>● In review</Text></View>
+          <Text style={styles.pendingHeroTitle}>
+            Your application is in review
+          </Text>
+          <Text style={styles.pendingHeroSub}>
+            Thanks {me.name.split(" ")[0] || "there"} — we typically review applications within 2 business days.
+            We&apos;ll email you the moment your code goes live.
+          </Text>
+        </View>
+
+        {/* Code preview (greyed) */}
+        <View style={styles.pendingCodeCard}>
+          <Text style={styles.pendingCodeLabel}>Your code (not active yet)</Text>
+          <Text style={styles.pendingCodeValue}>{me.code}</Text>
+          {me.code_b2b && (
+            <>
+              <Text style={[styles.pendingCodeLabel, { marginTop: 10 }]}>B2B code</Text>
+              <Text style={styles.pendingCodeValue}>{me.code_b2b}</Text>
+            </>
+          )}
+        </View>
+
+        {/* T&Cs card */}
+        <View
+          style={[styles.taskCard, termsAccepted && styles.taskCardDone]}
+          testID="amb-pending-terms-card"
+        >
+          <View style={styles.taskRow}>
+            <View style={[styles.taskCheckbox, termsAccepted && styles.taskCheckboxDone]}>
+              {termsAccepted && <Check size={14} color="#fff" />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.taskTitle}>
+                {termsAccepted ? "Terms accepted" : "Accept Ambassador Terms"}
+              </Text>
+              <Text style={styles.taskSub}>
+                {termsAccepted
+                  ? `Accepted ${new Date(me.terms_accepted_at!).toLocaleDateString()}`
+                  : "Quick read — payout rules, content requirements, code of conduct."}
+              </Text>
+            </View>
+          </View>
+          {!termsAccepted && (
+            <Pressable
+              testID="amb-pending-accept-terms"
+              disabled={acceptingTerms}
+              onPress={onAcceptTerms}
+              style={[styles.taskBtn, acceptingTerms && { opacity: 0.5 }]}
+            >
+              {acceptingTerms ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.taskBtnText}>Read & accept</Text>
+              )}
+            </Pressable>
+          )}
+        </View>
+
+        {/* Resend activation card */}
+        <View style={styles.taskCard} testID="amb-pending-resend-card">
+          <View style={styles.taskRow}>
+            <View style={styles.taskCheckbox}>
+              <Text style={{ fontSize: 16 }}>📨</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.taskTitle}>Didn&apos;t get the email?</Text>
+              <Text style={styles.taskSub}>
+                Re-send the application confirmation to {me.email}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            testID="amb-pending-resend-button"
+            disabled={resending || cooldownSecs > 0}
+            onPress={onResend}
+            style={[
+              styles.taskBtn,
+              (resending || cooldownSecs > 0) && { opacity: 0.5 },
+              { backgroundColor: cooldownSecs > 0 ? colors.surfaceMuted : colors.primary },
+            ]}
+          >
+            {resending ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text
+                testID="amb-pending-resend-label"
+                style={[styles.taskBtnText, cooldownSecs > 0 && { color: colors.textMuted }]}
+              >
+                {cooldownSecs > 0 ? `Try again in ${mmss}` : "Resend email"}
+              </Text>
+            )}
+          </Pressable>
+          {cooldownSecs > 0 && (
+            <Text testID="amb-pending-cooldown-hint" style={styles.cooldownHint}>
+              Rate-limited to one send per hour.
+            </Text>
+          )}
+        </View>
+
+        {/* What happens next */}
+        <View style={styles.timelineCard}>
+          <Text style={styles.timelineTitle}>What happens next</Text>
+          <TimelineRow num={1} done text="You applied" />
+          <TimelineRow
+            num={2}
+            done={termsAccepted}
+            text={termsAccepted ? "You accepted the T&Cs" : "Accept the T&Cs"}
+          />
+          <TimelineRow num={3} done={false} text="We review (1-2 business days)" />
+          <TimelineRow num={4} done={false} text="You get an email & your code goes live" />
+        </View>
+
+        <Text style={styles.rejectedSupport}>
+          Questions?{" "}
+          <Text
+            style={styles.rejectedSupportLink}
+            onPress={() => Linking.openURL("mailto:support@allsale.co.nz").catch(() => {})}
+          >
+            support@allsale.co.nz
+          </Text>
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function TimelineRow({ num, done, text }: { num: number; done: boolean; text: string }) {
+  return (
+    <View style={styles.timelineRow}>
+      <View style={[styles.timelineNum, done && styles.timelineNumDone]}>
+        {done ? (
+          <Check size={11} color="#fff" />
+        ) : (
+          <Text style={styles.timelineNumText}>{num}</Text>
+        )}
+      </View>
+      <Text style={[styles.timelineText, done && styles.timelineTextDone]}>{text}</Text>
+    </View>
+  );
+}
+
+function formatMmSs(totalSecs: number): string {
+  const m = Math.floor(totalSecs / 60);
+  const s = totalSecs % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   header: {
@@ -903,6 +1166,91 @@ const styles = StyleSheet.create({
   rejectedReapplyBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   rejectedSupport: { color: colors.textMuted, fontSize: 12, textAlign: "center", marginTop: spacing.sm },
   rejectedSupportLink: { color: colors.primary, fontWeight: "800" },
+  // ---- PendingDashboard ----
+  pendingScroll: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl * 2 },
+  pendingHero: {
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: 8,
+  },
+  pendingPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FED7AA",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  pendingPillText: { color: "#9A3412", fontWeight: "800", fontSize: 11 },
+  pendingHeroTitle: { color: colors.text, fontSize: 20, fontWeight: "800", letterSpacing: -0.3 },
+  pendingHeroSub: { color: "#78350F", fontSize: 13, lineHeight: 19 },
+  pendingCodeCard: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: "dashed",
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    alignItems: "center",
+  },
+  pendingCodeLabel: {
+    color: colors.textMuted, fontSize: 10, fontWeight: "800",
+    textTransform: "uppercase", letterSpacing: 0.8,
+  },
+  pendingCodeValue: {
+    color: colors.textFaint, fontSize: 26, fontWeight: "800", letterSpacing: 3, marginTop: 4,
+  },
+  taskCard: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  taskCardDone: { backgroundColor: colors.successSoft, borderColor: colors.success },
+  taskRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  taskCheckbox: {
+    width: 28, height: 28, borderRadius: 999,
+    borderWidth: 2, borderColor: colors.border,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  taskCheckboxDone: { backgroundColor: colors.success, borderColor: colors.success },
+  taskTitle: { fontWeight: "800", color: colors.text, fontSize: 14 },
+  taskSub: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  taskBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 999,
+    alignItems: "center",
+  },
+  taskBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  cooldownHint: { color: colors.textFaint, fontSize: 11, textAlign: "center" },
+  timelineCard: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  timelineTitle: {
+    fontWeight: "800", color: colors.text, fontSize: 13,
+    textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4,
+  },
+  timelineRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  timelineNum: {
+    width: 22, height: 22, borderRadius: 999,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: "center", justifyContent: "center",
+  },
+  timelineNumDone: { backgroundColor: colors.success },
+  timelineNumText: { color: colors.textMuted, fontWeight: "800", fontSize: 11 },
+  timelineText: { color: colors.textMuted, fontSize: 13, flex: 1 },
+  timelineTextDone: { color: colors.text, fontWeight: "600" },
   label: {
     fontWeight: "700",
     color: colors.text,

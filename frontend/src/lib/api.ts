@@ -26,6 +26,25 @@ export async function clearToken(): Promise<void> {
   await storage.secureRemove(TOKEN_KEY);
 }
 
+/**
+ * Rich error thrown on non-2xx responses. Exposes the HTTP status code
+ * and, for 429 responses, parses the `Retry-After` header (in seconds)
+ * so UI can show accurate cooldown countdowns. Use ``instanceof ApiError``
+ * to branch on this beyond just reading the message.
+ */
+export class ApiError extends Error {
+  status: number;
+  retryAfter: number | null;   // seconds, populated from Retry-After on 429
+  detail: unknown;
+  constructor(status: number, message: string, opts: { retryAfter?: number | null; detail?: unknown } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.retryAfter = opts.retryAfter ?? null;
+    this.detail = opts.detail;
+  }
+}
+
 export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise<T> {
   const { method = "GET", body, auth = true } = opts;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -48,7 +67,13 @@ export async function api<T = any>(path: string, opts: ApiOptions = {}): Promise
   if (!res.ok) {
     const detail = (data && data.detail) || res.statusText || "Request failed";
     const msg = typeof detail === "string" ? detail : JSON.stringify(detail);
-    throw new Error(msg);
+    let retryAfter: number | null = null;
+    if (res.status === 429) {
+      const h = res.headers.get("Retry-After");
+      const n = h ? parseInt(h, 10) : NaN;
+      retryAfter = Number.isFinite(n) ? n : null;
+    }
+    throw new ApiError(res.status, msg, { retryAfter, detail: data });
   }
   return data as T;
 }

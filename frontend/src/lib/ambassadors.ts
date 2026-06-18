@@ -186,6 +186,19 @@ export const listContent = () =>
 export const requestWithdraw = () =>
   api<WithdrawalResponse>("/ambassadors/me/withdraw", { method: "POST" });
 
+// ---- Approval-flow endpoints (Phase 4) ----
+export const acceptTerms = (version = "v1") =>
+  api<{ ok: boolean; terms_accepted_at: string; terms_accepted_version: string }>(
+    "/ambassadors/accept-terms",
+    { method: "POST", body: { version } }
+  );
+
+export const resendActivation = () =>
+  api<{ ok: boolean; kind: "application_received" | "welcome"; next_allowed_at: string }>(
+    "/ambassadors/resend-activation",
+    { method: "POST" }
+  );
+
 // ---------------------------------------------------------------------------
 // Helpers — currency formatting + tier resolution helpers used by UI
 // ---------------------------------------------------------------------------
