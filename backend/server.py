@@ -28,6 +28,7 @@ from routers import (
     admin_team,
     admin_commission,
     allsale_pro,
+    ambassadors,
     auth,
     auth_pwd_reset,
     auth_email_verify,
@@ -97,6 +98,7 @@ api.include_router(bulk_listings.router)
 api.include_router(orders.router)
 api.include_router(invoices.router)
 api.include_router(site.router)
+api.include_router(ambassadors.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
