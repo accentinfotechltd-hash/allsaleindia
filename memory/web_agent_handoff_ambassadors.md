@@ -102,7 +102,17 @@ Public signup. No auth required — creates a passwordless stub user if the emai
 - `country` MUST be one of `NZ`, `AU`, `US`, `GB`, `CA`, `IN` (ISO-3166 alpha-2, uppercase). Anything else → **400**.
 - `primary_platform` enum: `instagram | tiktok | youtube | facebook | other`.
 
-**Response 201** — same shape as `GET /api/ambassadors/me` (see §3.1).
+**Response 201** — ⚠️ **shape changed (2026-06-18)**: now returns an envelope so the client can route straight into the dashboard without a separate login step.
+```json
+{
+  "access_token": "eyJhbGciOi…",
+  "needs_password_setup": true,
+  "me": { /* full AmbassadorMe payload — see §3.1 */ }
+}
+```
+- `access_token`: bearer JWT — store and send as `Authorization: Bearer …` for subsequent `/me`, `/me/sales`, etc.
+- `needs_password_setup`: `true` for brand-new stub users (passwordless — they joined without ever creating an Allsale account). UI should nudge them to set a password from settings so they can log back in on another device. `false` if they were already an Allsale account holder before joining.
+- `me`: identical to `GET /api/ambassadors/me` (see §3.1).
 
 **Errors:**
 - `400` — country not eligible

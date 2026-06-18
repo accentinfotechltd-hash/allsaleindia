@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { setToken } from "@/src/lib/api";
 import {
   COUNTRY_LABELS,
   getProgramConfig,
@@ -65,16 +66,20 @@ export default function AmbassadorJoin() {
     }
     setSubmitting(true);
     try {
-      await joinProgram({
+      const res = await joinProgram({
         name: name.trim(),
         email: email.trim().toLowerCase(),
         country,
         social_handle: socialHandle.trim() || undefined,
         primary_platform: platform,
       });
+      // Persist the token so /ambassadors/dashboard's GET /me succeeds.
+      await setToken(res.access_token);
       toast.show({
         title: "Welcome aboard! 🎉",
-        body: "You're now an Allsale Ambassador.",
+        body: res.needs_password_setup
+          ? "Set a password from Settings to log back in on another device."
+          : "You're now an Allsale Ambassador.",
         kind: "success",
       });
       router.replace("/ambassadors/dashboard");

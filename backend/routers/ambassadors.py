@@ -98,6 +98,17 @@ class AmbassadorPublic(BaseModel):
     code_b2b: Optional[str] = None  # set only when program == "BOTH"
 
 
+class AmbassadorJoinResponse(BaseModel):
+    """Returned by POST /ambassadors/join — includes an access token so the
+    web/mobile UI can route straight to the dashboard without a separate
+    login step. ``needs_password_setup`` is True for brand-new stub users
+    (passwordless) — the UI should prompt them to set a password so they
+    can return on another device."""
+    access_token: str
+    needs_password_setup: bool
+    me: "AmbassadorMe"
+
+
 class TierInfo(BaseModel):
     key: str
     label: str
@@ -276,7 +287,7 @@ async def lookup_code(code: str):
 # ---------------------------------------------------------------------------
 # POST /api/ambassadors/join  —  signup
 # ---------------------------------------------------------------------------
-@router.post("/ambassadors/join", status_code=201, response_model=AmbassadorMe)
+@router.post("/ambassadors/join", status_code=201, response_model=AmbassadorJoinResponse)
 async def join_program(body: JoinRequest, request: Request):
     country = body.country.upper()
     program = PROGRAM_FOR_COUNTRY.get(country)
@@ -382,7 +393,18 @@ async def join_program(body: JoinRequest, request: Request):
             "created_at": now,
         })
 
-    return await _build_me_response(user_id)
+    return await _build_join_response(user_id)
+
+
+async def _build_join_response(user_id: str) -> AmbassadorJoinResponse:
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
+    me = await _build_me_response(user_id)
+    needs_pw = not bool(user and user.get("password_hash"))
+    from utils import create_token
+    token = create_token(user_id, int((user or {}).get("token_version", 0) or 0))
+    return AmbassadorJoinResponse(
+        access_token=token, needs_password_setup=needs_pw, me=me,
+    )
 
 
 # ---------------------------------------------------------------------------

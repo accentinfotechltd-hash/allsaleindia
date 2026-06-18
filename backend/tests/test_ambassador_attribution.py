@@ -37,10 +37,14 @@ async def main():
             "primary_platform": "instagram",
         })
         assert r.status_code == 201, f"join failed: {r.status_code} {r.text}"
-        me = r.json()
+        body = r.json()
+        # New response shape includes access_token + needs_password_setup + me
+        assert "access_token" in body and body["access_token"], "join must return JWT"
+        assert body.get("needs_password_setup") is True, "stub user should need password"
+        me = body["me"]
         code = me["code"]
         amb_id = me["id"]
-        print(f"OK joined as {amb_id} code={code}")
+        print(f"OK joined as {amb_id} code={code} (token issued: {bool(body['access_token'])})")
 
     # 2. Validate the coupon directly against the cart validator
     cart_items = [{

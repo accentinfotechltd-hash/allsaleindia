@@ -114,6 +114,12 @@ export type WithdrawalResponse = {
   reason: string | null;
 };
 
+export type JoinResponse = {
+  access_token: string;
+  needs_password_setup: boolean;
+  me: AmbassadorMe;
+};
+
 export type JoinPayload = {
   name: string;
   email: string;
@@ -143,7 +149,7 @@ export const lookupCode = (code: string) =>
   );
 
 export const joinProgram = (body: JoinPayload) =>
-  api<AmbassadorMe>("/ambassadors/join", { method: "POST", body, auth: false });
+  api<JoinResponse>("/ambassadors/join", { method: "POST", body, auth: false });
 
 export const getMe = () => api<AmbassadorMe>("/ambassadors/me");
 
