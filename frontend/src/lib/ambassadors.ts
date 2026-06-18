@@ -11,7 +11,14 @@ export type AmbassadorTier = {
 };
 
 export type AmbassadorProgram = "B2C" | "B2B" | "BOTH";
-export type AmbassadorStatus = "active" | "dormant" | "suspended" | "forfeited";
+export type AmbassadorStatus =
+  | "pending_approval"
+  | "active"
+  | "dormant"
+  | "suspended"
+  | "forfeited"
+  | "rejected"
+  | "permanently_banned";
 
 export type AmbassadorMe = {
   id: string;
@@ -38,6 +45,11 @@ export type AmbassadorMe = {
   primary_platform: string | null;
   phone: string | null;
   audience_size: number | null;
+  // Approval-flow fields (Phase 4)
+  terms_accepted_at: string | null;
+  terms_accepted_version: string | null;
+  can_reapply_at: string | null;
+  rejected_reason: string | null;
   created_at: string;
   last_active_at: string | null;
 };

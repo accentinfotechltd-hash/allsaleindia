@@ -10,6 +10,7 @@ import {
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -166,6 +167,21 @@ export default function AmbassadorDashboard() {
     );
   }
   if (!me) return null;
+
+  // ---------------------------------------------------------------------
+  // Terminal-state views: rejected / permanently_banned ambassadors don't
+  // get the full dashboard — they get a focused card explaining the state
+  // (and a Re-apply CTA if the cool-down has elapsed).
+  // ---------------------------------------------------------------------
+  if (me.status === "rejected" || me.status === "permanently_banned") {
+    return (
+      <RejectedDashboard
+        me={me}
+        onReapply={() => router.replace("/ambassadors/join")}
+        onBack={() => router.back()}
+      />
+    );
+  }
 
   // Tier progress
   const tierFrom = me.tier.min_orders_30d;
@@ -594,6 +610,113 @@ function ProfileEditor({ me, onSaved }: { me: AmbassadorMe; onSaved: (m: Ambassa
   );
 }
 
+
+/**
+ * Terminal-state dashboard shown to rejected / permanently-banned ambassadors.
+ * Surfaces the rejection reason + (for non-permanent rejections) the re-apply
+ * date with a CTA that activates once the cool-down elapses.
+ */
+function RejectedDashboard({
+  me,
+  onReapply,
+  onBack,
+}: {
+  me: AmbassadorMe;
+  onReapply: () => void;
+  onBack: () => void;
+}) {
+  const isPermanent = me.status === "permanently_banned";
+  const canReapplyAt = me.can_reapply_at ? new Date(me.can_reapply_at) : null;
+  const now = new Date();
+  const canReapplyNow = !isPermanent && canReapplyAt && canReapplyAt <= now;
+  const daysUntil = canReapplyAt
+    ? Math.max(0, Math.ceil((canReapplyAt.getTime() - now.getTime()) / 86_400_000))
+    : 0;
+
+  return (
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.header}>
+        <Pressable onPress={onBack} style={styles.backBtn} testID="amb-rejected-back">
+          <ChevronLeft size={22} color={colors.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Ambassador</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.rejectedScroll}>
+        {/* Status hero */}
+        <View
+          style={[
+            styles.rejectedHero,
+            isPermanent && { backgroundColor: "#7F1D1D" },
+          ]}
+          testID={isPermanent ? "amb-status-banned" : "amb-status-rejected"}
+        >
+          <Text style={styles.rejectedHeroTitle}>
+            {isPermanent ? "Account ineligible" : "Application not accepted"}
+          </Text>
+          <Text style={styles.rejectedHeroSub}>
+            {isPermanent
+              ? "This account is no longer eligible for the Ambassador Programme."
+              : `Hi ${me.name.split(" ")[0] || "there"} — we've reviewed your application and it didn't meet our current criteria.`}
+          </Text>
+        </View>
+
+        {/* Reason card */}
+        {me.rejected_reason && (
+          <View style={styles.rejectedReasonCard} testID="amb-rejected-reason">
+            <Text style={styles.rejectedReasonLabel}>Reason</Text>
+            <Text style={styles.rejectedReasonText}>{me.rejected_reason}</Text>
+          </View>
+        )}
+
+        {/* Re-apply CTA or cool-down hint */}
+        {!isPermanent && canReapplyAt && (
+          <View style={styles.rejectedReapplyCard}>
+            <Text style={styles.rejectedReapplyLabel}>
+              {canReapplyNow ? "You can re-apply now" : "You can re-apply on"}
+            </Text>
+            <Text style={styles.rejectedReapplyDate} testID="amb-rejected-reapply-date">
+              {canReapplyAt.toLocaleDateString(undefined, {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+            </Text>
+            {!canReapplyNow && (
+              <Text style={styles.rejectedReapplyHint}>
+                {daysUntil} day{daysUntil === 1 ? "" : "s"} remaining
+              </Text>
+            )}
+            <Pressable
+              testID="amb-rejected-reapply"
+              disabled={!canReapplyNow}
+              onPress={onReapply}
+              style={[styles.rejectedReapplyBtn, !canReapplyNow && { opacity: 0.4 }]}
+            >
+              <Text style={styles.rejectedReapplyBtnText}>
+                {canReapplyNow ? "Re-apply now" : "Re-apply unavailable"}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Support fallback (always present) */}
+        <Text style={styles.rejectedSupport}>
+          Questions?{" "}
+          <Text
+            style={styles.rejectedSupportLink}
+            onPress={() => Linking.openURL("mailto:support@allsale.co.nz").catch(() => {})}
+          >
+            support@allsale.co.nz
+          </Text>
+        </Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+
 function statusStyle(status: ContentSubmission["status"]) {
   if (status === "verified") return { backgroundColor: colors.successSoft };
   if (status === "rejected") return { backgroundColor: "#FEE2E2" };
@@ -735,6 +858,51 @@ const styles = StyleSheet.create({
     fontSize: 13,
     letterSpacing: 0.3,
   },
+  // ---- RejectedDashboard ----
+  rejectedScroll: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xxl * 2 },
+  rejectedHero: {
+    backgroundColor: "#B91C1C",
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: 6,
+  },
+  rejectedHeroTitle: { color: "#fff", fontSize: 22, fontWeight: "800", letterSpacing: -0.5 },
+  rejectedHeroSub: { color: "rgba(255,255,255,0.9)", fontSize: 13, lineHeight: 19 },
+  rejectedReasonCard: {
+    backgroundColor: "#FEF3C7",
+    borderLeftWidth: 3,
+    borderLeftColor: "#D97706",
+    padding: spacing.md,
+    borderRadius: radius.md,
+    gap: 4,
+  },
+  rejectedReasonLabel: {
+    color: "#92400E", fontSize: 10, fontWeight: "800",
+    textTransform: "uppercase", letterSpacing: 0.5,
+  },
+  rejectedReasonText: { color: "#78350F", fontSize: 14, lineHeight: 20 },
+  rejectedReapplyCard: {
+    backgroundColor: "#fff",
+    padding: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    gap: 6,
+  },
+  rejectedReapplyLabel: {
+    color: colors.textMuted, fontSize: 11, fontWeight: "800",
+    textTransform: "uppercase", letterSpacing: 0.5,
+  },
+  rejectedReapplyDate: { color: colors.text, fontSize: 20, fontWeight: "800" },
+  rejectedReapplyHint: { color: colors.textMuted, fontSize: 12 },
+  rejectedReapplyBtn: {
+    backgroundColor: colors.primary, paddingVertical: 14,
+    paddingHorizontal: 28, borderRadius: 999, marginTop: spacing.sm,
+  },
+  rejectedReapplyBtnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  rejectedSupport: { color: colors.textMuted, fontSize: 12, textAlign: "center", marginTop: spacing.sm },
+  rejectedSupportLink: { color: colors.primary, fontWeight: "800" },
   label: {
     fontWeight: "700",
     color: colors.text,
