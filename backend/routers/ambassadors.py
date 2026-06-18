@@ -843,6 +843,98 @@ async def accept_terms(body: AcceptTermsRequest,
 
 
 # ---------------------------------------------------------------------------
+# POST /api/ambassadors/resend-activation
+#   — Re-fires the most relevant programme email for the logged-in user.
+#     Smart-picks based on current status:
+#       • pending_approval → re-sends the "Application received" email
+#       • active           → re-sends the "Welcome, your code is live" email
+#       • rejected         → 400 (use the rejection email's re-apply date)
+#       • permanently_banned → 403
+#     Rate-limited to 1 send per hour per ambassador to prevent abuse and
+#     respect Resend's 2 req/sec ceiling.
+# ---------------------------------------------------------------------------
+RESEND_ACTIVATION_COOLDOWN_SECONDS = 3600  # 1 hour
+
+
+class ResendActivationResponse(BaseModel):
+    ok: bool
+    kind: Literal["application_received", "welcome"]
+    next_allowed_at: datetime
+
+
+@router.post("/ambassadors/resend-activation",
+             response_model=ResendActivationResponse)
+async def resend_activation(current=Depends(get_current_user)):
+    prof = current.get("ambassador_profile") or {}
+    if not prof:
+        raise HTTPException(status_code=403,
+                            detail="Not enrolled in the ambassador programme")
+
+    status = prof.get("status")
+    if status == "permanently_banned":
+        raise HTTPException(status_code=403,
+                            detail="This account is not eligible.")
+    if status in {"rejected", "suspended", "forfeited"}:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No activation email to resend in status '{status}'.",
+        )
+    if status not in {"pending_approval", "active", "dormant"}:
+        raise HTTPException(status_code=400,
+                            detail=f"Unsupported status '{status}'.")
+
+    # Rate-limit check.
+    now = datetime.now(timezone.utc)
+    last = prof.get("last_resend_at")
+    if last and last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    if last:
+        elapsed = (now - last).total_seconds()
+        if elapsed < RESEND_ACTIVATION_COOLDOWN_SECONDS:
+            retry_after = int(RESEND_ACTIVATION_COOLDOWN_SECONDS - elapsed)
+            raise HTTPException(
+                status_code=429,
+                detail=(f"Please wait {retry_after // 60} more minute(s) "
+                        f"before requesting another email."),
+                headers={"Retry-After": str(retry_after)},
+            )
+
+    # Pick which email to send.
+    kind: Literal["application_received", "welcome"]
+    try:
+        if status == "pending_approval":
+            from services.ambassador_email import send_application_received
+            send_application_received(
+                current["email"], current.get("full_name") or "there",
+                prof["code"], prof.get("code_b2b"))
+            kind = "application_received"
+        else:
+            # active or dormant — re-send the "welcome, code is live" email
+            from routers.ambassadors import _count_orders_30d, _resolve_tier
+            orders_30d = await _count_orders_30d(current["id"])
+            tier, _ = _resolve_tier(orders_30d)
+            from services.ambassador_email import send_application_approved
+            send_application_approved(
+                current["email"], current.get("full_name") or "there",
+                prof["code"], prof.get("code_b2b"),
+                tier_label=tier["label"], rate_pct=tier["rate_pct"])
+            kind = "welcome"
+    except Exception:
+        # Even if Resend rate-limits us, stamp the cooldown so callers can't
+        # hammer the endpoint trying to retry our internal failures.
+        logger.exception("resend-activation email send failed")
+
+    await db.users.update_one(
+        {"id": current["id"]},
+        {"$set": {"ambassador_profile.last_resend_at": now}},
+    )
+    return ResendActivationResponse(
+        ok=True, kind=kind,
+        next_allowed_at=now + timedelta(seconds=RESEND_ACTIVATION_COOLDOWN_SECONDS),
+    )
+
+
+# ---------------------------------------------------------------------------
 # ADMIN — listing, payout, content review
 # ---------------------------------------------------------------------------
 class AdminAmbRow(BaseModel):

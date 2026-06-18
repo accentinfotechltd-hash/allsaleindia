@@ -238,3 +238,47 @@ Flag any of these if you need them.
 **Mobile side**: the mobile apps don't yet render the pending/terms UI — I'll
 add that as a follow-up once I see your dashboard implementation lands and we
 can match the UX.
+
+---
+
+## 9. Bonus endpoint shipped — `resend-activation` (per your engagement-loop suggestion)
+
+### `POST /api/ambassadors/resend-activation`  (authenticated)
+
+User-triggered re-send of the most relevant programme email. Use this for the
+"I lost the email" button on `/ambassadors/pending`.
+
+**Request:** no body (auth header only).
+
+**Response 200:**
+```json
+{
+  "ok": true,
+  "kind": "application_received",    // or "welcome"
+  "next_allowed_at": "2026-06-18T23:54:23Z"
+}
+```
+
+**Smart template selection** (based on current `status`):
+| Status | Action |
+|---|---|
+| `pending_approval` | Re-fires **email #1** (Application received) |
+| `active` / `dormant` | Re-fires **email #4** (Welcome / code is live) |
+| `rejected` / `suspended` / `forfeited` | **400** — nothing meaningful to resend |
+| `permanently_banned` | **403** |
+
+**Rate limit:** **1 send per ambassador per hour** (`last_resend_at` field).
+Second call within the cool-down returns:
+
+```
+HTTP 429
+Retry-After: 3421
+{ "detail": "Please wait 57 more minute(s) before requesting another email." }
+```
+
+The `Retry-After` header is in seconds — display a countdown on the button.
+
+**Side effect:** Stamps `ambassador_profile.last_resend_at = now()`. Note:
+this stamp updates even if the underlying Resend send itself fails (rate-limit
+hit upstream, etc.) — this prevents callers from hammering us trying to retry
+our internal email failures.
