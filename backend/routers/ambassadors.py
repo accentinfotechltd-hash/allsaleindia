@@ -331,10 +331,10 @@ async def join_program(body: JoinRequest, request: Request):
 
     # Auto-create the corresponding coupon doc so checkout validates the code
     # natively (only for B2C — B2B codes aren't used at customer checkout).
-    if program == "B2C":
+    if program in ("B2C", "BOTH"):
         await db.coupons.insert_one({
             "id": f"cpn_amb_{uuid.uuid4().hex[:10]}",
-            "code": code,
+            "code": code_b2c,
             "label": f"{body.name}'s ambassador code",
             "discount_pct": B2C_CUSTOMER_DISCOUNT_PCT,
             "coupon_type": "ambassador_b2c",
