@@ -126,8 +126,29 @@ class AmbassadorMe(BaseModel):
     pending_commission: float             # within 7-day hold
     revenue_driven: float                 # GMV in payout currency (B2C) / "—" (B2B)
     referred_sellers_count: int            # B2B only
+    # Editable profile fields (see PATCH /me)
+    social_handle: Optional[str] = None
+    primary_platform: Optional[str] = None
+    phone: Optional[str] = None
+    audience_size: Optional[int] = None
     created_at: datetime
     last_active_at: Optional[datetime]
+
+
+# Patch request — only the fields the web/mobile UI is allowed to edit.
+# Everything else (code, country, email, program) ties to identity/payouts
+# and must go through support.
+_PHONE_RE = re.compile(r"^\+?[0-9 ()\-]{6,20}$")
+_ALLOWED_PAYOUT_CCYS = set(COUNTRY_PAYOUT_CCY.values())  # {NZD,AUD,USD,GBP,CAD,INR}
+
+
+class AmbassadorProfileUpdate(BaseModel):
+    social_handle: Optional[str] = Field(default=None, max_length=120)
+    primary_platform: Optional[Literal["instagram", "tiktok", "youtube",
+                                       "facebook", "other"]] = None
+    payout_currency: Optional[Literal["NZD", "AUD", "USD", "GBP", "CAD", "INR"]] = None
+    phone: Optional[str] = Field(default=None, max_length=20)
+    audience_size: Optional[int] = Field(default=None, ge=0, le=1_000_000_000)
 
 
 class SaleRow(BaseModel):
@@ -399,9 +420,83 @@ async def _build_me_response(user_id: str) -> AmbassadorMe:
         pending_commission=round(prof.get("pending_commission_minor", 0) / 100, 2),
         revenue_driven=round(prof.get("revenue_driven_minor", 0) / 100, 2),
         referred_sellers_count=int(prof.get("referred_sellers_count", 0)),
+        social_handle=prof.get("social_handle"),
+        primary_platform=prof.get("primary_platform"),
+        phone=prof.get("phone"),
+        audience_size=prof.get("audience_size"),
         created_at=prof.get("joined_at") or user.get("created_at") or datetime.now(timezone.utc),
         last_active_at=prof.get("last_active_at"),
     )
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/ambassadors/me  —  edit social_handle / payout_currency / phone /
+#                              audience_size (no other fields editable here)
+# ---------------------------------------------------------------------------
+@router.patch("/ambassadors/me", response_model=AmbassadorMe)
+async def update_me(body: AmbassadorProfileUpdate,
+                    current=Depends(get_current_user)):
+    prof = current.get("ambassador_profile") or {}
+    if not prof:
+        raise HTTPException(status_code=403, detail="Not enrolled in the ambassador programme")
+
+    updates: dict = {}
+    # ---- social_handle -----------------------------------------------------
+    if body.social_handle is not None:
+        sh = body.social_handle.strip()
+        if sh and len(sh) < 2:
+            raise HTTPException(status_code=400, detail="social_handle too short")
+        updates["ambassador_profile.social_handle"] = sh or None
+
+    # ---- primary_platform --------------------------------------------------
+    if body.primary_platform is not None:
+        updates["ambassador_profile.primary_platform"] = body.primary_platform
+
+    # ---- phone -------------------------------------------------------------
+    if body.phone is not None:
+        ph = body.phone.strip()
+        if ph and not _PHONE_RE.match(ph):
+            raise HTTPException(
+                status_code=400,
+                detail="phone must be 6–20 chars: digits, spaces, '+', '-', '(' ')'",
+            )
+        updates["ambassador_profile.phone"] = ph or None
+
+    # ---- audience_size -----------------------------------------------------
+    if body.audience_size is not None:
+        updates["ambassador_profile.audience_size"] = int(body.audience_size)
+
+    # ---- payout_currency (extra guardrails) --------------------------------
+    if body.payout_currency is not None:
+        new_ccy = body.payout_currency
+        if new_ccy not in _ALLOWED_PAYOUT_CCYS:
+            raise HTTPException(status_code=400, detail="Unsupported payout currency")
+        # Block change while money is in flight (avoids FX accounting headaches).
+        unpaid = int(prof.get("unpaid_balance_minor", 0))
+        pending = int(prof.get("pending_commission_minor", 0))
+        if (unpaid + pending) > 0 and new_ccy != prof.get("payout_currency"):
+            raise HTTPException(
+                status_code=409,
+                detail=("Cannot change payout currency while a balance is pending. "
+                        "Withdraw or wait for the current balance to clear first."),
+            )
+        # India ambassadors stay on INR (Razorpay constraint).
+        if prof.get("country") == "IN" and new_ccy != "INR":
+            raise HTTPException(
+                status_code=400,
+                detail="India-based ambassadors must keep INR as payout currency.",
+            )
+        updates["ambassador_profile.payout_currency"] = new_ccy
+
+    if not updates:
+        # No-op patch is a valid response — just return current state.
+        return await _build_me_response(current["id"])
+
+    updates["ambassador_profile.last_active_at"] = datetime.now(timezone.utc)
+    await db.users.update_one({"id": current["id"]}, {"$set": updates})
+    logger.info("ambassador profile updated id=%s fields=%s",
+                current["id"], list(updates.keys()))
+    return await _build_me_response(current["id"])
 
 
 # ---------------------------------------------------------------------------

@@ -224,6 +224,48 @@ Request a payout. **Phase 1 = queue only** — actual transfer happens via cron 
 - `status`: `queued | blocked`
 - `reason` populated when `status === "blocked"` (e.g. *"Below minimum withdrawal of NZD 20."*)
 
+### 3.7 `PATCH /api/ambassadors/me`  ← **NEW**
+Edit your own profile. Only the four fields below are editable here — `code`, `code_b2b`, `country`, `email`, and `program` are immutable post-signup (changing them would break payout routing / link attribution; users must email support).
+
+**Request (all fields optional — send only what you want to change):**
+```json
+{
+  "social_handle": "@sarahjenkins",
+  "primary_platform": "instagram",
+  "payout_currency": "NZD",
+  "phone": "+64 21 555 1234",
+  "audience_size": 14500
+}
+```
+
+**Field rules:**
+| Field | Type | Constraints |
+|---|---|---|
+| `social_handle` | `string \| null` | ≤ 120 chars; set to `null` (or `""`) to clear |
+| `primary_platform` | enum | `instagram \| tiktok \| youtube \| facebook \| other` |
+| `payout_currency` | enum | `NZD \| AUD \| USD \| GBP \| CAD \| INR` |
+| `phone` | `string \| null` | 6–20 chars, digits/spaces/`+`/`-`/`( )`; loose E.164-ish |
+| `audience_size` | `int` | `0 ≤ n ≤ 1_000_000_000` |
+
+**Response 200** — full `AmbassadorMe` payload (same as `GET /me`).
+
+**Errors:**
+- `400` — invalid field value (bad phone format, unsupported currency, etc.)
+- `409` — trying to change `payout_currency` while `unpaid_balance > 0` or `pending_commission > 0` (avoids FX accounting headaches — withdraw or wait for hold to clear first)
+- `400` — Indian ambassadors are locked to `INR` (Razorpay constraint)
+- `403` — not enrolled
+
+**`GET /api/ambassadors/me` now also returns these editable fields** so the profile editor can pre-fill its form:
+```json
+{
+  "...": "...",
+  "social_handle": "@sarahjenkins",
+  "primary_platform": "instagram",
+  "phone": "+64 21 555 1234",
+  "audience_size": 14500
+}
+```
+
 ---
 
 ## 4. Endpoints — Admin (require role `manager` or `support`)
@@ -314,6 +356,7 @@ Suspend an ambassador (their code immediately fails the public lookup).
 | `GET` | `/api/ambassadors/by-code/{code}` | — | Public code preview |
 | `POST` | `/api/ambassadors/join` | — | Signup |
 | `GET` | `/api/ambassadors/me` | user | Dashboard |
+| `PATCH` | `/api/ambassadors/me` | user | Edit social/payout/phone/audience |
 | `GET` | `/api/ambassadors/me/sales` | user | B2C order history |
 | `GET` | `/api/ambassadors/me/referred-sellers` | user | B2B referrals |
 | `POST` | `/api/ambassadors/me/content` | user | Submit post URL |
@@ -349,8 +392,8 @@ Looking at backend logs, the web app is already calling 15+ paths that **don't e
 | `GET /api/ambassadors/me/posts` | `GET /api/ambassadors/me/content` | Same |
 | `POST /api/ambassadors/posts` | `POST /api/ambassadors/me/content` | Submit post URL |
 | `GET /api/ambassadors/social-handle` | Returned inside `GET /api/ambassadors/me` (via stored `social_handle` field — coming next; for now use `/by-code/{code}`) | — |
-| `PATCH /api/ambassadors/me` | **Not implemented yet** — flag if you actually need profile editing | Edit profile |
-| `POST /api/ambassadors/me/regenerate-code` | **Not implemented** — codes are stable on purpose. Flag if needed | Reroll code |
+| `PATCH /api/ambassadors/me` | ✅ **NOW IMPLEMENTED** — see §3.7. Editable fields: `social_handle`, `primary_platform`, `payout_currency`, `phone`, `audience_size` only | Edit profile |
+| `POST /api/ambassadors/me/regenerate-code` | ❌ **Won't implement** — codes are intentionally stable so old Instagram/YouTube links keep attributing. If ever needed it'll be a support-only action | Reroll code |
 
 ### Naming convention to remember
 - The router root is **`/api/ambassadors`** (plural).
