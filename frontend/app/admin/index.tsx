@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft, HandCoins, LifeBuoy, LineChart, LogOut, Mail, MessageSquare, RefreshCw, ShieldAlert, Users } from "lucide-react-native";
+import { ChevronLeft, HandCoins, LifeBuoy, LineChart, LogOut, Mail, MessageSquare, RefreshCw, ShieldAlert, Sparkles, Users } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -385,6 +385,15 @@ export default function AdminDashboard() {
         </Pressable>
 
         <Pressable
+          testID="admin-ambassadors-btn"
+          onPress={() => router.push("/admin/ambassadors")}
+          style={({ pressed }) => [styles.ambassadorsBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Sparkles size={18} color="#fff" />
+          <Text style={styles.reviewBtnText}>Ambassadors</Text>
+        </Pressable>
+
+        <Pressable
           testID="admin-commission-btn"
           onPress={() => router.push("/admin/commission")}
           style={({ pressed }) => [styles.commissionBtn, pressed && { opacity: 0.85 }]}
@@ -503,6 +512,7 @@ const styles = StyleSheet.create({
   teamBtn: { marginTop: spacing.sm, backgroundColor: "#F97316", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   reviewsBtn: { marginTop: spacing.sm, backgroundColor: "#8B5CF6", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   commissionBtn: { marginTop: spacing.sm, backgroundColor: "#10B981", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
+  ambassadorsBtn: { marginTop: spacing.sm, backgroundColor: "#EC4899", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   auditBtn: { marginTop: spacing.sm, backgroundColor: "#475569", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   analyticsBtn: { marginTop: spacing.sm, backgroundColor: "#0F172A", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
 });

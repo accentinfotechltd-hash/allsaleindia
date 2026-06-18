@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
 import FlashSalesCarousel from "@/src/components/FlashSalesCarousel";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
+import AmbassadorWelcomeBanner from "@/src/components/AmbassadorWelcomeBanner";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -134,6 +135,9 @@ export default function Home() {
             <Text style={styles.hello} testID="home-greeting">
               Namaste, {user?.full_name?.split(" ")[0] || "friend"} 🙏
             </Text>
+
+            {/* Ambassador welcome banner — auto-hides when no ref captured */}
+            <AmbassadorWelcomeBanner />
 
             {/* Search */}
             <View style={styles.searchWrap}>

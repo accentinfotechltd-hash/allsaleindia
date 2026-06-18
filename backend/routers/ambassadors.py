@@ -847,6 +847,39 @@ async def admin_suspend(ambassador_id: str,
     return {"ok": True, "status": "suspended"}
 
 
+@router.post("/admin/ambassadors/{ambassador_id}/unsuspend")
+async def admin_unsuspend(ambassador_id: str,
+                          admin=Depends(require_roles("manager"))):
+    """Reverse a suspension. Reactivates the ambassador's code immediately."""
+    res = await db.users.update_one(
+        {"id": ambassador_id, "ambassador_profile.status": "suspended"},
+        {"$set": {"ambassador_profile.status": "active"},
+         "$unset": {"ambassador_profile.suspended_at": "",
+                    "ambassador_profile.suspended_reason": ""}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Suspended ambassador not found")
+    return {"ok": True, "status": "active"}
+
+
+@router.get("/admin/ambassadors/{ambassador_id}/content",
+            response_model=List[ContentSubmission])
+async def admin_list_ambassador_content(
+    ambassador_id: str,
+    status_filter: Optional[Literal["pending", "verified", "rejected"]] = Query(
+        default=None, alias="status"),
+    limit: int = Query(50, ge=1, le=200),
+    admin=Depends(require_roles("manager", "support")),
+):
+    """List a given ambassador's content submissions, newest first."""
+    q: dict = {"ambassador_id": ambassador_id}
+    if status_filter:
+        q["status"] = status_filter
+    cursor = db.ambassador_content.find(
+        q, {"_id": 0}).sort("submitted_at", -1).limit(limit)
+    return [ContentSubmission(**doc) async for doc in cursor]
+
+
 # ---------------------------------------------------------------------------
 # Programme config exposure (for both web + mobile to render rules)
 # ---------------------------------------------------------------------------

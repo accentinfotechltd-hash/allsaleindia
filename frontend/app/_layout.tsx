@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
+import * as Linking from "expo-linking";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -12,6 +13,7 @@ import { RegionProvider } from "@/src/contexts/RegionContext";
 import { WishlistProvider } from "@/src/contexts/WishlistContext";
 import { UiOverlayProvider } from "@/src/components/UiOverlayProvider";
 import { loadStoredLanguage } from "@/src/i18n";
+import { captureRefFromUrl } from "@/src/lib/ref";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -27,6 +29,19 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded, error]);
+
+  // Ambassador deeplink capture — handles both cold-start (app launched via
+  // tap on a link) and warm-start (link tapped while app is in foreground).
+  // Silently no-ops when the URL has no ?ref= or the code is invalid.
+  useEffect(() => {
+    Linking.getInitialURL().then((url) => {
+      if (url) void captureRefFromUrl(url);
+    });
+    const sub = Linking.addEventListener("url", ({ url }) => {
+      void captureRefFromUrl(url);
+    });
+    return () => sub.remove();
+  }, []);
 
   if (!loaded && !error) return null;
 

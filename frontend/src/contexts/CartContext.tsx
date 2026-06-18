@@ -1,7 +1,8 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 import { api } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { getStoredRef } from "@/src/lib/ref";
 
 export type CartItem = {
   product_id: string;
@@ -61,22 +62,53 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [cart, setCart] = useState<Cart>(EMPTY);
   const [loading, setLoading] = useState(false);
+  // Track per-user-session whether we've already tried auto-applying the
+  // stored ambassador ref code. Prevents loops and respects manual coupon
+  // entry — if the user removes a coupon, we don't re-add it.
+  const autoRefAttemptedFor = useRef<string | null>(null);
+
+  /** Best-effort apply of a stored ambassador ref code at most ONCE per
+   * user session. Mirrors the web team's `applyCoupon()` auto-fire on cart
+   * read. Silently no-ops if the cart is empty, already has a coupon, the
+   * ref is invalid, or the user manually pasted a different code earlier. */
+  const maybeAutoApplyRef = useCallback(async (currentCart: Cart, userId: string) => {
+    if (autoRefAttemptedFor.current === userId) return currentCart;
+    autoRefAttemptedFor.current = userId; // mark immediately to avoid races
+    if (currentCart.items.length === 0) return currentCart;
+    if (currentCart.coupon_code) return currentCart; // already has a coupon
+    const stored = await getStoredRef();
+    if (!stored) return currentCart;
+    try {
+      const next = await api<Cart>("/cart/coupon", {
+        method: "POST",
+        body: { code: stored.code },
+      });
+      setCart(next);
+      return next;
+    } catch {
+      // Invalid/expired code — silently leave the cart alone.
+      return currentCart;
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setCart(EMPTY);
+      autoRefAttemptedFor.current = null;
       return;
     }
     setLoading(true);
     try {
       const c = await api<Cart>("/cart");
       setCart(c);
+      // Fire-and-forget: try to auto-apply ambassador ref code if present.
+      void maybeAutoApplyRef(c, user.id);
     } catch {
       setCart(EMPTY);
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, maybeAutoApplyRef]);
 
   useEffect(() => {
     refresh();
