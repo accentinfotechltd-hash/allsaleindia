@@ -347,24 +347,35 @@ export default function AmbassadorDashboard() {
                 <Text style={styles.emptyText}>No sales yet. Share your code to start earning!</Text>
               </View>
             ) : (
-              sales.map((s) => (
-                <View key={s.order_id} style={styles.saleRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.saleId}>#{s.order_short_id}</Text>
-                    <Text style={styles.saleMeta}>
-                      {new Date(s.placed_at).toLocaleDateString()} · {s.status}
-                    </Text>
+              <>
+                {sales.slice(0, 5).map((s) => (
+                  <View key={s.order_id} style={styles.saleRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.saleId}>#{s.order_short_id}</Text>
+                      <Text style={styles.saleMeta}>
+                        {new Date(s.placed_at).toLocaleDateString()} · {s.status}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.saleCommission}>
+                        +{formatMoney(s.commission, s.currency)}
+                      </Text>
+                      <Text style={styles.saleLocked}>
+                        {s.locked_at && new Date(s.locked_at) <= new Date() ? "available" : "on hold"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.saleCommission}>
-                      +{formatMoney(s.commission, s.currency)}
-                    </Text>
-                    <Text style={styles.saleLocked}>
-                      {s.locked_at && new Date(s.locked_at) <= new Date() ? "available" : "on hold"}
-                    </Text>
-                  </View>
-                </View>
-              ))
+                ))}
+                <Pressable
+                  testID="amb-view-all-sales"
+                  onPress={() => router.push("/ambassadors/dashboard/sales")}
+                  style={styles.viewAllBtn}
+                >
+                  <Text style={styles.viewAllText}>
+                    View all sales {sales.length >= 5 ? `(${sales.length}+)` : ""} →
+                  </Text>
+                </Pressable>
+              </>
             )}
           </View>
         )}
@@ -378,29 +389,49 @@ export default function AmbassadorDashboard() {
                 </Text>
               </View>
             ) : (
-              sellers.map((s) => (
-                <View key={s.seller_id} style={styles.saleRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.saleId}>{s.seller_name}</Text>
-                    <Text style={styles.saleMeta}>
-                      {s.orders_to_date} orders · {s.months_since_onboard}mo old
-                    </Text>
+              <>
+                {sellers.slice(0, 5).map((s) => (
+                  <View key={s.seller_id} style={styles.saleRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.saleId}>{s.seller_name}</Text>
+                      <Text style={styles.saleMeta}>
+                        {s.orders_to_date} orders · {s.months_since_onboard}mo old
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={styles.saleCommission}>
+                        ₹{s.earnings_to_date_inr.toLocaleString("en-IN")}
+                      </Text>
+                      <Text style={styles.saleLocked}>
+                        {s.bounty_paid ? "bounty paid" : "bounty pending"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.saleCommission}>
-                      ₹{s.earnings_to_date_inr.toLocaleString("en-IN")}
-                    </Text>
-                    <Text style={styles.saleLocked}>
-                      {s.bounty_paid ? "bounty paid" : "bounty pending"}
-                    </Text>
-                  </View>
-                </View>
-              ))
+                ))}
+                <Pressable
+                  testID="amb-view-all-sellers"
+                  onPress={() => router.push("/ambassadors/dashboard/sellers")}
+                  style={styles.viewAllBtn}
+                >
+                  <Text style={styles.viewAllText}>View all sellers →</Text>
+                </Pressable>
+              </>
             )}
           </View>
         )}
 
-        {tab === "profile" && <ProfileEditor me={me} onSaved={(m) => setMe(m)} />}
+        {tab === "profile" && (
+          <View>
+            <ProfileEditor me={me} onSaved={(m) => setMe(m)} />
+            <Pressable
+              testID="amb-open-profile-page"
+              onPress={() => router.push("/ambassadors/dashboard/profile")}
+              style={styles.viewAllBtn}
+            >
+              <Text style={styles.viewAllText}>Open full profile editor →</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -693,6 +724,17 @@ const styles = StyleSheet.create({
   saleMeta: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
   saleCommission: { fontWeight: "800", color: colors.success, fontSize: 14 },
   saleLocked: { fontSize: 10, color: colors.textMuted, marginTop: 2 },
+  viewAllBtn: {
+    paddingVertical: 12,
+    alignItems: "center",
+    marginTop: spacing.xs,
+  },
+  viewAllText: {
+    color: colors.primary,
+    fontWeight: "800",
+    fontSize: 13,
+    letterSpacing: 0.3,
+  },
   label: {
     fontWeight: "700",
     color: colors.text,

@@ -19,6 +19,7 @@ import sys
 import uuid
 import requests
 import pytest
+from conftest import run_async  # safe sync->async bridge
 
 # Ensure backend modules importable
 sys.path.insert(0, "/app/backend")
@@ -61,7 +62,11 @@ def nz_ambassador(session):
         "social_handle": "@nztester", "primary_platform": "instagram",
     })
     assert r.status_code == 201, f"join failed: {r.status_code} {r.text}"
-    me = r.json()
+    body = r.json()
+    # /join now returns {access_token, needs_password_setup, me} (Phase 2 change).
+    # Unwrap into the legacy flat shape the rest of this suite expects.
+    me = body["me"] if "me" in body else body
+    join_token = body.get("access_token")
     # Set a password so we can log in for PATCH /me tests
     password = "AmbPass2026!"
     from db import db  # type: ignore
@@ -72,13 +77,14 @@ def nz_ambassador(session):
             {"id": me["id"]},
             {"$set": {"password_hash": hash_password(password)}},
         )
-    asyncio.get_event_loop().run_until_complete(_set_pw())
+    run_async(_set_pw())
     # Login
     rl = session.post(f"{BASE_URL}/api/auth/login",
                      json={"email": email, "password": password})
     assert rl.status_code == 200, f"login failed: {rl.text}"
     token = rl.json()["access_token"]
-    return {**me, "email": email, "password": password, "token": token}
+    return {**me, "email": email, "password": password, "token": token,
+            "join_token": join_token}
 
 
 @pytest.fixture(scope="module")
@@ -91,7 +97,9 @@ def in_ambassador(session):
         "social_handle": "@intester", "primary_platform": "instagram",
     })
     assert r.status_code == 201, f"IN join failed: {r.status_code} {r.text}"
-    me = r.json()
+    body = r.json()
+    me = body["me"] if "me" in body else body
+    join_token = body.get("access_token")
     password = "AmbPass2026!"
     from db import db
 
@@ -101,11 +109,12 @@ def in_ambassador(session):
             {"id": me["id"]},
             {"$set": {"password_hash": hash_password(password)}},
         )
-    asyncio.get_event_loop().run_until_complete(_set_pw())
+    run_async(_set_pw())
     rl = session.post(f"{BASE_URL}/api/auth/login",
                      json={"email": email, "password": password})
     assert rl.status_code == 200, f"IN login failed: {rl.text}"
-    return {**me, "email": email, "password": password, "token": rl.json()["access_token"]}
+    return {**me, "email": email, "password": password,
+            "token": rl.json()["access_token"], "join_token": join_token}
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +124,7 @@ class TestJoin:
     def test_join_nz_creates_canonical_coupon(self, session, nz_ambassador):
         from db import db
         code = nz_ambassador["code"]
-        coupon = asyncio.get_event_loop().run_until_complete(
+        coupon = run_async(
             db.coupons.find_one({"code": code}, {"_id": 0})
         )
         assert coupon is not None, f"coupon not created for {code}"
@@ -144,7 +153,7 @@ class TestJoin:
             )
             return result
 
-        result = asyncio.get_event_loop().run_until_complete(_run())
+        result = run_async(_run())
         assert result["ok"], f"validator rejected ambassador code: {result}"
         assert result["discount_nzd"] == 5.0
 
@@ -215,7 +224,7 @@ class TestPatchMe:
                 {"id": nz_ambassador["id"]},
                 {"$set": {"ambassador_profile.pending_commission_minor": 5000}},
             )
-        asyncio.get_event_loop().run_until_complete(_set())
+        run_async(_set())
         try:
             r = session.patch(
                 f"{BASE_URL}/api/ambassadors/me",
@@ -229,7 +238,7 @@ class TestPatchMe:
                     {"id": nz_ambassador["id"]},
                     {"$set": {"ambassador_profile.pending_commission_minor": 0}},
                 )
-            asyncio.get_event_loop().run_until_complete(_reset())
+            run_async(_reset())
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +280,7 @@ class TestAttribution:
             o = await db.orders.find_one({"id": order_id}, {"_id": 0})
             return o
 
-        order = asyncio.get_event_loop().run_until_complete(_run())
+        order = run_async(_run())
         assert order["ambassador_id"] == nz_ambassador["id"]
         assert order["ambassador_commission_minor"] == 500  # 5% of 100 = 5.00
         assert order["ambassador_attribution_state"] == "credited"
@@ -283,7 +292,7 @@ class TestAttribution:
             u = await db.users.find_one({"id": nz_ambassador["id"]},
                                           {"_id": 0, "ambassador_profile": 1})
             return u["ambassador_profile"]
-        prof = asyncio.get_event_loop().run_until_complete(_run2())
+        prof = run_async(_run2())
         # Pending should still be 500 (not 1000) — re-run was a no-op
         assert prof["pending_commission_minor"] >= 500
         assert prof["lifetime_orders"] == 1
@@ -297,7 +306,7 @@ class TestAttribution:
                           "ambassador_profile.lifetime_orders": 0,
                           "ambassador_profile.revenue_driven_minor": 0}},
             )
-        asyncio.get_event_loop().run_until_complete(_cleanup())
+        run_async(_cleanup())
 
     def test_release_promotes_pending_to_unpaid(self, nz_ambassador):
         from db import db
@@ -330,7 +339,7 @@ class TestAttribution:
             o = await db.orders.find_one({"id": order_id}, {"_id": 0})
             return res, u["ambassador_profile"], o
 
-        res, prof, o = asyncio.get_event_loop().run_until_complete(_run())
+        res, prof, o = run_async(_run())
         assert res["released"] >= 1
         assert o["ambassador_attribution_state"] == "released"
         assert prof["unpaid_balance_minor"] >= 1000  # 5% of 200 = 10.00 = 1000 minor
@@ -346,7 +355,7 @@ class TestAttribution:
                           "ambassador_profile.lifetime_orders": 0,
                           "ambassador_profile.revenue_driven_minor": 0}},
             )
-        asyncio.get_event_loop().run_until_complete(_cleanup())
+        run_async(_cleanup())
 
     def test_clawback_on_cancelled_order(self, nz_ambassador):
         from db import db
@@ -380,7 +389,7 @@ class TestAttribution:
                                           {"_id": 0, "ambassador_profile": 1})
             return res, o, u["ambassador_profile"]
 
-        res, o, prof = asyncio.get_event_loop().run_until_complete(_run())
+        res, o, prof = run_async(_run())
         assert res["clawed_back"] >= 1
         assert o["ambassador_attribution_state"] == "clawed_back"
         # Pending was decremented, unpaid NOT incremented
@@ -394,7 +403,7 @@ class TestAttribution:
                 {"$set": {"ambassador_profile.lifetime_orders": 0,
                           "ambassador_profile.revenue_driven_minor": 0}},
             )
-        asyncio.get_event_loop().run_until_complete(_cleanup())
+        run_async(_cleanup())
 
 
 # ---------------------------------------------------------------------------
@@ -478,7 +487,7 @@ class TestSellerReferral:
             amb = await db.users.find_one({"id": nz_ambassador["id"]},
                                             {"_id": 0, "ambassador_profile": 1})
             return u, amb
-        seller_doc, amb_doc = asyncio.get_event_loop().run_until_complete(_check())
+        seller_doc, amb_doc = run_async(_check())
         assert seller_doc.get("referred_by_ambassador_id") == nz_ambassador["id"]
         assert seller_doc.get("seller_onboarded_at") is not None
         assert amb_doc["ambassador_profile"].get("referred_sellers_count", 0) >= 1
@@ -491,7 +500,7 @@ class TestSellerReferral:
                 {"id": nz_ambassador["id"]},
                 {"$set": {"ambassador_profile.referred_sellers_count": 0}},
             )
-        asyncio.get_event_loop().run_until_complete(_cleanup())
+        run_async(_cleanup())
 
     def test_seller_register_with_invalid_referral_silent(self, session):
         """Invalid referral code → silently ignored, signup still succeeds."""
@@ -507,10 +516,10 @@ class TestSellerReferral:
         async def _check():
             u = await db.users.find_one({"id": user_id}, {"_id": 0})
             return u
-        seller_doc = asyncio.get_event_loop().run_until_complete(_check())
+        seller_doc = run_async(_check())
         assert "referred_by_ambassador_id" not in seller_doc
 
         async def _cleanup():
             await db.users.delete_one({"id": user_id})
             await db.sellers.delete_one({"user_id": user_id})
-        asyncio.get_event_loop().run_until_complete(_cleanup())
+        run_async(_cleanup())

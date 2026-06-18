@@ -1,4 +1,5 @@
 """Shared pytest fixtures for Allsale backend tests."""
+import asyncio
 import os
 import time
 import requests
@@ -57,3 +58,51 @@ def auth_headers(test_user):
         "Content-Type": "application/json",
         "Authorization": f"Bearer {test_user['token']}",
     }
+
+
+# ---------------------------------------------------------------------------
+# Session-wide event loop + thin sync-from-async helper.
+#
+# Why: most of our legacy tests touch motor (async MongoDB) inline from sync
+# pytest functions. The old idiom ``asyncio.get_event_loop().run_until_complete(…)``
+# was removed in Python 3.12 + pytest 9 (raises DeprecationWarning →
+# RuntimeError at collection time). ``run_async()`` reuses a single
+# session-wide loop, so 100s of test cases share one loop without
+# leaking motor clients per call.
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="session")
+def event_loop():
+    """Session-wide event loop. Yielded so any other ``run_async()`` calls
+    inside tests reuse the same loop."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    yield loop
+    try:
+        loop.close()
+    except Exception:
+        pass
+
+
+def _get_or_create_loop():
+    """Get the current loop or create one if none exists in this thread.
+    Safe to call from sync test bodies."""
+    try:
+        loop = asyncio.get_event_loop_policy().get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("closed")
+        return loop
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
+
+
+def run_async(coro):
+    """Run an async coroutine to completion from a sync test body. Drop-in
+    replacement for the legacy ``asyncio.get_event_loop().run_until_complete(…)``
+    pattern that broke under Python 3.12+ / pytest 9."""
+    return _get_or_create_loop().run_until_complete(coro)
+
+
+# Export ``run_async`` so legacy tests can ``from conftest import run_async``.
+__all__ = ["run_async"]

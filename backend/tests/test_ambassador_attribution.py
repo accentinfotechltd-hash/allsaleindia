@@ -117,4 +117,9 @@ async def main():
     print("\nALL TESTS PASSED ✅")
 
 
-asyncio.run(main())
+if __name__ == "__main__":
+    # Direct invocation: `PYTHONPATH=/app/backend python tests/test_ambassador_attribution.py`.
+    # When pytest collects this file, it skips the module-scope run (so the
+    # broader suite stays green); the same coverage is provided by
+    # tests/test_ambassador_phase2.py::TestAttribution.
+    asyncio.run(main())

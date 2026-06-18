@@ -18,6 +18,7 @@ import sys
 import uuid
 import requests
 import pytest
+from conftest import run_async  # safe sync->async bridge
 
 sys.path.insert(0, "/app/backend")
 
@@ -84,7 +85,7 @@ def ambassador(session):
             {"id": me["id"]},
             {"$set": {"password_hash": hash_password(password)}},
         )
-    asyncio.get_event_loop().run_until_complete(_setup())
+    run_async(_setup())
 
     rl = session.post(f"{BASE_URL}/api/auth/login",
                       json={"email": email, "password": password})
@@ -118,7 +119,7 @@ class TestWithdrawRegression:
                 {"id": ambassador["id"]},
                 {"$set": {"ambassador_profile.unpaid_balance_minor": 5000}},  # NZD 50
             )
-        asyncio.get_event_loop().run_until_complete(_seed())
+        run_async(_seed())
 
         r = session.post(
             f"{BASE_URL}/api/ambassadors/me/withdraw",
@@ -136,7 +137,7 @@ class TestWithdrawRegression:
                 {"id": ambassador["id"]},
                 {"$set": {"ambassador_profile.unpaid_balance_minor": 0}},
             )
-        asyncio.get_event_loop().run_until_complete(_reset())
+        run_async(_reset())
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +169,7 @@ class TestUnsuspend:
             u = await db.users.find_one({"id": ambassador["id"]},
                                           {"_id": 0, "ambassador_profile": 1})
             return u["ambassador_profile"]
-        prof = asyncio.get_event_loop().run_until_complete(_read())
+        prof = run_async(_read())
         assert prof["status"] == "suspended"
         assert prof.get("suspended_at") is not None
         assert "unsuspend" in (prof.get("suspended_reason") or "").lower()
@@ -181,7 +182,7 @@ class TestUnsuspend:
         assert r2.status_code == 200, r2.text
         assert r2.json()["status"] == "active"
 
-        prof2 = asyncio.get_event_loop().run_until_complete(_read())
+        prof2 = run_async(_read())
         assert prof2["status"] == "active"
         # Fields cleared
         assert "suspended_at" not in prof2
@@ -321,7 +322,7 @@ class TestRegressionAdminActions:
                 {"id": ambassador["id"]},
                 {"$set": {"ambassador_profile.unpaid_balance_minor": 7500}},  # NZD 75
             )
-        asyncio.get_event_loop().run_until_complete(_seed())
+        run_async(_seed())
 
         r = session.post(
             f"{BASE_URL}/api/admin/ambassadors/{ambassador['id']}/mark-paid",
@@ -337,7 +338,7 @@ class TestRegressionAdminActions:
             u = await db.users.find_one({"id": ambassador["id"]},
                                           {"_id": 0, "ambassador_profile": 1})
             return u["ambassador_profile"]
-        prof = asyncio.get_event_loop().run_until_complete(_verify())
+        prof = run_async(_verify())
         assert prof["unpaid_balance_minor"] == 0
         assert prof.get("last_paid_at") is not None
 

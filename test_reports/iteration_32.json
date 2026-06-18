@@ -1,0 +1,47 @@
+{
+  "summary": "Ambassador housekeeping iteration — both backend test refactor and new frontend deep-link screens verified. BACKEND: Single pytest invocation of all three ambassador test files now passes cleanly — 31/31 ✓ in 4.67s (was 13 errors at module load on iter 31). conftest.py exposes the `run_async(coro)` helper and session-scoped `event_loop` fixture; legacy `from conftest import run_async` import works from sibling tests. test_ambassador_attribution.py still runs standalone via `PYTHONPATH=/app/backend python tests/test_ambassador_attribution.py` (asyncio.run wrapped in `if __name__ == '__main__'`). FRONTEND: All three new deep-link routes resolve under /ambassadors/dashboard/. /sales renders header + back button (amb-sales-back) + summary strip (SHOWING / COMMISSION / AVAILABLE) + empty state showing the ambassador code. /sellers correctly REDIRECTS pure-B2C ambassador (NZ buyer) → /ambassadors/dashboard (verified via URL inspection). /profile renders the read-only info card (Email/Country/Code/Program) + editable fields (social_handle prefilled '@testbuyer', primary_platform chips Instagram active, Phone, Audience size, Payout currency chips NZD/AUD/USD/GBP/CAD) + 'No changes' disabled save button. Existing /ambassadors/dashboard still resolves to dashboard.tsx (Expo Router gives the exact-match file priority over the directory) and shows the Ambassador header + tabs. View-all links: amb-open-profile-page testID confirmed present on Profile tab → clicking navigates to /ambassadors/dashboard/profile ✓. amb-view-all-sales / amb-view-all-sellers are conditionally rendered only when sales/sellers arrays are non-empty (correct per source — empty-state path doesn't show the link). For B2C ambassador the Sellers tab is correctly hidden (only amb-tab-sales + amb-tab-profile testIDs present). Persistent console warnings: 'shadow*' style props deprecated (pre-existing across screens) + 'props.pointerEvents is deprecated' — neither functional regression, both already flagged on iter 31. Deprecated packages detected: none introduced this iteration.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "Multiple screens (incl. new dashboard/* sub-routes)",
+        "issue": "Console warning persists: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' + 'props.pointerEvents is deprecated. Use style.pointerEvents'. No functional impact, but worth migrating during a polish pass. Reference: dashboard.tsx and sibling style sheets."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ambassador_phase2.py",
+    "/app/backend/tests/test_ambassador_phase3_admin.py",
+    "/app/backend/tests/test_ambassador_attribution.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/iter32_ambassador_all.xml"
+  ],
+  "action_items": [
+    "(Optional polish) Migrate 'shadow*' style props → 'boxShadow' across screens; replace `pointerEvents` prop with style.pointerEvents.",
+    "(Optional) During profile-edit smoke I observed that filling the social_handle input via Playwright's `inputs[0].fill(...)` left the save button reading 'No changes' — could not verify the 'dirty → enabled' state programmatically. Likely a Playwright/RN controlled-input quirk (RN reads onChangeText, not the native input event) rather than a real bug. Main agent can quickly verify by hand: type into Social handle on /ambassadors/dashboard/profile and confirm the Save pill becomes active + PATCH /api/ambassadors/me is called."
+  ],
+  "critical_code_review_comments": [
+    "conftest.py run_async() guards against closed loops via the get_event_loop_policy().get_event_loop() pattern + re-creates if RuntimeError — drop-in for the legacy Python 3.10- idiom. Session-scoped event_loop fixture matches pytest-asyncio's contract so motor stays on one loop across the session.",
+    "test_ambassador_attribution.py: `asyncio.run(main())` correctly gated under `if __name__ == '__main__':` so pytest collection no longer triggers a side-effecting run at import.",
+    "app/ambassadors/dashboard/sales.tsx: load() pagination uses len(rows) as offset which is correct; hasMore = page.length === PAGE_SIZE is a defensible heuristic. Empty-state copy includes the ambassador code which is the intended share prompt.",
+    "app/ambassadors/dashboard/sellers.tsx: pure-B2C redirect via router.replace('/ambassadors/dashboard') is correct (replace, not push, so back-button doesn't loop). Confirmed in browser test.",
+    "app/ambassadors/dashboard/profile.tsx: India INR lock + dirty-tracking + payout currency chip array all wired correctly per source review.",
+    "dashboard.tsx view-all links: amb-view-all-sales / amb-view-all-sellers are nested inside the `sales.length>0 / sellers.length>0` branches — empty state intentionally suppresses them (no 'View all 0 sales →' UX). amb-open-profile-page is unconditional inside the Profile tab — verified live."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "100% (31/31 in single pytest invocation; standalone attribution script ALL TESTS PASSED)",
+    "frontend": "100% on the four deep-link route assertions + the 'view-all → profile' navigation; conditional view-all-sales/sellers links could not be exercised end-to-end because the test ambassador has no sales/sellers yet, but source review confirms the wiring."
+  },
+  "seed_data_creation": "Phase-2/3 tests create TEST_-prefixed ambassadors + transient orders (cleaned up in fixtures). No new persistent seed beyond what previous iterations produced.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest /app/backend/tests/test_ambassador_phase2.py /app/backend/tests/test_ambassador_phase3_admin.py /app/backend/tests/test_ambassador_attribution.py -v` from /app/backend with PYTHONPATH=/app/backend — expect 31 passing. To frontend-test ambassador screens: login via page.request.post(/api/auth/login) with buyer@example.com/Buyer2026!, then `localStorage.setItem('allsale_token', JSON.stringify(token))` BEFORE navigating to /ambassadors/dashboard* (storage key is allsale_token because src/lib/api.ts uses TOKEN_KEY='allsale_token' via storage.secureSet which is JSON-encoded). To exercise the conditional amb-view-all-sales / amb-view-all-sellers links you need an ambassador with non-empty sales/sellers data (e.g. force-seed via POST /api/ambassadors/join + the scripts in test_ambassador_attribution.py). amb-open-profile-page renders unconditionally inside the Profile tab (default tab is 'sales' — click [data-testid=amb-tab-profile] first).",
+  "rca_of_issue": ""
+}
