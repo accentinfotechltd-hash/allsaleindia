@@ -125,7 +125,12 @@ class AmbassadorMe(BaseModel):
     country: str
     payout_currency: str
     program: Literal["B2C", "B2B", "BOTH"]
-    status: Literal["active", "dormant", "suspended", "forfeited"]
+    status: Literal["pending_approval", "active", "dormant", "suspended",
+                    "forfeited", "rejected", "permanently_banned"]
+    terms_accepted_at: Optional[datetime] = None
+    terms_accepted_version: Optional[str] = None
+    can_reapply_at: Optional[datetime] = None
+    rejected_reason: Optional[str] = None
     tier: TierInfo
     next_tier: Optional[TierInfo]
     posts_this_month: int
@@ -269,7 +274,10 @@ async def lookup_code(code: str):
             {"ambassador_profile.code": code},
             {"ambassador_profile.code_b2b": code},
          ],
-         "ambassador_profile.status": {"$ne": "suspended"}},
+         # Only `active` codes resolve publicly — pending_approval / rejected /
+         # suspended / permanently_banned codes return 404 so buyers don't see
+         # discounts that aren't yet live.
+         "ambassador_profile.status": "active"},
         {"_id": 0, "full_name": 1, "ambassador_profile": 1},
     )
     if not user or not user.get("ambassador_profile"):
@@ -298,9 +306,69 @@ async def join_program(body: JoinRequest, request: Request):
         )
 
     payout_ccy = COUNTRY_PAYOUT_CCY[country]
-    # Everyone gets a B2C-style code.  Indian ambassadors ALSO get a B2B code
-    # since they can drive both customer sales (to diaspora abroad) AND seller
-    # recruitment (in India).
+    email_lc = str(body.email).lower()
+    existing = await db.users.find_one({"email": email_lc}, {"_id": 0})
+    now = datetime.now(timezone.utc)
+
+    # ---- Re-application path -------------------------------------------------
+    # If the user previously applied and was rejected, we let them re-apply
+    # once their 30-day cool-down has elapsed. Permanently-banned users
+    # cannot ever re-apply.
+    if existing and existing.get("ambassador_profile"):
+        prof = existing["ambassador_profile"]
+        status = prof.get("status")
+        if status == "permanently_banned":
+            raise HTTPException(
+                status_code=403,
+                detail="This account is not eligible for the ambassador programme.",
+            )
+        if status == "rejected":
+            can_reapply_at = prof.get("can_reapply_at")
+            if can_reapply_at and can_reapply_at.tzinfo is None:
+                can_reapply_at = can_reapply_at.replace(tzinfo=timezone.utc)
+            if can_reapply_at and can_reapply_at > now:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(f"You can re-apply after "
+                            f"{can_reapply_at.strftime('%-d %B %Y')}."),
+                )
+            # Reset back to pending_approval — keep their existing code so any
+            # legacy links still work post-approval.
+            await db.users.update_one(
+                {"id": existing["id"]},
+                {"$set": {
+                    "ambassador_profile.status": "pending_approval",
+                    "ambassador_profile.social_handle": body.social_handle,
+                    "ambassador_profile.primary_platform": body.primary_platform,
+                    "ambassador_profile.last_active_at": now,
+                    "ambassador_profile.reapplied_at": now,
+                 },
+                 "$unset": {"ambassador_profile.rejected_at": "",
+                            "ambassador_profile.rejected_reason": "",
+                            "ambassador_profile.rejected_by": "",
+                            "ambassador_profile.can_reapply_at": ""}},
+            )
+            # Best-effort notify; failure must not block re-application.
+            try:
+                from services.ambassador_email import (
+                    send_application_received,
+                    send_new_application_to_admin,
+                )
+                send_application_received(
+                    email_lc, body.name, prof["code"], prof.get("code_b2b"))
+                send_new_application_to_admin(
+                    body.name, email_lc, country,
+                    body.social_handle, body.primary_platform, prof["code"])
+            except Exception:
+                logger.exception("re-application email send failed")
+            return await _build_join_response(existing["id"])
+        # Active / pending / dormant / suspended → already enrolled.
+        raise HTTPException(
+            status_code=409,
+            detail="You're already enrolled in the ambassador programme.",
+        )
+
+    # ---- Fresh application ---------------------------------------------------
     desired_b2c = _generate_code(body.name, "5")
     code_b2c = await _ensure_code_unique(desired_b2c)
     code_b2b: Optional[str] = None
@@ -308,12 +376,6 @@ async def join_program(body: JoinRequest, request: Request):
         desired_b2b = _generate_code(body.name, "BIZ")
         code_b2b = await _ensure_code_unique(desired_b2b)
 
-    # Reuse existing user account if email already on file; otherwise create
-    # a "passwordless" stub user — they can claim it by setting a password
-    # via /auth/forgot-password.
-    existing = await db.users.find_one({"email": str(body.email).lower()},
-                                        {"_id": 0})
-    now = datetime.now(timezone.utc)
     profile_doc = {
         "code": code_b2c,
         "code_b2b": code_b2b,
@@ -322,7 +384,9 @@ async def join_program(body: JoinRequest, request: Request):
         "primary_platform": body.primary_platform,
         "social_handle": body.social_handle,
         "program": program,
-        "status": "active",
+        # NEW: applications start in pending_approval and require both
+        # T&C acceptance + admin approval before going live.
+        "status": "pending_approval",
         "tier_key": "starter",
         "lifetime_commission_minor": 0,
         "unpaid_balance_minor": 0,
@@ -336,11 +400,6 @@ async def join_program(body: JoinRequest, request: Request):
     }
 
     if existing:
-        if existing.get("ambassador_profile"):
-            raise HTTPException(
-                status_code=409,
-                detail="You're already enrolled in the ambassador programme.",
-            )
         user_id = existing["id"]
         await db.users.update_one(
             {"id": user_id},
@@ -350,7 +409,7 @@ async def join_program(body: JoinRequest, request: Request):
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         await db.users.insert_one({
             "id": user_id,
-            "email": str(body.email).lower(),
+            "email": email_lc,
             "full_name": body.name,
             "country": country,
             "is_seller": False,
@@ -363,35 +422,42 @@ async def join_program(body: JoinRequest, request: Request):
 
     # Auto-create the corresponding coupon doc so checkout validates the code
     # natively (only for B2C — B2B codes aren't used at customer checkout).
-    # NOTE: we deliberately conform to the canonical coupon schema (type/value/
-    # active/valid_from/valid_to/usage_limit_total/per_user_limit) used by
-    # services.coupons.validate_for_cart — ambassador-specific fields
-    # (coupon_type, ambassador_user_id) are extra metadata read at attribution
-    # time, not by the validator.
+    # NOTE: starts INACTIVE — flipped to active=true only on admin approval.
     if program in ("B2C", "BOTH"):
         await db.coupons.insert_one({
             "id": f"cpn_amb_{uuid.uuid4().hex[:10]}",
             "code": code_b2c,
             "label": f"{body.name}'s ambassador code · {B2C_CUSTOMER_DISCOUNT_PCT}% off",
-            # --- canonical coupon validator fields ---
             "type": "percent",
             "value": float(B2C_CUSTOMER_DISCOUNT_PCT),
             "scope": "all",
             "scope_value": [],
             "min_order_nzd": 0.0,
             "max_discount_nzd": None,
-            "active": True,
+            "active": False,               # ← INACTIVE until approval
             "valid_from": now,
             "valid_to": None,
-            "usage_limit_total": 0,        # 0 / None = unlimited
+            "usage_limit_total": 0,
             "per_user_limit": 999,
             "used_count": 0,
-            "countries": [],               # any country
-            # --- ambassador-specific metadata ---
+            "countries": [],
             "coupon_type": "ambassador_b2c",
             "ambassador_user_id": user_id,
             "created_at": now,
         })
+
+    # Fire welcome + admin notify (best-effort, never block the API).
+    try:
+        from services.ambassador_email import (
+            send_application_received,
+            send_new_application_to_admin,
+        )
+        send_application_received(email_lc, body.name, code_b2c, code_b2b)
+        send_new_application_to_admin(
+            body.name, email_lc, country,
+            body.social_handle, body.primary_platform, code_b2c)
+    except Exception:
+        logger.exception("application email send failed")
 
     return await _build_join_response(user_id)
 
@@ -459,6 +525,10 @@ async def _build_me_response(user_id: str) -> AmbassadorMe:
         primary_platform=prof.get("primary_platform"),
         phone=prof.get("phone"),
         audience_size=prof.get("audience_size"),
+        terms_accepted_at=prof.get("terms_accepted_at"),
+        terms_accepted_version=prof.get("terms_accepted_version"),
+        can_reapply_at=prof.get("can_reapply_at"),
+        rejected_reason=prof.get("rejected_reason"),
         created_at=prof.get("joined_at") or user.get("created_at") or datetime.now(timezone.utc),
         last_active_at=prof.get("last_active_at"),
     )
@@ -708,6 +778,71 @@ async def request_withdraw(current=Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
+# POST /api/ambassadors/accept-terms  —  user accepts the T&Cs
+# ---------------------------------------------------------------------------
+# Tracked terms version. Bumping this in code triggers a "re-accept" prompt
+# on the frontend because /me will return null terms_accepted_at when the
+# stored version is older. Keep simple v1 -> v2 etc. integers.
+TERMS_CURRENT_VERSION = "v1"
+
+
+class AcceptTermsRequest(BaseModel):
+    version: Optional[str] = Field(default=None, max_length=8)
+
+
+class AcceptTermsResponse(BaseModel):
+    ok: bool
+    terms_accepted_at: datetime
+    terms_accepted_version: str
+
+
+@router.post("/ambassadors/accept-terms", response_model=AcceptTermsResponse)
+async def accept_terms(body: AcceptTermsRequest,
+                       current=Depends(get_current_user)):
+    """Records the logged-in ambassador's acceptance of the current T&Cs.
+
+    Idempotent: re-accepting the same version returns the original
+    timestamp. Accepting a newer version overwrites.
+    """
+    prof = current.get("ambassador_profile") or {}
+    if not prof:
+        raise HTTPException(status_code=403,
+                            detail="Not enrolled in the ambassador programme")
+    version = (body.version or TERMS_CURRENT_VERSION).strip()
+    if version != TERMS_CURRENT_VERSION:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown terms version. Current is {TERMS_CURRENT_VERSION}.",
+        )
+    # Idempotency — if already on current version, return existing stamp.
+    if (prof.get("terms_accepted_version") == version
+            and prof.get("terms_accepted_at")):
+        ts = prof["terms_accepted_at"]
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        return AcceptTermsResponse(ok=True, terms_accepted_at=ts,
+                                   terms_accepted_version=version)
+    now = datetime.now(timezone.utc)
+    await db.users.update_one(
+        {"id": current["id"]},
+        {"$set": {
+            "ambassador_profile.terms_accepted_at": now,
+            "ambassador_profile.terms_accepted_version": version,
+            "ambassador_profile.last_active_at": now,
+        }},
+    )
+    # Best-effort confirmation email.
+    try:
+        from services.ambassador_email import send_terms_accepted
+        send_terms_accepted(current["email"],
+                            current.get("full_name") or "there", version)
+    except Exception:
+        logger.exception("terms_accepted email send failed")
+    return AcceptTermsResponse(ok=True, terms_accepted_at=now,
+                               terms_accepted_version=version)
+
+
+# ---------------------------------------------------------------------------
 # ADMIN — listing, payout, content review
 # ---------------------------------------------------------------------------
 class AdminAmbRow(BaseModel):
@@ -878,6 +1013,136 @@ async def admin_list_ambassador_content(
     cursor = db.ambassador_content.find(
         q, {"_id": 0}).sort("submitted_at", -1).limit(limit)
     return [ContentSubmission(**doc) async for doc in cursor]
+
+
+# ---------------------------------------------------------------------------
+# ADMIN — approve / reject pending applications
+# ---------------------------------------------------------------------------
+REAPPLY_COOLDOWN_DAYS = 30
+
+
+class RejectRequest(BaseModel):
+    reason: str = Field(..., min_length=4, max_length=500)
+    permanent: bool = False    # True ⇒ "permanently_banned" (fraud)
+
+
+@router.post("/admin/ambassadors/{ambassador_id}/approve")
+async def admin_approve(ambassador_id: str,
+                        admin=Depends(require_roles("manager"))):
+    """Flip a pending application to active. Activates the ambassador's
+    coupon code and fires the welcome email.
+
+    Pre-conditions:
+        - ambassador exists
+        - status == "pending_approval"
+        - terms_accepted_at is set (admins cannot approve until the user has
+          accepted the T&Cs — guards against legal liability)
+    """
+    user = await db.users.find_one(
+        {"id": ambassador_id, "ambassador_profile": {"$exists": True}},
+        {"_id": 0},
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="Ambassador not found")
+    prof = user["ambassador_profile"]
+    if prof.get("status") != "pending_approval":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot approve — current status is '{prof.get('status')}'.",
+        )
+    if not prof.get("terms_accepted_at"):
+        raise HTTPException(
+            status_code=412,   # precondition failed
+            detail="Cannot approve before the ambassador accepts the T&Cs.",
+        )
+    now = datetime.now(timezone.utc)
+    await db.users.update_one(
+        {"id": ambassador_id},
+        {"$set": {
+            "ambassador_profile.status": "active",
+            "ambassador_profile.approved_at": now,
+            "ambassador_profile.approved_by": admin["id"],
+            "ambassador_profile.last_active_at": now,
+        }},
+    )
+    # Flip the coupon active so /by-code/{code} resolves and checkout
+    # actually applies the discount.
+    if prof.get("code"):
+        await db.coupons.update_one(
+            {"code": prof["code"], "coupon_type": "ambassador_b2c"},
+            {"$set": {"active": True}},
+        )
+    # Best-effort email.
+    try:
+        from routers.ambassadors import _count_orders_30d, _resolve_tier
+        # (Re-uses the same helpers used by /me — keeps tier label consistent.)
+        orders_30d = await _count_orders_30d(ambassador_id)
+        tier, _ = _resolve_tier(orders_30d)
+        from services.ambassador_email import send_application_approved
+        send_application_approved(
+            user["email"], user.get("full_name") or "there",
+            prof["code"], prof.get("code_b2b"),
+            tier_label=tier["label"], rate_pct=tier["rate_pct"])
+    except Exception:
+        logger.exception("approval email send failed")
+    logger.info("ambassador approved id=%s by=%s", ambassador_id, admin["id"])
+    return {"ok": True, "status": "active", "approved_at": now}
+
+
+@router.post("/admin/ambassadors/{ambassador_id}/reject")
+async def admin_reject(ambassador_id: str, body: RejectRequest,
+                       admin=Depends(require_roles("manager"))):
+    """Decline an application. By default the applicant can re-apply after
+    REAPPLY_COOLDOWN_DAYS; set ``permanent: true`` for fraud cases (no
+    further re-applications)."""
+    user = await db.users.find_one(
+        {"id": ambassador_id, "ambassador_profile": {"$exists": True}},
+        {"_id": 0},
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="Ambassador not found")
+    prof = user["ambassador_profile"]
+    current_status = prof.get("status")
+    if current_status not in {"pending_approval", "active"}:
+        # No-op for already rejected/banned/suspended/forfeited/dormant.
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot reject — current status is '{current_status}'.",
+        )
+    now = datetime.now(timezone.utc)
+    new_status = "permanently_banned" if body.permanent else "rejected"
+    can_reapply_at = (None if body.permanent
+                      else now + timedelta(days=REAPPLY_COOLDOWN_DAYS))
+    update_set: dict = {
+        "ambassador_profile.status": new_status,
+        "ambassador_profile.rejected_at": now,
+        "ambassador_profile.rejected_reason": body.reason,
+        "ambassador_profile.rejected_by": admin["id"],
+    }
+    if can_reapply_at:
+        update_set["ambassador_profile.can_reapply_at"] = can_reapply_at
+    await db.users.update_one({"id": ambassador_id}, {"$set": update_set})
+    # Deactivate the coupon so the code stops working.
+    if prof.get("code"):
+        await db.coupons.update_one(
+            {"code": prof["code"], "coupon_type": "ambassador_b2c"},
+            {"$set": {"active": False}},
+        )
+    try:
+        from services.ambassador_email import send_application_rejected
+        send_application_rejected(
+            user["email"], user.get("full_name") or "there",
+            body.reason, can_reapply_at)
+    except Exception:
+        logger.exception("rejection email send failed")
+    logger.info("ambassador rejected id=%s permanent=%s by=%s",
+                ambassador_id, body.permanent, admin["id"])
+    return {
+        "ok": True,
+        "status": new_status,
+        "rejected_at": now,
+        "can_reapply_at": can_reapply_at,
+    }
 
 
 # ---------------------------------------------------------------------------

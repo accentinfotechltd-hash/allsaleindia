@@ -52,6 +52,31 @@ def session():
     return s
 
 
+def _auto_approve(session, me: dict, email: str, password: str, token: str) -> None:
+    """Phase 4: ambassadors land in pending_approval. To keep legacy tests
+    asserting the *post-approval* state, the fixture auto-approves via the
+    accept-terms + admin/approve flow."""
+    # 1) User accepts T&Cs
+    r = session.post(
+        f"{BASE_URL}/api/ambassadors/accept-terms",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"version": "v1"},
+    )
+    assert r.status_code == 200, f"accept-terms failed: {r.text}"
+    # 2) Owner-admin approves
+    ra = session.post(
+        f"{BASE_URL}/api/admin/login",
+        json={"email": "owner@allsale.co.nz", "password": "AllsaleOwner2026!"},
+    )
+    assert ra.status_code == 200, f"admin login failed: {ra.text}"
+    admin_token = ra.json()["access_token"]
+    r2 = session.post(
+        f"{BASE_URL}/api/admin/ambassadors/{me['id']}/approve",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert r2.status_code == 200, f"approve failed: {r2.text}"
+
+
 @pytest.fixture(scope="module")
 def nz_ambassador(session):
     """Create an NZ ambassador and return {email, password, code, id, token}."""
@@ -83,6 +108,7 @@ def nz_ambassador(session):
                      json={"email": email, "password": password})
     assert rl.status_code == 200, f"login failed: {rl.text}"
     token = rl.json()["access_token"]
+    _auto_approve(session, me, email, password, token)
     return {**me, "email": email, "password": password, "token": token,
             "join_token": join_token}
 
@@ -113,8 +139,10 @@ def in_ambassador(session):
     rl = session.post(f"{BASE_URL}/api/auth/login",
                      json={"email": email, "password": password})
     assert rl.status_code == 200, f"IN login failed: {rl.text}"
+    token = rl.json()["access_token"]
+    _auto_approve(session, me, email, password, token)
     return {**me, "email": email, "password": password,
-            "token": rl.json()["access_token"], "join_token": join_token}
+            "token": token, "join_token": join_token}
 
 
 # ---------------------------------------------------------------------------
