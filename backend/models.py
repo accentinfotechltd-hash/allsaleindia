@@ -91,10 +91,14 @@ class SellerRegister(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=6)
     business: SellerBusiness
+    # Optional ambassador-attribution code (typically Indian B2B code, e.g.
+    # "RAJESHBIZ"). Validated at signup; ignored if invalid.
+    referral_code: Optional[str] = Field(default=None, max_length=40)
 
 
 class SellerUpgrade(BaseModel):
     business: SellerBusiness
+    referral_code: Optional[str] = Field(default=None, max_length=40)
 
 
 class SellerProfile(BaseModel):

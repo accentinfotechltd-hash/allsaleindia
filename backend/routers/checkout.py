@@ -245,6 +245,15 @@ async def _on_payment_succeeded(
     except Exception:
         pass
 
+    # Ambassador attribution — credit pending commission if this order was
+    # placed with an ambassador-issued coupon. Idempotent; safe to call
+    # from both the polling path and the webhook path.
+    try:
+        from services.ambassador_attribution import credit_pending_for_order
+        await credit_pending_for_order(order_id)
+    except Exception:
+        logger.exception("ambassador attribution failed for order %s", order_id)
+
     # Increment flash-sale units_sold (idempotent per (sale_id, order_id))
     try:
         from services.flash_sales import record_units_sold

@@ -352,20 +352,33 @@ async def join_program(body: JoinRequest, request: Request):
 
     # Auto-create the corresponding coupon doc so checkout validates the code
     # natively (only for B2C — B2B codes aren't used at customer checkout).
+    # NOTE: we deliberately conform to the canonical coupon schema (type/value/
+    # active/valid_from/valid_to/usage_limit_total/per_user_limit) used by
+    # services.coupons.validate_for_cart — ambassador-specific fields
+    # (coupon_type, ambassador_user_id) are extra metadata read at attribution
+    # time, not by the validator.
     if program in ("B2C", "BOTH"):
         await db.coupons.insert_one({
             "id": f"cpn_amb_{uuid.uuid4().hex[:10]}",
             "code": code_b2c,
-            "label": f"{body.name}'s ambassador code",
-            "discount_pct": B2C_CUSTOMER_DISCOUNT_PCT,
+            "label": f"{body.name}'s ambassador code · {B2C_CUSTOMER_DISCOUNT_PCT}% off",
+            # --- canonical coupon validator fields ---
+            "type": "percent",
+            "value": float(B2C_CUSTOMER_DISCOUNT_PCT),
+            "scope": "all",
+            "scope_value": [],
+            "min_order_nzd": 0.0,
+            "max_discount_nzd": None,
+            "active": True,
+            "valid_from": now,
+            "valid_to": None,
+            "usage_limit_total": 0,        # 0 / None = unlimited
+            "per_user_limit": 999,
+            "used_count": 0,
+            "countries": [],               # any country
+            # --- ambassador-specific metadata ---
             "coupon_type": "ambassador_b2c",
             "ambassador_user_id": user_id,
-            "is_active": True,
-            "max_uses_per_user": 999,
-            "max_total_uses": 0,           # 0 = unlimited
-            "min_order_nzd": 0,
-            "starts_at": now,
-            "ends_at": None,
             "created_at": now,
         })
 

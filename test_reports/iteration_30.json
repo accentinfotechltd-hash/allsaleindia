@@ -1,0 +1,64 @@
+{
+  "summary": "Ambassador Programme Phase 2 (a+b+c) tested end-to-end. Created /app/backend/tests/test_ambassador_phase2.py — 17/17 pytest cases pass (canonical coupon schema, validator integration, attribution credit + idempotency, release_due promotion, clawback on cancelled order, scheduler job registration, PATCH /me guardrails [phone fmt, India INR lock, balance lock], by-code 200/404, /me new profile fields, seller_register w/ valid + invalid referral_code). Frontend: /ambassadors landing renders correctly with tier ladder + India section + 3-feature grid + Apply CTA. /ambassadors/join form renders all fields, India selection triggers the dual-code banner, POST /api/ambassadors/join succeeds and redirects to /ambassadors/dashboard. account-ambassador-btn present and routes to /ambassadors landing as expected. CRITICAL POST-JOIN AUTH BUG: anonymous user who joins via /ambassadors/join lands on /ambassadors/dashboard but sees 'Couldn't load dashboard — Missing bearer token' because POST /api/ambassadors/join returns AmbassadorMe but no access_token — the newly-created stub user has password_hash=None and no session is established. This breaks the happy-path UX for first-time enrolment.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "ambassadors/dashboard.tsx",
+        "issue": "After anonymous user submits /ambassadors/join, dashboard shows toast 'Couldn't load dashboard — Missing bearer token'. POST /api/ambassadors/join returns AmbassadorMe with no access_token, so the auth context has no bearer. Fix: either (a) /api/ambassadors/join issues an access_token for new stub users in its response (and frontend sets it on auth context), or (b) /join screen requires login first, or (c) /dashboard for unauthenticated users routes to a 'set your password to claim your code' screen using /api/auth/forgot-password.",
+        "testID": "amb-submit -> dashboard",
+        "priority": "CRITICAL"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "anonymous → join → dashboard",
+        "issue": "join 201 succeeds but the dashboard immediately fails on GET /api/ambassadors/me because no JWT is set. Existing logged-in users (e.g. buyer@example.com) are unaffected.",
+        "affected_testIDs": ["amb-submit"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "Multiple screens",
+        "issue": "Console warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\".' Appears repeatedly on /ambassadors. Reference: /app/frontend/app/ambassadors/index.tsx and related styles."
+      },
+      {
+        "component": "Pressable (likely ambassadors flow)",
+        "issue": "Console warning: 'props.pointerEvents is deprecated. Use style.pointerEvents'. Reference: surfaces during /ambassadors/join submit flow."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ambassador_phase2.py",
+    "/app/test_reports/pytest/iter30_ambassador_phase2.xml"
+  ],
+  "action_items": [
+    "FIX (critical): wire access_token issuance to /api/ambassadors/join (or change frontend flow) so anonymous joiners land on a working dashboard. Right now POST /ambassadors/join creates a passwordless stub user but the FE dashboard requires Authorization header on GET /api/ambassadors/me.",
+    "Migrate deprecated style props in ambassador screens: 'shadow*' → 'boxShadow', and remove props.pointerEvents in favour of style.pointerEvents.",
+    "Optional: add a 'set your password' / 'claim your account' nudge on first dashboard load for stub users so they can withdraw later.",
+    "Optional: add /api/ambassadors/me/sales tests once orders exist (covered transitively by attribution tests today)."
+  ],
+  "critical_code_review_comments": [
+    "routers/ambassadors.py POST /ambassadors/join (line ~279): creates passwordless stub user but returns no access_token. Frontend join → dashboard flow is broken for anonymous users. Either issue a token here or require auth at /ambassadors/join.",
+    "services/ambassador_attribution.credit_pending_for_order: correctly idempotent via `ambassador_attribution_state` guard + conditional $set update. ✓",
+    "services/scheduler.py: both jobs (payouts_release_due 30m, ambassador_release_due 1h) registered at startup as expected. ✓",
+    "routers/seller/onboarding.py _link_ambassador_referral: idempotent ($exists guard on referred_by_ambassador_id), silent on invalid codes — matches spec. ✓",
+    "Coupon schema in /api/ambassadors/join now uses canonical fields (type=percent, value=5, active=true, valid_from, scope=all) AND retains ambassador_user_id metadata — validated end-to-end via services.coupons.validate_for_cart in tests. ✓"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ambassador_phase2.py (new — 17 pytest tests)"
+  ],
+  "success_rate": {
+    "backend": "100% (17/17 pytest cases)",
+    "frontend": "~90% — landing + join + India banner + account-ambassador-btn route ALL working; dashboard load after anonymous join is broken (missing bearer token)"
+  },
+  "seed_data_creation": "Tests create TEST_-prefixed ambassador users + orders inline and clean up after each class. No leftover state.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Re-run /app/backend/tests/test_ambassador_phase2.py — uses session-scoped fixtures that create their own ambassadors with httpx + login. Verify the anonymous-join→dashboard bug after main agent fixes /api/ambassadors/join to return an access_token (or changes the FE flow). Use viewport 390x844 for mobile. testIDs verified: amb-cta-join, amb-name, amb-email, amb-handle, amb-submit, amb-country-{NZ|IN|AU|US|GB|CA}, amb-platform-{instagram|tiktok|youtube|facebook|other}, account-ambassador-btn.",
+  "rca_of_issue": "Anonymous → join → dashboard bug RCA: routers/ambassadors.py:join_program creates a passwordless stub user (`password_hash: None`) when the email isn't on file, then returns AmbassadorMe (no token). frontend/app/ambassadors/join.tsx calls joinProgram() and immediately router.replace('/ambassadors/dashboard'). The dashboard calls GET /api/ambassadors/me which requires Authorization: Bearer <jwt>; auth context still empty → toast 'Missing bearer token'. Reproduction: 1) Visit /ambassadors logged out, 2) Tap Apply to join, 3) Fill any valid form, 4) Submit — Welcome toast appears + 'Couldn't load dashboard' errors. Mitigation: have join_program issue a JWT via utils.create_token(user_id) and include it in the response shape, OR refactor frontend to require login before /ambassadors/join."
+}

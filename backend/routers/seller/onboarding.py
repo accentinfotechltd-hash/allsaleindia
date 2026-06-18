@@ -22,6 +22,39 @@ from ._common import verify_business_and_persist
 router = APIRouter(tags=["seller"])
 
 
+async def _link_ambassador_referral(user_id: str, referral_code: str | None) -> None:
+    """If ``referral_code`` resolves to an active ambassador (B2C *or* B2B
+    code), set ``referred_by_ambassador_id`` on the seller's user doc and
+    increment the ambassador's ``referred_sellers_count``. Idempotent."""
+    code = (referral_code or "").strip().upper()
+    if not code:
+        return
+    amb = await db.users.find_one(
+        {"$or": [
+            {"ambassador_profile.code": code},
+            {"ambassador_profile.code_b2b": code},
+        ],
+         "ambassador_profile.status": {"$ne": "suspended"}},
+        {"_id": 0, "id": 1},
+    )
+    if not amb:
+        return  # invalid / suspended → silently ignore
+    res = await db.users.update_one(
+        {"id": user_id, "referred_by_ambassador_id": {"$exists": False}},
+        {"$set": {
+            "referred_by_ambassador_id": amb["id"],
+            "seller_referral_code_used": code,
+            "seller_onboarded_at": now_utc(),
+        }},
+    )
+    if res.modified_count:
+        await db.users.update_one(
+            {"id": amb["id"]},
+            {"$inc": {"ambassador_profile.referred_sellers_count": 1},
+             "$set": {"ambassador_profile.last_active_at": now_utc()}},
+        )
+
+
 # --- KYC docs ---------------------------------------------------------------
 class SellerDocumentsUpload(BaseModel):
     id_proof_url: str = Field(..., min_length=10, description="Cloudinary URL or data: URL of govt-issued ID")
@@ -139,6 +172,11 @@ async def seller_register(body: SellerRegister):
     }
     await db.users.insert_one(user_doc)
     await verify_business_and_persist(uid, body.business)
+    # Best-effort ambassador attribution — silent no-op on invalid codes.
+    try:
+        await _link_ambassador_referral(uid, body.referral_code)
+    except Exception:
+        pass
     fresh = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
     token = create_token(uid)
     return AuthResponse(user=public_user(fresh), access_token=token)
@@ -149,6 +187,10 @@ async def seller_upgrade(body: SellerUpgrade, current=Depends(get_current_user))
     if current.get("is_seller"):
         raise HTTPException(status_code=400, detail="Already a seller")
     await verify_business_and_persist(current["id"], body.business)
+    try:
+        await _link_ambassador_referral(current["id"], body.referral_code)
+    except Exception:
+        pass
     fresh = await db.users.find_one(
         {"id": current["id"]}, {"_id": 0, "password_hash": 0}
     )

@@ -173,6 +173,13 @@ export default function Account() {
             testID="account-referrals-btn"
           />
           <Row
+            icon={<Sparkles size={18} color={colors.primary} />}
+            label="Ambassador Programme"
+            subtitle="Share your code · earn 5–12% per sale"
+            onPress={() => router.push("/ambassadors")}
+            testID="account-ambassador-btn"
+          />
+          <Row
             icon={<MessageCircle size={18} color={colors.text} />}
             label="Messages"
             subtitle="Chat with sellers about your orders"

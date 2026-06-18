@@ -4,7 +4,7 @@ const BASE = process.env.EXPO_PUBLIC_BACKEND_URL as string;
 const TOKEN_KEY = "allsale_token";
 
 export type ApiOptions = {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   auth?: boolean;
 };

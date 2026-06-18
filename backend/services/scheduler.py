@@ -39,6 +39,17 @@ async def _run_payouts_release_due() -> None:
         logger.exception("payouts_release_due job failed")
 
 
+async def _run_ambassador_release_due() -> None:
+    """Release ambassador commission past its 7-day hold (or claw back on
+    cancelled/refunded orders). Idempotent."""
+    try:
+        from services.ambassador_attribution import release_due_ambassador_commission
+
+        await release_due_ambassador_commission()
+    except Exception:  # pragma: no cover
+        logger.exception("ambassador_release_due job failed")
+
+
 def init_scheduler() -> None:
     """Start the background scheduler. Safe to call multiple times."""
     global _scheduler
@@ -59,8 +70,20 @@ def init_scheduler() -> None:
         max_instances=1,
         coalesce=True,
     )
+    # Ambassador commission hold-release. Once an hour is plenty — the hold
+    # is measured in days, not minutes.
+    _scheduler.add_job(
+        _run_ambassador_release_due,
+        IntervalTrigger(hours=1),
+        id="ambassador_release_due",
+        next_run_time=None,
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
     _scheduler.start()
-    logger.info("APScheduler started — payouts_release_due every 30m")
+    logger.info("APScheduler started — payouts_release_due every 30m, "
+                "ambassador_release_due every 1h")
 
 
 def shutdown_scheduler() -> None:
