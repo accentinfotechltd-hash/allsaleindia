@@ -11,6 +11,7 @@ import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
 import NotifyWhenInStock from "@/src/components/NotifyWhenInStock";
 import AskSellerButton from "@/src/components/AskSellerButton";
+import CompareToggleButton from "@/src/components/CompareToggleButton";
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useCart } from "@/src/contexts/CartContext";
@@ -243,6 +244,7 @@ export default function ProductDetail() {
                   productName={product.name}
                 />
               ) : null}
+              <CompareToggleButton productId={product.id} />
             </>
           ) : null}
 
