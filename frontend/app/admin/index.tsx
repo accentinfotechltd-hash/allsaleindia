@@ -397,6 +397,15 @@ export default function AdminDashboard() {
         )}
 
         <Pressable
+          testID="admin-users-btn"
+          onPress={() => router.push("/admin/users")}
+          style={({ pressed }) => [styles.usersBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Users size={18} color="#fff" />
+          <Text style={styles.reviewBtnText}>Users · search & filter</Text>
+        </Pressable>
+
+        <Pressable
           testID="admin-reviews-btn"
           onPress={() => router.push("/admin/reviews")}
           style={({ pressed }) => [styles.reviewsBtn, pressed && { opacity: 0.85 }]}
@@ -532,6 +541,7 @@ const styles = StyleSheet.create({
   financingBtn: { marginTop: spacing.sm, backgroundColor: "#7C3AED", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   emailBtn: { marginTop: spacing.sm, backgroundColor: "#10B981", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   teamBtn: { marginTop: spacing.sm, backgroundColor: "#F97316", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
+  usersBtn: { marginTop: spacing.sm, backgroundColor: "#0EA5E9", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   reviewsBtn: { marginTop: spacing.sm, backgroundColor: "#8B5CF6", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   commissionBtn: { marginTop: spacing.sm, backgroundColor: "#10B981", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },
   ambassadorsBtn: { marginTop: spacing.sm, backgroundColor: "#EC4899", paddingHorizontal: 22, paddingVertical: 14, borderRadius: radius.md, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 },

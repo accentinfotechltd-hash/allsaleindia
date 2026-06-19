@@ -1,0 +1,35 @@
+{
+  "summary": "Admin Users mobile screen + backend pagination regression — ALL PASS. Backend: 16/16 pytest tests pass (default response shape, limit clamping, skip/limit pagination, password_hash never returned, case-insensitive partial search on email/full_name/company_name, role=buyer/seller filtering, role+search combine via $and, RBAC manager+support allowed/funnel-blocked, ?q= alias matches ?search=, has_more flips false on last page, default limit=50 / max-clamped to 200). Frontend: admin-users-btn tile present on /admin dashboard, /admin/users renders FlatList with 'Showing N of T' header (e.g. 'Showing 50 of 8,195'), role tabs (all/buyer/seller) work, 400ms search debounce verified (rows 50→40 when searching 'allsale'), search-clear button restores list, infinite scroll triggered onEndReached and grew rows 50→117 with subtitle updating to 'Showing 150 of 8,195', user detail modal opens on row tap with Email/Joined/etc fields, close button (admin-user-detail-close) closes modal.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_users_pagination_and_funnel.py",
+    "/app/backend/tests/test_admin_users_iter36_regression.py",
+    "/app/test_reports/pytest/iter36_admin_users.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "users.tsx is well-scoped at ~710 LOC; debounce ref pattern is correct (setTimeout cleanup on cleanup + re-entrant deps).",
+    "queryString() depends on role+debouncedSearch and load() is wrapped in useCallback that re-runs on queryString change — good, drives the auto-refetch on tab/search change.",
+    "loadMore() uses items.length as skip which is exact (no duplicate-page risk).",
+    "Backend admin.py:411-433 handles both `search` and `q` aliases and combines role+search via $and to avoid OR'ing the role filter away — verified by dedicated regression test.",
+    "MongoDB projection excludes `_id` and `password_hash` — verified."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_users_iter36_regression.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None — relied on existing 8,195-user dataset already seeded.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend GET /api/admin/users is fully covered by two pytest modules: test_admin_users_pagination_and_funnel.py (8 pagination tests + 4 RBAC) and test_admin_users_iter36_regression.py (q-alias, has_more flip, role+q combo, default/cap limits). The mobile screen /admin/users uses testIDs admin-users-btn, admin-users-search, admin-users-search-clear, admin-users-role-{all|buyer|seller}, admin-user-row-{id}, admin-user-detail-close, admin-users-refresh, admin-users-back. Login flow: admin-login-email + admin-login-password + admin-login-btn with owner@allsale.co.nz / AllsaleOwner2026!. Note: Playwright `force=True` click on admin-user-detail-close hit 'outside of viewport' in mobile webview — works fine via JS click; not a real UX bug.",
+  "rca_of_issue": "N/A — no bugs found this iteration."
+}
