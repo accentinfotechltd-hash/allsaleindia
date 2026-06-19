@@ -262,3 +262,27 @@ Mobile shipped: ⭐ "Save search" chip in the active-filters bar on `/category/[
 
 ### Verified live
 POST → id `ss_*` ✓ · GET list ✓ · PATCH notify=true ✓ · DELETE ✓
+
+---
+
+## ⚡ June 19, 2026 — Public shareable wishlist links
+
+NEW one-token public wishlist sharing.
+
+### Endpoints
+| Verb | Path | Auth | Returns |
+|---|---|---|---|
+| `POST` | `/api/wishlist/share` | buyer JWT | `{ token, url, deep_link }`. Idempotent — re-mints the SAME token if user has one. |
+| `DELETE` | `/api/wishlist/share` | buyer JWT | `{revoked:true}`. Sets `wishlist_share_enabled=false` (token survives so re-enabling restores the same link). |
+| `GET` | `/api/wishlist/share/{token}` | **PUBLIC** (no auth) | `WishlistItem[]`. **404** if token unknown OR share was revoked. |
+
+### User fields added
+`users` collection gains `wishlist_share_token: string` + `wishlist_share_enabled: bool`.
+
+### Frontend usage
+Mobile shipped: "Share" link in wishlist header — mints/refreshes token and opens native iOS/Android share sheet pre-filled with the canonical `https://allsale.co.nz/w/<token>` URL.
+
+Web should build a public read-only page at `/w/<token>` consuming `/api/wishlist/share/<token>`. No auth required on that page so it's perfectly indexable / forwardable.
+
+### Verified live
+mint → 200 token `qRJksyln02L58iGc` · public view → 200 (1 item) · revoke → 200 · public view after revoke → 404 ✓

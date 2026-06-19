@@ -329,13 +329,38 @@ export default function WishlistScreen() {
             <Text style={styles.headerLink}>All</Text>
           </Pressable>
         ) : items.length > 0 ? (
-          <Pressable
-            testID="wishlist-select-mode"
-            onPress={() => enterSelectionMode()}
-            style={styles.headerRight}
-          >
-            <Text style={styles.headerLink}>Select</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+            <Pressable
+              testID="wishlist-share-btn"
+              onPress={async () => {
+                try {
+                  const r = await api<{ url: string; token: string }>(
+                    "/wishlist/share",
+                    { method: "POST" },
+                  );
+                  const { Share } = await import("react-native");
+                  await Share.share({
+                    title: "My Allsale wishlist",
+                    message: `Check out my Allsale wishlist 🎁 ${r.url}`,
+                    url: r.url,
+                  });
+                  show({ title: "Share link ready", body: r.url, kind: "success" });
+                } catch (e: any) {
+                  show({ title: e?.message || "Couldn't share", kind: "error" });
+                }
+              }}
+              style={[styles.headerRight, { paddingRight: 2 }]}
+            >
+              <Text style={styles.headerLink}>Share</Text>
+            </Pressable>
+            <Pressable
+              testID="wishlist-select-mode"
+              onPress={() => enterSelectionMode()}
+              style={styles.headerRight}
+            >
+              <Text style={styles.headerLink}>Select</Text>
+            </Pressable>
+          </View>
         ) : (
           <View style={{ width: 56 }} />
         )}

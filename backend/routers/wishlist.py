@@ -5,6 +5,7 @@ joins on `products` for fresh price / image / availability.
 """
 from __future__ import annotations
 
+import secrets
 from typing import List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -216,6 +217,84 @@ async def clear_wishlist(current=Depends(get_current_user)):
     """Empty the buyer's entire wishlist (used by the 'Clear all' UI action)."""
     res = await db.wishlists.delete_many({"user_id": current["id"]})
     return {"removed": res.deleted_count, "wishlist_count": 0}
+
+
+# ---------------------------------------------------------------------------
+# Public shareable wishlist link (June 2026)
+# ---------------------------------------------------------------------------
+@router.post("/share")
+async def create_share_link(current=Depends(get_current_user)):
+    """Mint (or reuse) a public token + return the canonical share URL.
+    Idempotent — same token re-used across calls so the link never goes stale
+    in already-sent invites."""
+    user = await db.users.find_one(
+        {"id": current["id"]},
+        {"_id": 0, "id": 1, "full_name": 1, "wishlist_share_token": 1},
+    )
+    token = (user or {}).get("wishlist_share_token")
+    if not token:
+        token = secrets.token_urlsafe(12)
+        await db.users.update_one(
+            {"id": current["id"]},
+            {"$set": {"wishlist_share_token": token, "wishlist_share_enabled": True}},
+        )
+    else:
+        # Re-enable in case the user had revoked previously.
+        await db.users.update_one(
+            {"id": current["id"]}, {"$set": {"wishlist_share_enabled": True}}
+        )
+    return {
+        "token": token,
+        "url": f"https://allsale.co.nz/w/{token}",
+        "deep_link": f"allsale://wishlist/share/{token}",
+    }
+
+
+@router.delete("/share")
+async def revoke_share_link(current=Depends(get_current_user)):
+    """Disable the public link (the token survives so re-enabling reuses it)."""
+    await db.users.update_one(
+        {"id": current["id"]}, {"$set": {"wishlist_share_enabled": False}}
+    )
+    return {"revoked": True}
+
+
+@router.get("/share/{token}", response_model=List[WishlistItem])
+async def public_wishlist_view(token: str):
+    """Public, no-auth read-only view of a user's wishlist by share token."""
+    user = await db.users.find_one(
+        {"wishlist_share_token": token, "wishlist_share_enabled": True},
+        {"_id": 0, "id": 1, "full_name": 1},
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="Wishlist not found or private")
+    rows: list[WishlistItem] = []
+    async for w in db.wishlists.find({"user_id": user["id"]}, {"_id": 0}).sort(
+        "added_at", -1
+    ):
+        prod = await db.products.find_one(
+            {"id": w["product_id"]},
+            {"_id": 0, "id": 1, "name": 1, "image": 1, "price_nzd": 1, "price_inr": 1, "category": 1, "rating": 1, "reviews_count": 1, "stock_count": 1, "seller_name": 1, "seller_city": 1},
+        )
+        if not prod:
+            continue
+        rows.append(
+            WishlistItem(
+                product_id=prod["id"],
+                name=prod["name"],
+                image=prod["image"],
+                price_nzd=float(prod.get("price_nzd", 0)),
+                price_inr=float(prod.get("price_inr", 0)),
+                category=prod.get("category", ""),
+                rating=float(prod.get("rating", 0) or 0),
+                reviews_count=int(prod.get("reviews_count", 0) or 0),
+                in_stock=int(prod.get("stock_count", 0) or 0) > 0,
+                seller_name=prod.get("seller_name"),
+                seller_city=prod.get("seller_city"),
+                added_at=w.get("added_at").isoformat() if w.get("added_at") else "",
+            )
+        )
+    return rows
 
 
 # ---------------------------------------------------------------------------
