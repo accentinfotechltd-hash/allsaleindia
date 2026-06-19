@@ -1,13 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Linking,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { CheckCircle2, Circle, ExternalLink, MapPin, Truck } from "lucide-react-native";
+import { CheckCircle2, Circle, ExternalLink, ImageIcon, MapPin, Truck } from "lucide-react-native";
 
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -41,6 +43,12 @@ export type OrderTracking = {
   last_tracking_update?: string | null;
   delivered_at?: string | null;
   buyer_confirmed_at?: string | null;
+  proof_of_delivery?: {
+    image: string;
+    note?: string | null;
+    uploaded_by: "carrier" | "seller";
+    uploaded_at: string;
+  } | null;
 };
 
 type Props = {
@@ -53,6 +61,7 @@ export default function OrderTrackingTimeline({ orderId, initial }: Props) {
   const [tracking, setTracking] = useState<OrderTracking | null>(initial ?? null);
   const [loading, setLoading] = useState<boolean>(!initial);
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const [proofZoom, setProofZoom] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,6 +187,52 @@ export default function OrderTrackingTimeline({ orderId, initial }: Props) {
           ) : null}
         </Pressable>
       ) : null}
+
+      {/* Delivery proof photo (carrier or seller) */}
+      {tracking.proof_of_delivery?.image ? (
+        <View style={styles.proofBox} testID="tracking-proof-of-delivery">
+          <View style={styles.proofHeader}>
+            <ImageIcon size={14} color={colors.success} />
+            <Text style={styles.proofTitle}>
+              Delivery proof · {tracking.proof_of_delivery.uploaded_by === "seller" ? "From seller" : "From courier"}
+            </Text>
+          </View>
+          <Pressable
+            testID="tracking-proof-image"
+            onPress={() => setProofZoom(true)}
+            style={styles.proofImageWrap}
+          >
+            <Image
+              source={{ uri: tracking.proof_of_delivery.image }}
+              style={styles.proofImage}
+              resizeMode="cover"
+            />
+          </Pressable>
+          {tracking.proof_of_delivery.note ? (
+            <Text style={styles.proofNote}>{tracking.proof_of_delivery.note}</Text>
+          ) : null}
+          <Text style={styles.proofTs}>
+            {formatDateTime(tracking.proof_of_delivery.uploaded_at)}
+          </Text>
+        </View>
+      ) : null}
+
+      <Modal
+        visible={proofZoom}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProofZoom(false)}
+      >
+        <Pressable style={styles.zoomBackdrop} onPress={() => setProofZoom(false)}>
+          {tracking.proof_of_delivery?.image ? (
+            <Image
+              source={{ uri: tracking.proof_of_delivery.image }}
+              style={styles.zoomImage}
+              resizeMode="contain"
+            />
+          ) : null}
+        </Pressable>
+      </Modal>
 
       {/* Detailed scan event timeline */}
       {tracking.events.length > 0 ? (
@@ -335,4 +390,26 @@ const styles = StyleSheet.create({
   eventAt: { fontSize: 11, color: colors.textFaint, marginTop: 4, fontWeight: "600" },
   eventsToggle: { alignSelf: "center", paddingVertical: 6 },
   eventsToggleText: { color: colors.primary, fontWeight: "700", fontSize: 12 },
+
+  proofBox: {
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.successSoft,
+    borderWidth: 1,
+    borderColor: colors.success,
+  },
+  proofHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  proofTitle: { fontSize: 12, fontWeight: "800", color: colors.success, letterSpacing: 0.3 },
+  proofImageWrap: { borderRadius: radius.md, overflow: "hidden", backgroundColor: "#fff" },
+  proofImage: { width: "100%", height: 220 },
+  proofNote: { marginTop: 8, fontSize: 13, color: colors.text, fontStyle: "italic" },
+  proofTs: { marginTop: 4, fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+  zoomBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: spacing.lg,
+  },
+  zoomImage: { width: "100%", height: "100%" },
 });

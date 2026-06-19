@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import SellerProofOfDeliveryUploader from "@/src/components/SellerProofOfDeliveryUploader";
 import { storage } from "@/src/utils/storage";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -29,6 +30,7 @@ type SellerOrder = {
   status: string;
   created_at: string;
   estimated_delivery: string;
+  proof_of_delivery?: { image?: string; uploaded_by?: "carrier" | "seller" } | null;
 };
 
 const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
@@ -170,6 +172,16 @@ export default function SellerOrders() {
                   <Text style={styles.deliveryText}>Est. delivery: {item.estimated_delivery}</Text>
                   <Text style={styles.totalText}>{formatNZD(item.seller_subtotal_nzd)}</Text>
                 </View>
+
+                {/* Phase 1.5: delivery proof upload for OFD/delivered orders */}
+                {["out_for_delivery", "delivered"].includes(item.status) ? (
+                  <SellerProofOfDeliveryUploader
+                    orderId={item.order_id}
+                    existingProofImage={item.proof_of_delivery?.image}
+                    existingProofUploadedBy={item.proof_of_delivery?.uploaded_by}
+                    onUploaded={load}
+                  />
+                ) : null}
               </View>
             );
           }}

@@ -89,6 +89,19 @@ async def shiprocket_webhook(
         update_ts["payout_release_at"] = now_utc() + timedelta(
             days=PAYOUT_HOLD_DAYS_AFTER_DELIVERY
         )
+        # Carrier-provided proof of delivery (Shiprocket pod_url / proof_image_url)
+        pod = (
+            payload.get("pod_url")
+            or payload.get("proof_image_url")
+            or payload.get("delivery_image_url")
+        )
+        if pod and not order.get("proof_of_delivery"):
+            update_ts["proof_of_delivery"] = {
+                "image": pod,
+                "note": payload.get("delivery_note") or "Delivered by courier",
+                "uploaded_by": "carrier",
+                "uploaded_at": now_utc(),
+            }
     await db.orders.update_one({"id": order["id"]}, {"$set": update_ts})
 
     # Schedule tier-aware payout release on delivery; void on RTO/refund.

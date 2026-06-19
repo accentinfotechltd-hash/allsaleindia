@@ -1,0 +1,36 @@
+{
+  "summary": "Backend-only testing of Phase 1.5 Delivery Proof of Photo feature. All 6 new POD tests pass standalone AND alongside test_order_tracking.py (15) + test_reviews.py (22) — 43/43 related tests pass with no regressions. Validated against public EXPO_PUBLIC_BACKEND_URL. POD endpoint correctly returns 200 with ProofOfDelivery payload, promotes out_for_delivery → delivered, exposes proof in tracking endpoint, and enforces 403/400/409 guard cases as specified. Pre-existing (unrelated) shiprocket_webhook test failures detected — confirmed they fail on HEAD~1 too (signature gate requires SHIPROCKET_WEBHOOK_TOKEN header; tests don't send it). Not caused by this iteration.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/shiprocket/webhook", "issue": "Pre-existing: 9 shiprocket webhook tests fail with 403 'Invalid webhook signature' because SHIPROCKET_WEBHOOK_TOKEN is set in .env but tests don't send x-api-key header. NOT a regression from POD iteration — verified fails identically on HEAD~1. Suggest test_shiprocket_webhook.py should set the header (e.g., x-api-key=ElmRkhbhwibHzfNWUIkKru02wPHif51U5AKqz0ewEgs) in requests, OR monkeypatch SHIPROCKET_WEBHOOK_TOKEN to empty for the test session."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_proof_of_delivery.py",
+    "/app/test_reports/pytest/iter34_proof_of_delivery.xml",
+    "/app/test_reports/pytest/iter34_regression.xml"
+  ],
+  "action_items": [
+    "Optional: fix pre-existing test_shiprocket_webhook.py to send x-api-key header so webhook regression suite passes (not blocking POD release)."
+  ],
+  "critical_code_review_comments": [
+    "routers/seller/orders.py upload_proof_of_delivery: correct guard ordering (auth → order existence → ownership → status → carrier-wins → image format). 200 happy path returns Pydantic model, side effects (notification + email) are wrapped in try/except so a Resend outage won't break the flow — good.",
+    "Carrier-wins logic only blocks when existing.uploaded_by == 'carrier'; a previously-uploaded seller proof would be silently overwritten — likely intentional (re-upload), but consider documenting.",
+    "models.SellerOrder.proof_of_delivery and OrderTracking.proof_of_delivery are typed as Optional[dict] rather than Optional[ProofOfDelivery] — works but loses Pydantic validation on response. Low priority.",
+    "shiprocket.py pod_url capture happens only inside the webhook handler — fine since carrier proof is intended to come via webhook."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (6/6 POD tests, 43/43 related: POD+tracking+reviews)", "frontend": "not tested (per request)"},
+  "seed_data_creation": "None — tests create their own buyer/seller users on the fly via /api/auth/register and promote via direct Mongo update (per test design).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "POD feature is solid. If asked to re-test, run `cd /app/backend && python -m pytest tests/test_proof_of_delivery.py tests/test_order_tracking.py tests/test_reviews.py -v` — expect 43/43. The shiprocket_webhook suite is broken pre-existing (signature gate), do NOT attribute to POD work.",
+  "rca_of_issue": "N/A — POD feature behaves as specified. The shiprocket_webhook failures RCA: SHIPROCKET_WEBHOOK_TOKEN env var is non-empty so services/shiprocket.py::webhook_signature_ok requires header match; the test client never sends an x-api-key header → 403. Reproduction: `pytest tests/test_shiprocket_webhook.py::test_webhook_requires_awb`. Mitigation: either (a) inject header in tests, or (b) override SHIPROCKET_WEBHOOK_TOKEN='' for the test process via conftest fixture."
+}

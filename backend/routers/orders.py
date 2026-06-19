@@ -273,6 +273,7 @@ async def get_order_tracking(order_id: str, current=Depends(get_current_user)):
         last_tracking_update=order.get("last_tracking_update"),
         delivered_at=order.get("delivered_at"),
         buyer_confirmed_at=order.get("buyer_confirmed_at"),
+        proof_of_delivery=order.get("proof_of_delivery"),
     )
 
 

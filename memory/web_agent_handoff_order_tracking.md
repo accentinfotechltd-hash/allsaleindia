@@ -109,6 +109,38 @@ Buyer flags an abusive / spam / fake review for admin moderation. Auth required.
 
 ---
 
+### `POST /api/seller/orders/{order_id}/proof-of-delivery` (Phase 1.5)
+Seller uploads a photo proving the parcel reached the buyer. Auth + `is_seller=true` required.
+
+**Body:**
+```json
+{
+  "image": "data:image/jpeg;base64,/9j/4AAQ...",  // OR an HTTPS URL
+  "note": "Left at the front porch under the mat"  // optional, ≤ 300 chars
+}
+```
+
+**Behaviour:**
+- Allowed only when `status ∈ {out_for_delivery, delivered}` and the seller owns at least one item on the order.
+- `409 Conflict` if a carrier already provided `pod_url` (carrier wins).
+- If status was `out_for_delivery`, auto-promotes to `delivered` and stamps `delivered_at`.
+- Stores `orders.proof_of_delivery = {image, note, uploaded_by: "seller", uploaded_at}`.
+- Triggers in-app notification (`proof_of_delivery_uploaded`) + Resend email to the buyer.
+
+**Response (`ProofOfDelivery`):**
+```json
+{
+  "image": "data:image/jpeg;base64,...",
+  "note": "Left at the front porch under the mat",
+  "uploaded_by": "seller",
+  "uploaded_at": "2026-06-19T01:11:42Z"
+}
+```
+
+**Carrier-side capture:** the Shiprocket webhook now also picks up `pod_url` / `proof_image_url` / `delivery_image_url` from the carrier payload and stores it as `proof_of_delivery.uploaded_by = "carrier"`. No code change needed on the web app for this — just render the same `proof_of_delivery` field from `GET /orders/{id}/tracking`.
+
+---
+
 ## 2. Schema Additions
 
 ### `orders` (existing collection, additive fields)
@@ -116,12 +148,13 @@ Buyer flags an abusive / spam / fake review for admin moderation. Auth required.
 |---|---|---|
 | `shipped_at` | datetime | Shiprocket webhook |
 | `out_for_delivery_at` | datetime | Shiprocket webhook |
-| `delivered_at` | datetime | Shiprocket webhook *or* `mark-received` if buyer-promoted |
+| `delivered_at` | datetime | Shiprocket webhook *or* `mark-received` if buyer-promoted *or* seller proof-of-delivery upload |
 | `buyer_confirmed_at` | datetime | `POST /orders/{id}/mark-received` |
 | `last_tracking_location` | string | Shiprocket webhook (latest scan location) |
 | `tracking_status` | string | Shiprocket webhook (raw "current_status") |
 | `last_tracking_update` | datetime | Shiprocket webhook |
 | `awb_code` | string | denormalised for snappy UI lookup |
+| `proof_of_delivery` | object `{image, note, uploaded_by: "carrier"\|"seller", uploaded_at}` | Shiprocket webhook (`pod_url`) OR `POST /seller/orders/{id}/proof-of-delivery` |
 
 ### `shipments` (existing, no schema change)
 - The `events` array (Mongo `$push` in webhook) is now exposed via `GET /orders/{id}/tracking`.

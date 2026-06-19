@@ -573,6 +573,7 @@ class SellerOrder(BaseModel):
     status: str
     created_at: datetime
     estimated_delivery: str
+    proof_of_delivery: Optional[dict] = None  # mirrors orders.proof_of_delivery for UI
 
 
 class SellerPayoutSummary(BaseModel):
@@ -628,6 +629,8 @@ class Order(BaseModel):
     last_tracking_update: Optional[datetime] = None
     last_tracking_location: Optional[str] = None
     awb_code: Optional[str] = None
+    # Delivery proof — set by Shiprocket webhook (pod_url) or seller upload
+    proof_of_delivery: Optional[dict] = None  # {image, note?, uploaded_by, uploaded_at}
 
 
 class CancelOrderRequest(BaseModel):
@@ -745,6 +748,7 @@ class OrderTracking(BaseModel):
     last_tracking_update: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
     buyer_confirmed_at: Optional[datetime] = None
+    proof_of_delivery: Optional[dict] = None
 
 
 class ReorderResult(BaseModel):
@@ -755,6 +759,18 @@ class ReorderResult(BaseModel):
 
 class ReviewReportRequest(BaseModel):
     reason: str = Field(..., min_length=2, max_length=300)
+
+
+class ProofOfDelivery(BaseModel):
+    image: str  # base64 data URI OR public URL
+    note: Optional[str] = Field(default=None, max_length=300)
+    uploaded_by: str  # "carrier" (Shiprocket pod_url) | "seller"
+    uploaded_at: datetime
+
+
+class ProofOfDeliveryUploadRequest(BaseModel):
+    image: str = Field(..., description="Base64 data URI (data:image/jpeg;base64,...) or HTTPS URL")
+    note: Optional[str] = Field(default=None, max_length=300)
 
 
 # ---------------------------------------------------------------------------
