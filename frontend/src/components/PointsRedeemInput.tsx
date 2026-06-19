@@ -53,7 +53,7 @@ export default function PointsRedeemInput() {
   const apply = async (raw: string) => {
     const n = parseInt(raw, 10);
     if (!n || n < 100) {
-      toast.show({ title: "Min 100 points", body: "Use 100 pts or more (each 100 pts = $1).", kind: "success" });
+      toast.show({ title: "Min 100 points", body: "Use 100 pts or more (each 100 pts = $1).", kind: "error" });
       return;
     }
     setBusy(true);
