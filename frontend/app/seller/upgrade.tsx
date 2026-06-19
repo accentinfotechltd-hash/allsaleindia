@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Sparkles } from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -24,11 +25,15 @@ export default function SellerUpgrade() {
   const { form, set, setType } = useBusinessForm();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   const submit = async () => {
     setErr("");
     setBusy(true);
     try {
+      // Sanitize: uppercase, strip non-alphanum. Invalid codes are silently
+      // ignored by the backend so we don't need to validate client-side.
+      const code = referralCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
       await api("/seller/upgrade", {
         method: "POST",
         body: {
@@ -38,6 +43,7 @@ export default function SellerUpgrade() {
             cin: form.cin.trim() || null,
             llpin: form.llpin.trim() || null,
           },
+          referral_code: code || undefined,
         },
       });
       await refresh();
@@ -67,6 +73,35 @@ export default function SellerUpgrade() {
           </Text>
 
           <BusinessFields form={form} set={set} setType={setType} prefix="seller-upgrade" />
+
+          {/* Ambassador referral CTA — Indian sellers referred by an Allsale
+              Ambassador get 3 months free Pro. Code is optional + silently
+              ignored if invalid; sanitized to A-Z0-9 only. */}
+          <View style={styles.referralCard} testID="seller-upgrade-referral-card">
+            <View style={styles.referralHeader}>
+              <Sparkles size={16} color={colors.primary} />
+              <Text style={styles.referralTitle}>Referred by an Ambassador?</Text>
+            </View>
+            <Text style={styles.referralSub}>
+              Enter their code below to get{" "}
+              <Text style={styles.referralHighlight}>3 months Pro free</Text>
+              {" "}— and they earn a bounty when your business ships its first 5 orders.
+            </Text>
+            <TextInput
+              testID="seller-upgrade-referral-code"
+              style={styles.referralInput}
+              value={referralCode}
+              onChangeText={setReferralCode}
+              placeholder="e.g. RAJESHBIZ"
+              placeholderTextColor={colors.textFaint}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={40}
+            />
+            <Text style={styles.referralHint}>
+              Optional — leave blank if you don&apos;t have a code.
+            </Text>
+          </View>
 
           {err ? <Text style={styles.error} testID="seller-upgrade-error">{err}</Text> : null}
 
@@ -114,4 +149,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   ctaText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  // ---- Referral card ----
+  referralCard: {
+    marginTop: spacing.lg,
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 8,
+  },
+  referralHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  referralTitle: { fontWeight: "800", color: colors.text, fontSize: 14 },
+  referralSub: { color: "#78350F", fontSize: 12, lineHeight: 18 },
+  referralHighlight: { color: colors.primary, fontWeight: "800" },
+  referralInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    letterSpacing: 1.5,
+    fontWeight: "700",
+  },
+  referralHint: { color: "#9A3412", fontSize: 11, fontStyle: "italic" },
 });
