@@ -238,3 +238,27 @@ Two equivalent endpoints:
 
 
 
+
+---
+
+## ⚡ June 19, 2026 — Saved searches
+
+NEW per-user saved-search persistence. Buyers persist filter combos and re-launch them from `/account/saved-searches`.
+
+### Collection
+`db.saved_searches`: `{id, user_id, name, q?, category?, subcategory?, filters: {}, notify: bool, created_at}` — max 25 per user.
+
+### Endpoints (buyer JWT)
+
+| Verb | Path | Notes |
+|---|---|---|
+| `GET` | `/api/me/saved-searches` | List (newest first) |
+| `POST` | `/api/me/saved-searches` | Body: `{name, q?, category?, subcategory?, filters?, notify?}`. 400 if at 25-row cap. |
+| `PATCH` | `/api/me/saved-searches/{id}/notify` | Body: `{notify: bool}` |
+| `DELETE` | `/api/me/saved-searches/{id}` | 404 if not owned by caller |
+
+### Frontend usage
+Mobile shipped: ⭐ "Save search" chip in the active-filters bar on `/category/[name]`, full management screen at `/account/saved-searches` (open via tile in `/account`).
+
+### Verified live
+POST → id `ss_*` ✓ · GET list ✓ · PATCH notify=true ✓ · DELETE ✓

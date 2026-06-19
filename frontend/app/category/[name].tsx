@@ -23,6 +23,7 @@ import {
   SortFilterSheet,
 } from "@/src/components/SortFilterSheet";
 import { api } from "@/src/lib/api";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { fetchTaxonomy, NZ_FAQS, TRUST_POINTS, TaxonomyNode } from "@/src/lib/nz";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -32,6 +33,7 @@ const CARD_W = (SCREEN_W - spacing.lg * 2 - GUTTER) / 2;
 
 export default function CategoryDetail() {
   const { name } = useLocalSearchParams<{ name: string }>();
+  const toast = useToast();
   const router = useRouter();
   const [items, setItems] = useState<ProductLite[]>([]);
   const [taxonomy, setTaxonomy] = useState<TaxonomyNode | null>(null);
@@ -184,6 +186,31 @@ export default function CategoryDetail() {
                   >
                     <X size={12} color={colors.primary} />
                     <Text style={styles.clearAllText}>Clear all</Text>
+                  </Pressable>
+                  <Pressable
+                    testID="save-search-btn"
+                    onPress={async () => {
+                      try {
+                        await api("/me/saved-searches", {
+                          method: "POST",
+                          body: {
+                            name: `${name}${subcat ? " · " + subcat : ""}${activeChips.length ? " · " + activeChips[0] : ""}`.slice(0, 60),
+                            category: name,
+                            subcategory: subcat || null,
+                            filters,
+                            notify: false,
+                          },
+                        });
+                        toast.show({ title: "Search saved", body: "Find it in Account → Saved searches.", kind: "success" });
+                      } catch (e: any) {
+                        toast.show({ title: e?.message || "Save failed", kind: "error" });
+                      }
+                    }}
+                    style={styles.clearAllBtn}
+                  >
+                    <Text style={[styles.clearAllText, { color: "#7C3AED" }]}>
+                      ⭐ Save search
+                    </Text>
                   </Pressable>
                 </ScrollView>
                 <Text style={styles.resultCount}>

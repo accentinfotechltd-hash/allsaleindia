@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Bell, BadgeCheck, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
+import { Bell, BadgeCheck, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -192,6 +192,13 @@ export default function Account() {
             subtitle="Track refund requests & seller responses"
             onPress={() => router.push("/returns")}
             testID="account-returns-btn"
+          />
+          <Row
+            icon={<Search size={18} color={colors.text} />}
+            label="Saved searches"
+            subtitle="Re-launch your favourite filter combos"
+            onPress={() => router.push("/account/saved-searches")}
+            testID="account-saved-searches-btn"
           />
           <Row
             icon={<Text style={{ fontSize: 18 }}>{regionFlag}</Text>}

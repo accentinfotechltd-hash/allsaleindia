@@ -51,6 +51,7 @@ from routers import (
     places,
     points,
     recently_viewed,
+    saved_searches,
     policies,
     products,
     recommendations,
@@ -117,6 +118,7 @@ api.include_router(wishlist.router)
 api.include_router(points.router)
 api.include_router(places.router)
 api.include_router(recently_viewed.router)
+api.include_router(saved_searches.router)
 api.include_router(referrals.router)
 api.include_router(chat.router)
 api.include_router(wallet.router)
