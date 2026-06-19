@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronLeft, Globe2, PackageX, Ruler, ShieldCheck, ShoppingBag, Star, Truck } from "lucide-react-native";
+import { ChevronLeft, Clock, Globe2, PackageX, Ruler, ShieldCheck, ShoppingBag, Star, Truck } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dimensions, ScrollView, StyleSheet, Text, View, ActivityIndicator, Image, Pressable, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -39,6 +39,14 @@ type Product = {
   in_stock: boolean;
   seller_name?: string | null;
   seller_city?: string | null;
+  seller_id?: string | null;
+};
+
+type SellerPublic = {
+  id: string;
+  company_name?: string | null;
+  city?: string | null;
+  response_stats?: { minutes: number; samples: number; label: string } | null;
 };
 
 export default function ProductDetail() {
@@ -50,6 +58,7 @@ export default function ProductDetail() {
   const { t } = useTranslation();
   const toast = useToast();
   const [product, setProduct] = useState<Product | null>(null);
+  const [sellerPublic, setSellerPublic] = useState<SellerPublic | null>(null);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -63,6 +72,11 @@ export default function ProductDetail() {
       try {
         const p = await api<Product>(`/products/${id}`, { auth: false });
         setProduct(p);
+        if (p.seller_id) {
+          api<SellerPublic>(`/sellers/${p.seller_id}/public`, { auth: false })
+            .then(setSellerPublic)
+            .catch(() => {});
+        }
         if (p.colors?.length) setSelectedColor(p.colors[0]);
         if (p.sizes?.length) setSelectedSize(p.sizes[0]);
         // Fire-and-forget analytics ping (anonymous view counter).
@@ -206,10 +220,20 @@ export default function ProductDetail() {
           <Text style={styles.category}>{product.category.toUpperCase()}</Text>
           <Text style={styles.name}>{product.name}</Text>
           {product.seller_name || product.seller_city ? (
-            <Text style={styles.sellerLine} testID="product-seller-line">
-              by {product.seller_name || "Seller"}
-              {product.seller_city ? ` · ${product.seller_city}, India` : " · India"}
-            </Text>
+            <>
+              <Text style={styles.sellerLine} testID="product-seller-line">
+                by {product.seller_name || "Seller"}
+                {product.seller_city ? ` · ${product.seller_city}, India` : " · India"}
+              </Text>
+              {sellerPublic?.response_stats?.label ? (
+                <View style={styles.responsePill} testID="seller-response-pill">
+                  <Clock size={11} color={colors.success} />
+                  <Text style={styles.responsePillText}>
+                    {sellerPublic.response_stats.label}
+                  </Text>
+                </View>
+              ) : null}
+            </>
           ) : null}
 
           <View style={styles.ratingRow}>
@@ -480,6 +504,18 @@ const styles = StyleSheet.create({
   category: { fontSize: 11, color: colors.primary, fontWeight: "800", letterSpacing: 1.5 },
   name: { fontSize: 24, fontWeight: "800", color: colors.text, marginTop: 6, letterSpacing: -0.6, lineHeight: 30 },
   sellerLine: { fontSize: 13, color: colors.textMuted, fontWeight: "600", marginTop: 4 },
+  responsePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: colors.successSoft,
+  },
+  responsePillText: { fontSize: 11, fontWeight: "700", color: colors.success },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: spacing.sm },
   ratingText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   ratingCount: { color: colors.textMuted, fontWeight: "500" },
