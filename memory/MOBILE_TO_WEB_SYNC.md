@@ -7,7 +7,8 @@
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
 > **June 19, 2026 — Amazon-style Subcategory Navigation & Facet Filters**:
-> - NEW: `GET /api/categories/{name}/subcategories` → `{category, blurb, subcategories: [{name, product_count, sample_image}]}` — drives the tile grid on the category landing page. Returns 404 for unknown / hidden categories.
+> - NEW: `GET /api/categories/tiles` → `{tiles: [{name, blurb, subcategory_count, product_count, sample_image}]}` — drives the "Browse all categories" mosaic on the Search screen.
+> - NEW: `GET /api/categories/{name}/subcategories` → `{category, blurb, subcategories: [{name, product_count, sample_image}]}` — drives the tile grid on each category landing page. Returns 404 for unknown / hidden categories.
 > - NEW filter params on `GET /api/products`:
 >   - `min_rating` (0–5) — Amazon's "4★ & up" customer-review filter
 >   - `min_discount_pct` (0–99) — intersects with active flash sales

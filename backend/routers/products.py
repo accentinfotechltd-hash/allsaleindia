@@ -313,6 +313,64 @@ async def get_taxonomy():
     ]
 
 
+@router.get("/categories/tiles")
+async def all_category_tiles():
+    """Top-level category tiles for the Search "Browse all" mosaic.
+
+    Returns one row per visible category in the static TAXONOMY, enriched
+    with a sample product image and a live in-stock product count. Designed
+    for the Search screen's empty-state and the Categories tab if it ever
+    wants a richer landing experience.
+    """
+    paused_seller_ids: list[str] = []
+    async for s in db.sellers.find(
+        {"vacation_mode": True}, {"_id": 0, "user_id": 1}
+    ):
+        if s.get("user_id"):
+            paused_seller_ids.append(s["user_id"])
+
+    base_match: dict = {"category": {"$nin": list(HIDDEN_BUYER_CATEGORIES)}}
+    if paused_seller_ids:
+        base_match["seller_id"] = {"$nin": paused_seller_ids}
+
+    pipeline = [
+        {"$match": base_match},
+        {
+            "$group": {
+                "_id": "$category",
+                "product_count": {"$sum": 1},
+                "sample_image": {"$first": "$image"},
+            }
+        },
+    ]
+    agg: dict[str, dict] = {}
+    async for row in db.products.aggregate(pipeline):
+        key = row.get("_id")
+        if not key:
+            continue
+        agg[key] = {
+            "product_count": int(row.get("product_count") or 0),
+            "sample_image": row.get("sample_image"),
+        }
+
+    tiles: list[dict] = []
+    for node in TAXONOMY:
+        if node["name"] in HIDDEN_BUYER_CATEGORIES:
+            continue
+        bucket = agg.get(node["name"], {})
+        tiles.append(
+            {
+                "name": node["name"],
+                "blurb": node.get("blurb", ""),
+                "subcategory_count": len(node.get("subcategories", [])),
+                "product_count": bucket.get("product_count", 0),
+                "sample_image": bucket.get("sample_image"),
+            }
+        )
+
+    return {"tiles": tiles}
+
+
 @router.get("/categories/{category_name}/subcategories")
 async def category_subcategory_tiles(category_name: str):
     """Amazon-style "Shop by subcategory" tiles for a given category.

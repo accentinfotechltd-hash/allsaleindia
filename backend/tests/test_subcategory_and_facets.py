@@ -165,6 +165,54 @@ class TestSubcategoryTiles:
 
 
 # ===========================================================================
+# /categories/tiles — top-level mosaic for Search page
+# ===========================================================================
+class TestAllCategoryTiles:
+    def test_returns_every_visible_category(self, api_client, base_url):
+        from config import HIDDEN_BUYER_CATEGORIES, TAXONOMY
+
+        r = api_client.get(f"{base_url}/api/categories/tiles")
+        assert r.status_code == 200
+        body = r.json()
+        tiles = body["tiles"]
+        api_names = {t["name"] for t in tiles}
+        expected = {
+            t["name"]
+            for t in TAXONOMY
+            if t["name"] not in HIDDEN_BUYER_CATEGORIES
+        }
+        assert api_names == expected
+
+    def test_tile_schema(self, api_client, base_url):
+        tiles = api_client.get(
+            f"{base_url}/api/categories/tiles"
+        ).json()["tiles"]
+        assert len(tiles) > 0
+        t0 = tiles[0]
+        for k in {
+            "name",
+            "blurb",
+            "subcategory_count",
+            "product_count",
+            "sample_image",
+        }:
+            assert k in t0, f"missing key {k}"
+        assert isinstance(t0["subcategory_count"], int)
+        assert isinstance(t0["product_count"], int)
+        assert t0["subcategory_count"] >= 1
+
+    def test_hidden_categories_are_excluded(self, api_client, base_url):
+        from config import HIDDEN_BUYER_CATEGORIES
+
+        tiles = api_client.get(
+            f"{base_url}/api/categories/tiles"
+        ).json()["tiles"]
+        api_names = {t["name"] for t in tiles}
+        for hidden in HIDDEN_BUYER_CATEGORIES:
+            assert hidden not in api_names
+
+
+# ===========================================================================
 # /products?min_rating=
 # ===========================================================================
 class TestMinRatingFilter:

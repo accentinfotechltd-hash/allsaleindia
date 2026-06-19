@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import CategoryTileGrid from "@/src/components/CategoryTileGrid";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type SuggestProduct = { id: string; name: string; image?: string; price_nzd: number; seller_name?: string };
@@ -238,9 +239,15 @@ export default function SearchScreen() {
                     <View style={styles.empty}>
                       <SearchIcon size={36} color={colors.textFaint} />
                       <Text style={styles.emptyTitle}>Find anything from India</Text>
-                      <Text style={styles.emptySub}>Try "kurta", "spices", "handicrafts"…</Text>
+                      <Text style={styles.emptySub}>Try &quot;kurta&quot;, &quot;spices&quot;, &quot;handicrafts&quot;…</Text>
                     </View>
                   ) : null}
+
+                  {/* Amazon-style "Browse all categories" mosaic — shown
+                      whenever no search query is active, regardless of
+                      whether the user has history/trending above. Gives
+                      buyers a visual entry point into the catalog. */}
+                  <CategoryTileGrid />
                 </View>
               )}
             </View>
