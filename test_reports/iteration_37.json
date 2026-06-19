@@ -1,0 +1,63 @@
+{
+  "summary": "Wishlist 2.0 — CRITICAL BACKEND BUG found. The new bulk endpoints `POST /api/wishlist/move-to-cart` and `POST /api/wishlist/remove-bulk` return 404 `Product not found` because in `/app/backend/routers/wishlist.py` the dynamic catch-all `POST /wishlist/{product_id}` is declared (line 94) BEFORE the static routes (lines 135 and 226). FastAPI matches in registration order, so the literal strings `move-to-cart` and `remove-bulk` get bound to `{product_id}` in `add_to_wishlist` and immediately fail the product lookup. Sort works correctly (recent/price_asc/price_desc/name + invalid->422), DELETE /api/wishlist (clear-all) works, single-item POST/DELETE regression passes. Frontend UI: wishlist screen renders cards and 'My Wishlist' title, but in our test session the top toolbar row (Select / Sort / Move-all / Clear-all) and header count `· N` were not visible even with 4 items rendered — needs main-agent verification (could be stale-render after API seeding bypassing React state). Pytest: 12 passed / 6 failed / 1 skipped (all 6 failures are the same root cause: route order).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/wishlist/move-to-cart",
+        "issue": "Returns 404 `Product not found`. Captured by dynamic route `POST /wishlist/{product_id}` declared earlier in the router. FIX: move @router.post('/move-to-cart') and @router.post('/remove-bulk') ABOVE @router.post('/{product_id}') in /app/backend/routers/wishlist.py (or add `path_regex` constraint).",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "POST /api/wishlist/remove-bulk",
+        "issue": "Returns 404 `Product not found` — same root cause as above (route order).",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "wishlist.tsx toolbar",
+        "issue": "After logging in as buyer@example.com and seeding 4 in-stock wishlist items, the wishlist screen rendered the 4 cards correctly but the top toolbar (testIDs wishlist-select-mode, wishlist-sort-btn, wishlist-clear-all-btn, wishlist-move-all-btn) did not appear in the DOM, AND the header title showed just `My Wishlist` without the `· 4` count. This is contradictory because the same `items.length` drives both the count, the toolbar, and the FlatList — yet only the FlatList rendered. Could be a stale-state edge case (seed was done via direct fetch bypassing React state, then page navigated; possibly the screen used cached AuthContext.user=null branch then re-rendered partially) — main agent should verify with a normal flow (browse -> heart -> wishlist) before concluding.",
+        "testID": "wishlist-select-mode / wishlist-sort-btn / wishlist-clear-all-btn / wishlist-move-all-btn",
+        "priority": "MEDIUM (needs re-verification post backend fix)"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Bulk move-to-cart, bulk remove",
+        "issue": "Frontend onBulkMoveToCart / onBulkRemove / onMoveAllInStock will all surface 'Move failed' / 'Remove failed' toasts because the backend endpoints return 404. Cannot exercise these flows end-to-end until the backend route order is fixed.",
+        "affected_testIDs": ["wishlist-bulk-move-btn", "wishlist-bulk-remove-btn", "wishlist-move-all-btn"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_wishlist_v2_bulk.py",
+    "/app/test_reports/pytest/iter37_wishlist_v2.xml"
+  ],
+  "action_items": [
+    "FIX (CRITICAL): In /app/backend/routers/wishlist.py reorder route handlers so the static paths are declared BEFORE the parameterised ones. Specifically move `@router.post('/move-to-cart')` (line 135) and `@router.post('/remove-bulk')` (line 226) ABOVE `@router.post('/{product_id}')` (line 94). Equivalent fix: keep order but constrain product_id with a regex that excludes those literals.",
+    "After backend fix, re-run /app/backend/tests/test_wishlist_v2_bulk.py — all 18 tests should pass (currently 12/18).",
+    "Verify frontend wishlist toolbar renders the testIDs (wishlist-select-mode, wishlist-sort-btn, wishlist-clear-all-btn, wishlist-move-all-btn) when items.length > 0 — possibly a hydration timing issue with AuthContext.user gating the initial render. Investigate why title `My Wishlist` did not show the `· N` count when 4 cards were visible."
+  ],
+  "critical_code_review_comments": [
+    "FastAPI route ordering: static routes MUST be declared before dynamic `{path_param}` routes. This is the single biggest issue. The whole Wishlist 2.0 bulk feature is currently broken in production.",
+    "wishlist.py:178-184 — out-of-stock detection: uses `prod.get('in_stock', True)` as a tri-state alongside `stock_count`. Logic looks correct (stock_count<=0 OR in_stock=False both skip) but the precedence depends on schema consistency in the products collection. Verified with the seeded out-of-stock product the reason='out_of_stock' is returned (test would have run if not blocked by the route bug; the logic is reachable once the route order is fixed).",
+    "wishlist.py:204 — `if body.remove_after and moved_ids` correctly avoids deleting wishlist rows when nothing was moved (e.g. all skipped). Good.",
+    "wishlist.tsx:170-217 — onBulkMoveToCart correctly drives optimistic local removal (`setItems prev.filter(...moved_ids)`), refreshes cart + wishlist context, and surfaces a toast that mentions skipped count. UX-wise solid.",
+    "wishlist.tsx:268-300 — onMoveAllInStock posts `product_ids: []` to trigger the 'move entire wishlist' path. Will fail until backend fix lands.",
+    "wishlist.tsx:583-595 — quickAction `Select all in-stock items` is inside the sort modal which is a slightly buried location; might be discoverable issue but not a bug."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_wishlist_v2_bulk.py (new — 18 pytest cases for Wishlist 2.0)"
+  ],
+  "success_rate": {"backend": "67% (12/18 pass — all 6 failures are the same route-order bug)", "frontend": "not fully verified — blocked by backend bug; toolbar render anomaly noted"},
+  "seed_data_creation": "Test fixture clears + reseeds 4 in-stock products into buyer@example.com wishlist before each test. Cleanup runs after each test (clears wishlist + cart).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Pytest suite is at /app/backend/tests/test_wishlist_v2_bulk.py. Test classes: TestNewEndpointsAuth (3 auth-401 tests), TestSort (5 sort + 422 tests — all passing), TestSingleItemRegression (2 tests — passing), TestMoveToCart (5 tests — 4 fail due to route bug, 1 skips if no OOS product), TestRemoveBulk (2 tests — both fail due to route bug), TestClearAll (2 tests — passing). After the route-order fix in routers/wishlist.py, all 18 should pass with the existing seed data. Frontend testIDs to verify post-fix on /wishlist screen with >=4 items: wishlist-select-mode, wishlist-sort-btn, wishlist-clear-all-btn, wishlist-move-all-btn (>=2 in-stock), wishlist-select-all, wishlist-bulk-remove-btn, wishlist-bulk-move-btn, wishlist-sort-{recent|price_asc|price_desc|name}, wishlist-card-{pid}, wishlist-add-{pid}, wishlist-remove-{pid}.",
+  "rca_of_issue": "ROOT CAUSE: FastAPI matches routes in registration order. In /app/backend/routers/wishlist.py, `POST /wishlist/{product_id}` (add_to_wishlist) is declared on line 94, BEFORE the static-path bulk endpoints `POST /wishlist/move-to-cart` (line 135) and `POST /wishlist/remove-bulk` (line 226). When a client calls `POST /wishlist/move-to-cart`, FastAPI walks routes top-to-bottom, matches the first parameterised route with `product_id='move-to-cart'`, enters `add_to_wishlist`, queries Mongo for a product with id='move-to-cart', gets None, and raises HTTPException(404, 'Product not found'). Same for 'remove-bulk'. The DELETE /wishlist clear-all does NOT hit this because DELETE /wishlist with no trailing segment cannot match DELETE /wishlist/{product_id} (which requires a path segment). REPRO: `curl -X POST $BASE/api/wishlist/move-to-cart -H 'Authorization: Bearer <buyer-token>' -d '{\"product_ids\":[],\"remove_after\":true}'` -> 404 `{\"detail\":\"Product not found\"}`. MITIGATION: Move both static-path POST decorators above the `/{product_id}` decorator. After patch, re-run `pytest /app/backend/tests/test_wishlist_v2_bulk.py -v` — expected 18/18 pass."
+}
