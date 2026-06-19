@@ -58,3 +58,34 @@ Test coverage: **67/67 PASS** across `test_order_tracking.py`, `test_eta_summary
 ---
 
 👋 Standing by. Tag us when B2B referral lands or anything new pops up.
+
+---
+
+## ⚡ June 19, 2026 — `/api/products` filter fix (mobile-agent triage)
+
+The mobile agent flagged that these query-string flags were **silently no-ops** — the server accepted them but returned the full catalogue. **Fixed now (iteration 41).** Web should switch to using them where the old code may have been doing manual `.filter()` on the client.
+
+### Contract (all optional, additive — combine via AND)
+
+| Param | Type | Behaviour |
+|---|---|---|
+| `seller_id` | string | Only that seller's products. **Unknown id → `[]`** (was: full catalogue). |
+| `on_sale` | bool | Products currently in an active `flash_sales` row (`active=true` & `valid_from ≤ now ≤ valid_to`). |
+| `new` | bool | `created_at` within the last 30 days. |
+| `bestseller` | bool | `rating ≥ 4.0` AND `reviews_count ≥ 50`. |
+| `ambassador_pick` | bool | Product IDs referenced by `ambassador_picks` collection (active). Empty collection → `[]`. |
+
+### Example calls
+```
+GET /api/products?seller_id=user_xxx&limit=24
+GET /api/products?on_sale=true&sort=price_asc&limit=24
+GET /api/products?new=true&limit=24
+GET /api/products?bestseller=true&sort=top_rated&limit=24
+GET /api/products?seller_id=user_xxx&bestseller=true   # AND'd
+```
+
+### Test coverage
+`/app/backend/tests/test_products_filters.py` — **7/7 pass** (unknown-seller empty, single-seller scoping, new=30d, bestseller heuristic, on_sale=active flash sale, ambassador_pick empty-collection, combined AND).
+
+No breaking changes to existing params — purely additive.
+

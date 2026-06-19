@@ -1,6 +1,7 @@
 """Public product catalog, taxonomy, duty and prohibited-item endpoints."""
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -61,6 +62,13 @@ async def list_products(
     age_group: Optional[str] = Query(default=None, description="baby | kids | adult"),
     sizes: Optional[List[str]] = Query(default=None, description="Filter by available size(s)"),
     colors: Optional[List[str]] = Query(default=None, description="Filter by available color(s)"),
+    # ---------------- New product feed flags (mobile-agent fix) ----------------
+    seller_id: Optional[str] = Query(default=None, description="Filter to a single seller. Unknown id → empty list (not silent-all)."),
+    on_sale: Optional[bool] = Query(default=None, description="Only products currently in an active flash sale."),
+    is_new: Optional[bool] = Query(default=None, alias="new", description="Products created within the last 30 days."),
+    bestseller: Optional[bool] = Query(default=None, description="Top-rated, well-reviewed items (rating >=4.0, reviews >=50)."),
+    ambassador_pick: Optional[bool] = Query(default=None, description="Curated by Allsale ambassadors."),
+    # --------------------------------------------------------------------------
     limit: int = Query(default=200, ge=1, le=5000, description="Max products to return"),
     skip: int = Query(default=0, ge=0, description="Number of products to skip for pagination"),
 ):
@@ -152,6 +160,72 @@ async def list_products(
         query["$or"] = [
             {"colors": {"$regex": f"^{c}$", "$options": "i"}} for c in colors
         ]
+
+    # ------------------------------------------------------------------
+    # Mobile-agent fix (June 2026):
+    # `seller_id`, `on_sale`, `new`, `bestseller`, and `ambassador_pick`
+    # were previously dropped on the floor — query strings looked valid
+    # but the response silently returned the whole catalogue. We now
+    # honour each one explicitly.
+    # ------------------------------------------------------------------
+    extra_id_constraints: list[list[str]] = []
+
+    if seller_id:
+        seller_doc = await db.users.find_one(
+            {"id": seller_id, "is_seller": True}, {"_id": 0, "id": 1}
+        )
+        if not seller_doc:
+            # Explicit empty — better UX than silently returning every product.
+            return []
+        # Replace the paused-seller $nin restriction with an exact match.
+        query["seller_id"] = seller_id
+
+    if on_sale is True:
+        now = datetime.now(timezone.utc)
+        active_pids: list[str] = []
+        async for fs in db.flash_sales.find(
+            {
+                "active": True,
+                "valid_from": {"$lte": now},
+                "valid_to": {"$gte": now},
+            },
+            {"_id": 0, "product_id": 1},
+        ):
+            if fs.get("product_id"):
+                active_pids.append(fs["product_id"])
+        if not active_pids:
+            return []
+        extra_id_constraints.append(active_pids)
+
+    if is_new is True:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        query["created_at"] = {"$gte": cutoff}
+
+    if bestseller is True:
+        # Top items rather than every product — a heuristic that
+        # works without a separate sales-aggregate collection.
+        query["rating"] = {"$gte": 4.0}
+        query["reviews_count"] = {"$gte": 50}
+
+    if ambassador_pick is True:
+        pick_pids: list[str] = []
+        async for ap in db.ambassador_picks.find(
+            {"active": {"$ne": False}}, {"_id": 0, "product_id": 1}
+        ):
+            if ap.get("product_id"):
+                pick_pids.append(ap["product_id"])
+        if not pick_pids:
+            return []
+        extra_id_constraints.append(pick_pids)
+
+    if extra_id_constraints:
+        # Intersect each constraint so multiple flags combine via AND.
+        intersected = set(extra_id_constraints[0])
+        for c in extra_id_constraints[1:]:
+            intersected &= set(c)
+        if not intersected:
+            return []
+        query["id"] = {"$in": list(intersected)}
 
     sort_spec: Optional[list] = None
     if sort == "price_asc":
