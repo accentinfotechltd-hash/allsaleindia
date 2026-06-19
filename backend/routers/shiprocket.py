@@ -13,6 +13,7 @@ from db import db
 from deps import get_current_user
 from models import Shipment
 from services.notifications import create_notification
+from services.b2b_referrals import accrue_referral_commission
 from services.shipment_milestones import detect_milestone
 from services.shiprocket import (
     map_shiprocket_status,
@@ -104,6 +105,15 @@ async def shiprocket_webhook(
                 "uploaded_at": now_utc(),
             }
     await db.orders.update_one({"id": order["id"]}, {"$set": update_ts})
+
+    # Accrue B2B referral commission once an order is confirmed delivered.
+    if mapped == "delivered":
+        try:
+            fresh_order = await db.orders.find_one({"id": order["id"]}, {"_id": 0})
+            await accrue_referral_commission(fresh_order or order)
+        except Exception:
+            # Never let referral accrual break the webhook.
+            pass
 
     # Schedule tier-aware payout release on delivery; void on RTO/refund.
     try:

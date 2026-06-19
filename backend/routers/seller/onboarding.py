@@ -177,6 +177,12 @@ async def seller_register(body: SellerRegister):
         await _link_ambassador_referral(uid, body.referral_code)
     except Exception:
         pass
+    # B2B seller-to-seller referral attribution — silent no-op on invalid codes.
+    try:
+        from services.b2b_referrals import link_b2b_referral_at_signup
+        await link_b2b_referral_at_signup(uid, body.b2b_referral_code)
+    except Exception:
+        pass
     fresh = await db.users.find_one({"id": uid}, {"_id": 0, "password_hash": 0})
     token = create_token(uid)
     return AuthResponse(user=public_user(fresh), access_token=token)
@@ -189,6 +195,11 @@ async def seller_upgrade(body: SellerUpgrade, current=Depends(get_current_user))
     await verify_business_and_persist(current["id"], body.business)
     try:
         await _link_ambassador_referral(current["id"], body.referral_code)
+    except Exception:
+        pass
+    try:
+        from services.b2b_referrals import link_b2b_referral_at_signup
+        await link_b2b_referral_at_signup(current["id"], body.b2b_referral_code)
     except Exception:
         pass
     fresh = await db.users.find_one(

@@ -94,11 +94,15 @@ class SellerRegister(BaseModel):
     # Optional ambassador-attribution code (typically Indian B2B code, e.g.
     # "RAJESHBIZ"). Validated at signup; ignored if invalid.
     referral_code: Optional[str] = Field(default=None, max_length=40)
+    # Optional B2B-referral code from another *seller* on the platform. Distinct
+    # from the ambassador code above; persisted as `sellers.referred_by_seller_id`.
+    b2b_referral_code: Optional[str] = Field(default=None, max_length=24)
 
 
 class SellerUpgrade(BaseModel):
     business: SellerBusiness
     referral_code: Optional[str] = Field(default=None, max_length=40)
+    b2b_referral_code: Optional[str] = Field(default=None, max_length=24)
 
 
 class SellerProfile(BaseModel):
@@ -119,6 +123,64 @@ class SellerProfile(BaseModel):
     verification_status: str  # auto_verified | pending_review | rejected
     verified_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    # B2B Referral Programme — issued on approval, used by other sellers to attribute their signup
+    b2b_referral_code: Optional[str] = None
+    referred_by_seller_id: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# B2B Seller Referral Programme (June 2026)
+# ---------------------------------------------------------------------------
+class SellerReferral(BaseModel):
+    """One row per (referrer, referee) edge in the seller referral graph.
+
+    Status lifecycle:
+      `pending` → seller has invited but referee hasn't signed up yet
+      `signed_up` → referee created a seller account using the code
+      `approved` → referee passed business verification
+      `first_sale` → referee fulfilled their first paid order
+      `paid_out` → commission has been released to the referrer's wallet
+      `expired` → invite older than 90 days with no signup
+    """
+    id: str
+    referrer_seller_id: str  # user_id of the inviter
+    referrer_email: Optional[str] = None
+    referee_email: EmailStr  # invited business
+    referee_seller_id: Optional[str] = None  # user_id once signed up
+    code: str  # the B2B referral code of the referrer
+    status: str
+    invited_at: datetime
+    signed_up_at: Optional[datetime] = None
+    approved_at: Optional[datetime] = None
+    first_sale_at: Optional[datetime] = None
+    paid_out_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    # Commission accruals (NZD). Capped at the policy maximum.
+    referee_gmv_nzd: float = 0.0
+    commission_due_nzd: float = 0.0
+    commission_paid_nzd: float = 0.0
+
+
+class SellerReferralStats(BaseModel):
+    code: Optional[str] = None
+    total_invited: int = 0
+    total_signed_up: int = 0
+    total_approved: int = 0
+    total_first_sale: int = 0
+    total_commission_due_nzd: float = 0.0
+    total_commission_paid_nzd: float = 0.0
+    invite_url: Optional[str] = None  # deep-link-friendly canonical URL
+
+
+class SellerReferralsPage(BaseModel):
+    stats: SellerReferralStats
+    referrals: List[SellerReferral] = Field(default_factory=list)
+
+
+class SellerReferralInviteRequest(BaseModel):
+    referee_email: EmailStr
+    referee_name: Optional[str] = Field(default=None, max_length=120)
+    note: Optional[str] = Field(default=None, max_length=500)
 
 
 # ---------------------------------------------------------------------------

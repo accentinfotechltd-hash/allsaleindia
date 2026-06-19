@@ -219,6 +219,16 @@ async def admin_approve_seller(
         {"user_id": user_id},
         {"$set": {"verification_status": "approved", "approved_at": now_utc()}},
     )
+    # Issue a B2B referral code + flip any pending B2B referral row to "approved"
+    try:
+        from services.b2b_referrals import ensure_seller_b2b_code, mark_referral_approved
+        seller_doc = await db.sellers.find_one(
+            {"user_id": user_id}, {"_id": 0, "company_name": 1}
+        )
+        await ensure_seller_b2b_code(user_id, (seller_doc or {}).get("company_name"))
+        await mark_referral_approved(user_id)
+    except Exception:
+        pass
     # In-app notification (best-effort)
     try:
         from services.notifications import create_notification
