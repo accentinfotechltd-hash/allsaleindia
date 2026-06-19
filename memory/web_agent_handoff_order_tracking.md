@@ -35,7 +35,16 @@ Detailed shipment timeline for a buyer's own order. **Auth required** (Bearer JW
   "last_tracking_location": "Auckland, NZ",
   "last_tracking_update": "2026-06-17T03:14:00Z",
   "delivered_at": null,
-  "buyer_confirmed_at": null
+  "buyer_confirmed_at": null,
+  "eta_summary": {
+    "status": "on_time",
+    "headline": "Arriving in 5 days",
+    "sublabel": "by 24 Jun",
+    "arrives_in_days": 5,
+    "latest_estimate_date": "2026-06-24",
+    "original_window": "17 Jun – 24 Jun 2026",
+    "refreshed_from": "in_transit"
+  }
 }
 ```
 
@@ -46,6 +55,7 @@ Detailed shipment timeline for a buyer's own order. **Auth required** (Bearer JW
 - `events` is **newest first**, capped at 60.
 - `progress_pct` is `0` for `cancelled`/`refunded` orders.
 - Render `stages` as a vertical timeline; mark each one done/pending visually.
+- **`eta_summary`** (Phase 1.5 #2) is the single source of truth for the "Smart ETA Ribbon". Drive ribbon colour from `eta_summary.status` ∈ `on_time | arriving_soon | out_for_delivery | delivered | delayed | pending | cancelled`. Use `headline` + `sublabel` verbatim; show `original_window` as a secondary line when `status == "delayed"`.
 
 ---
 

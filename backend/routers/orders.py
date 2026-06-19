@@ -18,6 +18,7 @@ from models import (
     TrackingStage,
 )
 from services.cart import hydrate_cart
+from services.eta import compute_eta_summary
 from services.notifications import create_notification, notify_admins
 from services.stock import restock_for_order
 from services.stripe_svc import issue_stripe_refund
@@ -274,6 +275,16 @@ async def get_order_tracking(order_id: str, current=Depends(get_current_user)):
         delivered_at=order.get("delivered_at"),
         buyer_confirmed_at=order.get("buyer_confirmed_at"),
         proof_of_delivery=order.get("proof_of_delivery"),
+        eta_summary=compute_eta_summary(
+            status=current_status,
+            estimated_delivery=order.get("estimated_delivery"),
+            delivered_at=order.get("delivered_at"),
+            buyer_confirmed_at=order.get("buyer_confirmed_at"),
+            last_tracking_update=order.get("last_tracking_update"),
+            out_for_delivery_at=order.get("out_for_delivery_at"),
+            shipped_at=order.get("shipped_at"),
+            created_at=order.get("created_at"),
+        ),
     )
 
 

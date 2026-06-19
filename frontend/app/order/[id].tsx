@@ -395,12 +395,7 @@ export default function OrderDetail() {
               ) : null}
             </View>
           </View>
-        ) : (
-          <View style={styles.deliveryBanner}>
-            <Text style={styles.deliveryLabel}>Estimated arrival</Text>
-            <Text style={styles.deliveryDate}>{order.estimated_delivery}</Text>
-          </View>
-        )}
+        ) : null}
 
         {canCancel ? (
           <View style={styles.cancelWindowCard} testID="order-cancel-window">

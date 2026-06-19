@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { CheckCircle2, Circle, ExternalLink, ImageIcon, MapPin, Truck } from "lucide-react-native";
+import { AlertCircle, CheckCircle2, Circle, Clock, ExternalLink, ImageIcon, MapPin, PackageCheck, Truck } from "lucide-react-native";
 
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -57,6 +57,62 @@ type Props = {
   initial?: OrderTracking | null;
 };
 
+// Color tokens for the ETA ribbon, keyed by `eta_summary.status`.
+const ETA_TONE: Record<
+  string,
+  { bg: string; border: string; text: string; iconBg: string; icon: React.ReactNode }
+> = {
+  on_time: {
+    bg: "#EFF6FF",
+    border: "#BFDBFE",
+    text: "#1E3A8A",
+    iconBg: "#DBEAFE",
+    icon: <Truck size={18} color="#1E40AF" />,
+  },
+  arriving_soon: {
+    bg: "#FFF7ED",
+    border: "#FED7AA",
+    text: "#9A3412",
+    iconBg: "#FFEDD5",
+    icon: <Clock size={18} color="#C2410C" />,
+  },
+  out_for_delivery: {
+    bg: "#FEF3C7",
+    border: "#FCD34D",
+    text: "#92400E",
+    iconBg: "#FDE68A",
+    icon: <Truck size={18} color="#B45309" />,
+  },
+  delivered: {
+    bg: "#ECFDF5",
+    border: "#A7F3D0",
+    text: "#065F46",
+    iconBg: "#D1FAE5",
+    icon: <PackageCheck size={18} color="#047857" />,
+  },
+  delayed: {
+    bg: "#FEF2F2",
+    border: "#FCA5A5",
+    text: "#991B1B",
+    iconBg: "#FECACA",
+    icon: <AlertCircle size={18} color="#B91C1C" />,
+  },
+  pending: {
+    bg: "#F1F5F9",
+    border: "#CBD5E1",
+    text: "#475569",
+    iconBg: "#E2E8F0",
+    icon: <Clock size={18} color="#475569" />,
+  },
+  cancelled: {
+    bg: "#F1F5F9",
+    border: "#CBD5E1",
+    text: "#64748B",
+    iconBg: "#E2E8F0",
+    icon: <AlertCircle size={18} color="#64748B" />,
+  },
+};
+
 export default function OrderTrackingTimeline({ orderId, initial }: Props) {
   const [tracking, setTracking] = useState<OrderTracking | null>(initial ?? null);
   const [loading, setLoading] = useState<boolean>(!initial);
@@ -97,9 +153,38 @@ export default function OrderTrackingTimeline({ orderId, initial }: Props) {
   if (!tracking) return null;
 
   const cancelled = ["cancelled", "refunded"].includes(tracking.status);
+  const eta = tracking.eta_summary || null;
+  const etaTone = eta ? ETA_TONE[eta.status] || ETA_TONE.on_time : ETA_TONE.on_time;
 
   return (
     <View style={styles.wrap} testID="tracking-timeline">
+      {/* Smart ETA ribbon (Phase 1.5 #2) */}
+      {eta ? (
+        <View
+          style={[styles.etaRibbon, { backgroundColor: etaTone.bg, borderColor: etaTone.border }]}
+          testID="tracking-eta-ribbon"
+        >
+          <View style={[styles.etaIconCircle, { backgroundColor: etaTone.iconBg }]}>
+            {etaTone.icon}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.etaHeadline, { color: etaTone.text }]} numberOfLines={1}>
+              {eta.headline}
+            </Text>
+            {eta.sublabel ? (
+              <Text style={[styles.etaSublabel, { color: etaTone.text }]} numberOfLines={1}>
+                {eta.sublabel}
+              </Text>
+            ) : null}
+            {eta.status === "delayed" && eta.original_window ? (
+              <Text style={styles.etaOriginal} numberOfLines={1}>
+                Original: {eta.original_window}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+
       {/* Progress bar — Amazon-style */}
       {!cancelled ? (
         <View style={styles.progressWrap}>
@@ -412,4 +497,24 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   zoomImage: { width: "100%", height: "100%" },
+
+  etaRibbon: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  etaIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  etaHeadline: { fontSize: 16, fontWeight: "800", letterSpacing: 0.2 },
+  etaSublabel: { fontSize: 12, fontWeight: "600", marginTop: 2, opacity: 0.85 },
+  etaOriginal: { fontSize: 11, color: colors.textMuted, marginTop: 4, fontStyle: "italic" },
 });
