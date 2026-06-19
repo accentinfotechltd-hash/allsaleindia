@@ -25,6 +25,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import PointsRedeemInput from "@/src/components/PointsRedeemInput";
+import PlacesAutocomplete, {
+  ResolvedAddress,
+} from "@/src/components/PlacesAutocomplete";
 import SavedAddressesPicker, {
   SavedAddress,
 } from "@/src/components/SavedAddressesPicker";
@@ -231,11 +234,25 @@ export default function Checkout() {
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
-          <Field
+          <PlacesAutocomplete
             label={t("checkout.address_line1")}
             testID="checkout-line1"
-            value={line1}
+            initialValue={line1}
+            country={country}
             onChangeText={setLine1}
+            onResolved={(addr: ResolvedAddress) => {
+              setLine1(addr.line1 || addr.formatted);
+              if (addr.line2) setLine2(addr.line2);
+              if (addr.city) setCity(addr.city);
+              if (addr.region) setRegion(addr.region);
+              if (addr.postal_code) setPostcode(addr.postal_code);
+              if (addr.country) {
+                setCountry(addr.country.toUpperCase().slice(0, 2));
+              }
+              // User picked from autocomplete — treat as new address (not a
+              // pre-saved one) so the "Save this address" toggle reappears.
+              setSelectedAddrId(null);
+            }}
           />
           <Field
             label={t("checkout.address_line2")}

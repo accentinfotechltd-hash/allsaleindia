@@ -186,6 +186,39 @@ Whenever a seller's listing update crosses stock from **0 → >0** (via `PATCH /
 ### Tests
 `/app/backend/tests/test_stock_waitlist.py` — **4/4 PASS** (opt-in/out, 400-when-already-in-stock, fan-out + waitlist clear, /me/stock-watch list).
 
+---
+
+## ⚡ June 19, 2026 — Google Places autocomplete proxy
+
+NEW server-side proxy around Google Places API (New). Key stays on the server so the device never sees `GOOGLE_MAPS_API_KEY`.
+
+### Endpoints (buyer JWT auth)
+
+| Verb | Path | Returns |
+|---|---|---|
+| `GET` | `/api/geo/places/autocomplete?q=...&session_token=...&country=nz` | `{ "results": [{ place_id, primary_text, secondary_text, description }] }` |
+| `GET` | `/api/geo/places/details?place_id=...&session_token=...` | `{ place_id, formatted_address, address: {line1, line2, city, region, postal_code, country (ISO-2)}, lat, lng }` |
+
+`country` defaults to the full supported region set (`nz, au, us, gb, ca, in`) when omitted.
+
+### Session-token discipline (billing-sensitive)
+
+Pass the **same `session_token` UUID** from the user's first keystroke until the matching `/details` call. Google bills autocomplete-within-session at $0 and only the single `/details` call costs $0.017. Rotate the token after each successful resolve.
+
+Mobile client: `/app/frontend/src/components/PlacesAutocomplete.tsx` handles this automatically — web can copy the pattern.
+
+### Frontend usage
+- Mobile: drop-in component in `/app/frontend/app/checkout.tsx` replacing the static line1 field. On select, auto-fills `line1`, `line2`, `city`, `region`, `postal_code`, and ISO-2 `country`.
+- Web: same endpoints, same session-token contract.
+
+### Live status
+Verified live against `https://allsale-shop.preview.emergentagent.com`:
+- `"Queen Street Auckland"` → 5 suggestions, top result resolves to `Queen Street, Auckland CBD, Auckland NZ` with lat/lng `(-36.851, 174.764)`.
+
+### Cost
+Google free tier covers ~17,000 autocomplete sessions/month at $200 credit. Session-token mode is the cheapest pattern by ~80×.
+
+
 
 
 
