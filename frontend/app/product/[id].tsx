@@ -9,6 +9,7 @@ import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
+import AskSellerButton from "@/src/components/AskSellerButton";
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useCart } from "@/src/contexts/CartContext";
@@ -232,6 +233,14 @@ export default function ProductDetail() {
                     {sellerPublic.response_stats.label}
                   </Text>
                 </View>
+              ) : null}
+              {product.seller_id ? (
+                <AskSellerButton
+                  sellerId={product.seller_id}
+                  sellerName={product.seller_name}
+                  productId={product.id}
+                  productName={product.name}
+                />
               ) : null}
             </>
           ) : null}

@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only test of new 'Ask seller a question' pill + bottom-sheet on /product/[id]. Used product 55f0a169-c66c-4f3b-8ead-91dc18491778 (Genuine Leather Crossbody Bag, seller_id user_40382a1cab80). All 9 acceptance criteria PASS: logged-out pill redirects to /login; logged-in pill opens sheet with title, close, product line, 5 quick-prompt chips, multiline input (maxLength 600, counter '28/600'), and 'Send question' button; Send btn aria-disabled=true at 0 and 2 chars and becomes enabled at >=4 chars; quick-prompt tap prefills input exactly; Send POSTs /api/chat/conversations and navigates to /chat/conv_3457387f2aff48 with the typed message rendered as first buyer bubble; tapping pill again on same product reuses the SAME conversation id (idempotent); both close button and scrim tap dismiss the sheet.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": ["playwright in-test (no persisted script needed for one-off UI flow)"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "AskSellerButton.tsx is clean (~340 lines), uses theme tokens, KeyboardAvoidingView, ActivityIndicator for busy state, and disables Send below 4 chars and during in-flight request. Idempotency relies entirely on backend dedup which works as advertised.",
+    "Minor: testID prefix uses p.slice(0,12).replace(/\\s+/g,'-') which can produce collisions if two prompts share the same 12-char prefix (current 5 prompts are unique, so non-blocking).",
+    "Non-blocking RN-web console warnings observed app-wide (not introduced by this change): \"shadow*\" style props deprecated (use boxShadow) and props.pointerEvents deprecated (use style.pointerEvents)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped", "frontend": "100%"},
+  "seed_data_creation": "Created one new conversation conv_3457387f2aff48 between buyer@example.com and seller user_40382a1cab80 for product 55f0a169-c66c-4f3b-8ead-91dc18491778 with 2 buyer messages.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Ask-seller pill + bottom-sheet flow is fully working end-to-end on mobile viewport (390x844). All testIDs present: ask-seller-btn, ask-seller-sheet, ask-seller-close, ask-seller-input, ask-seller-send-btn, ask-seller-prompt-<slug>. Idempotency confirmed: same product → same conv id on repeat send.",
+  "rca_of_issue": "N/A — no defects found."
+}
