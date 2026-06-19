@@ -91,40 +91,12 @@ async def list_wishlist_ids(current=Depends(get_current_user)):
     ]
 
 
-@router.post("/{product_id}", status_code=201)
-async def add_to_wishlist(product_id: str, current=Depends(get_current_user)):
-    prod = await db.products.find_one(
-        {"id": product_id}, {"_id": 0, "id": 1, "seller_id": 1}
-    )
-    if not prod:
-        raise HTTPException(status_code=404, detail="Product not found")
-    # Upsert idempotently
-    await db.wishlists.update_one(
-        {"user_id": current["id"], "product_id": product_id},
-        {
-            "$setOnInsert": {
-                "user_id": current["id"],
-                "product_id": product_id,
-                "added_at": now_utc(),
-            }
-        },
-        upsert=True,
-    )
-    count = await db.wishlists.count_documents({"user_id": current["id"]})
-    return {"added": True, "wishlist_count": count}
-
-
-@router.delete("/{product_id}", status_code=200)
-async def remove_from_wishlist(product_id: str, current=Depends(get_current_user)):
-    await db.wishlists.delete_one(
-        {"user_id": current["id"], "product_id": product_id}
-    )
-    count = await db.wishlists.count_documents({"user_id": current["id"]})
-    return {"removed": True, "wishlist_count": count}
-
-
 # ---------------------------------------------------------------------------
 # Wishlist 2.0 — bulk operations
+# IMPORTANT: These STATIC paths (`/move-to-cart`, `/remove-bulk`) MUST be
+# registered BEFORE the dynamic `/{product_id}` routes below; FastAPI/Starlette
+# matches routes in registration order and would otherwise treat
+# "move-to-cart" as a `product_id` value and 404 on the products lookup.
 # ---------------------------------------------------------------------------
 class MoveToCartRequest(BaseModel):
     """If `product_ids` is empty or omitted, moves the FULL wishlist (in-stock only)."""
@@ -155,6 +127,7 @@ async def move_to_cart(
     if not target_ids:
         return {
             "moved": 0,
+            "moved_ids": [],
             "skipped": [],
             "cart_count": 0,
             "wishlist_count": 0,
@@ -243,3 +216,38 @@ async def clear_wishlist(current=Depends(get_current_user)):
     """Empty the buyer's entire wishlist (used by the 'Clear all' UI action)."""
     res = await db.wishlists.delete_many({"user_id": current["id"]})
     return {"removed": res.deleted_count, "wishlist_count": 0}
+
+
+# ---------------------------------------------------------------------------
+# Single-item dynamic routes — registered LAST so the static routes above win.
+# ---------------------------------------------------------------------------
+@router.post("/{product_id}", status_code=201)
+async def add_to_wishlist(product_id: str, current=Depends(get_current_user)):
+    prod = await db.products.find_one(
+        {"id": product_id}, {"_id": 0, "id": 1, "seller_id": 1}
+    )
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
+    # Upsert idempotently
+    await db.wishlists.update_one(
+        {"user_id": current["id"], "product_id": product_id},
+        {
+            "$setOnInsert": {
+                "user_id": current["id"],
+                "product_id": product_id,
+                "added_at": now_utc(),
+            }
+        },
+        upsert=True,
+    )
+    count = await db.wishlists.count_documents({"user_id": current["id"]})
+    return {"added": True, "wishlist_count": count}
+
+
+@router.delete("/{product_id}", status_code=200)
+async def remove_from_wishlist(product_id: str, current=Depends(get_current_user)):
+    await db.wishlists.delete_one(
+        {"user_id": current["id"], "product_id": product_id}
+    )
+    count = await db.wishlists.count_documents({"user_id": current["id"]})
+    return {"removed": True, "wishlist_count": count}

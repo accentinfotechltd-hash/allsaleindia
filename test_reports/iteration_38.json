@@ -1,0 +1,30 @@
+{
+  "summary": "Wishlist 2.0 frontend retest — ALL 7 bulk flows PASS end-to-end after the backend route-order fix. CRITICAL ROOT CAUSE of iteration_37's 'toolbar not rendering' anomaly was a STALE METRO BUNDLE (the running JS bundle was compiled before /app/frontend/app/wishlist.tsx was rewritten with the new toolbar / select-mode / sort sheet / bulk action bar). Bundle text-search showed NONE of the new testIDs (wishlist-select-mode, wishlist-sort-btn, wishlist-move-all-btn, wishlist-clear-all-btn, wishlist-bulk-move-btn) were present in the served entry.bundle even though they exist in the source. After `sudo supervisorctl restart expo` the bundle rebuilt and every testID + the header `· N` count rendered correctly. End-to-end results: heart 3 from home → header shows 'My Wishlist · 3' (3 cards); Select → All → '3 selected'; wishlist-bulk-move-btn → POST /api/wishlist/move-to-cart 200, toast 'Moved 3 items to cart', list empties, cart refreshes; re-add 3 → select 2 by tap → wishlist-bulk-remove-btn + confirm → POST /api/wishlist/remove-bulk 200, toast 'Removed 2 items', 1 card remains; wishlist-sort-btn opens sheet, wishlist-sort-price_asc updates label to 'Price · low to high' (GET /api/wishlist?sort=price_asc 200), wishlist-sort-name updates to 'Name · A to Z' (200); wishlist-move-all-btn + confirm → POST /api/wishlist/move-to-cart with empty product_ids 200, wishlist empties; wishlist-clear-all-btn + confirm → DELETE /api/wishlist 200, toast 'Wishlist cleared', empty state renders. No deprecated packages or SafeAreaView issues detected in wishlist.tsx.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_wishlist_v2_bulk.py (existing — main agent verified 18/18 PASS)"
+  ],
+  "action_items": [
+    "(operational, no code change required) Note for future iterations: Metro is running with `CI=true` so reloads are disabled and source changes do NOT trigger an automatic rebuild. When `/app/frontend/app/*.tsx` is edited, run `sudo supervisorctl restart expo` to rebuild the bundle before frontend testing — this was the silent root cause of iteration_37's false 'toolbar not rendering' finding."
+  ],
+  "critical_code_review_comments": [
+    "wishlist.tsx is 783 lines — approaching but still below the 700-line refactor threshold; consider extracting <WishlistToolbar/>, <WishlistCard/>, and <SortSheet/> components in a future cleanup, but not blocking.",
+    "All wishlist bulk handlers (onBulkMoveToCart, onBulkRemove, onClearAll, onMoveAllInStock) correctly use optimistic local state updates + refreshCart + refresh(WishlistContext) for cross-screen consistency. The cart counter on the (tabs) bottom bar updated immediately after bulk-move during testing.",
+    "wishlist.tsx:171-217 onBulkMoveToCart correctly handles partial-skip (e.g. out-of-stock) via skipped[] and surfaces both moved + skipped in the toast. Validated path returned moved=3/skipped=0 in the live run; partial-skip path is covered by backend pytest.",
+    "wishlist.tsx:268-300 onMoveAllInStock posts `product_ids: []` to signal 'move everything in stock' — works as designed (verified: 2 items moved, list emptied, no errors).",
+    "Confirm dialog (UiOverlayProvider) renders 'Move all', 'Clear all', and 'Remove' as the final button text; bulk-remove + clear-all + move-all all trigger the destructive prompt and only proceed on confirm."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (per main-agent pytest 18/18 PASS — not re-run this iteration)", "frontend": "100% (7/7 bulk flows verified end-to-end with live API)"},
+  "seed_data_creation": "No backend seeding required. Test heartted live in-app products (TEST_Cpn_SellerA Bags & Luggage variants) from /(tabs)/home. Cleaned up at end of test by triggering wishlist-clear-all-btn (DELETE /api/wishlist).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Wishlist 2.0 frontend + backend is fully green. Backend pytest at /app/backend/tests/test_wishlist_v2_bulk.py. If retesting in a future iteration: ALWAYS run `sudo supervisorctl restart expo` after any change to /app/frontend/app/*.tsx — Metro runs in CI mode (no hot reload) and the previous bundle will be served stale. Verified working testIDs on /wishlist (when items > 0): wishlist-select-mode, wishlist-select-all, wishlist-sort-btn, wishlist-sort-{recent|price_asc|price_desc|name}, wishlist-move-all-btn, wishlist-clear-all-btn, wishlist-bulk-move-btn, wishlist-bulk-remove-btn, wishlist-card-{pid}, wishlist-add-{pid}, wishlist-remove-{pid}, wishlist-back, wishlist-select-all-in-stock.",
+  "rca_of_issue": "iteration_37 reported the wishlist toolbar testIDs were missing from the DOM even though items.length was clearly > 0 (4 cards visible) and the header `· N` count was also absent. Root cause: Metro is started with `CI=true` (per expo.out.log: 'Metro is running in CI mode, reloads are disabled'), so editing wishlist.tsx does NOT trigger an automatic bundle rebuild. Verified by `fetch()` on the served entry.bundle from inside the browser: none of the new strings ('wishlist-select-mode', 'wishlist-sort-btn', 'wishlist-move-all-btn', 'wishlist-clear-all-btn', 'wishlist-bulk-move-btn') appeared in the 13.6MB bundle — they were all present after `sudo supervisorctl restart expo`. After restart, 100% of bulk flows worked. NO code change needed in wishlist.tsx; the source was correct all along. Recommendation: after any frontend code edit, the main agent should run `sudo supervisorctl restart expo` and wait ~15s before invoking the testing agent."
+}
