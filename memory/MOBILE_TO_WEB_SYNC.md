@@ -6,6 +6,12 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 19, 2026 — In-app Notification Preferences**:
+> - NEW: `GET /api/me/notification-prefs` → `{role, categories: [{key, label, description, enabled}]}` with role-based filtering (buyers don't see `seller_alerts`, etc.). Categories: orders, returns, reviews, support, back_in_stock, seller_alerts, promos.
+> - NEW: `PUT /api/me/notification-prefs` body `{prefs: {<key>: bool}}` — partial upsert, returns merged state.
+> - Mute logic lives server-side in `services/notifications.py::create_notification` — when a recipient has muted a category, the insert is SKIPPED. Admin recipients are never muted; unknown n_types are always delivered (forward-compat).
+> - Web parity recommended so users can manage prefs from either platform.
+
 > **June 19, 2026 — Amazon-style Subcategory Navigation & Facet Filters**:
 > - NEW: `GET /api/categories/tiles` → `{tiles: [{name, blurb, subcategory_count, product_count, sample_image}]}` — drives the "Browse all categories" mosaic on the Search screen.
 > - NEW: `GET /api/categories/{name}/subcategories` → `{category, blurb, subcategories: [{name, product_count, sample_image}]}` — drives the tile grid on each category landing page. Returns 404 for unknown / hidden categories.
