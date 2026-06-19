@@ -402,6 +402,87 @@ async def site_faq(response: Response, category: Optional[str] = None):
     }
 
 
+@router.get("/site/faq/search")
+async def site_faq_search(response: Response,
+                          q: str = "",
+                          limit: int = 10):
+    """Token-scored full-text search across all FAQ entries.
+
+    Scoring (deterministic, no ML/ES dependency):
+      • +10 — exact phrase match in the question
+      • +3  — each query token hit in the question
+      • +2  — each query token hit in the category name
+      • +1  — each query token hit in the answer
+
+    Results are returned ranked highest-first. Includes a `snippet` field
+    with the first 180 chars of the answer (or the surrounding context of
+    the first match if the answer is long) so the FE can render result
+    cards without a second hop.
+
+    NOTE: This route MUST be declared BEFORE ``/site/faq/{slug}`` — FastAPI
+    matches paths in declaration order, and a URL like ``/site/faq/search``
+    would otherwise be captured by the ``{slug}`` parameter and 404.
+    """
+    import re
+    _set_cache_headers(response, max_age=300)
+    query = (q or "").strip().lower()
+    if not query:
+        return {"query": "", "results": [], "total": 0,
+                "generated_at": _now_iso()}
+
+    tokens = [t for t in re.split(r"[^a-z0-9]+", query) if len(t) > 1]
+    if not tokens:
+        return {"query": q, "results": [], "total": 0,
+                "generated_at": _now_iso()}
+
+    scored: list[tuple[int, dict]] = []
+    for item in FAQ_ITEMS:
+        q_lc = item["question"].lower()
+        a_lc = item["answer"].lower()
+        cat_lc = item["category"].lower()
+        score = 0
+        if query in q_lc:
+            score += 10
+        for tok in tokens:
+            if tok in q_lc:
+                score += 3
+            if tok in cat_lc:
+                score += 2
+            if tok in a_lc:
+                score += 1
+        if score == 0:
+            continue
+        snippet = item["answer"][:180]
+        for tok in tokens:
+            idx = a_lc.find(tok)
+            if idx >= 0:
+                start = max(0, idx - 60)
+                end = min(len(item["answer"]), idx + 120)
+                snippet = ("…" if start > 0 else "") + item["answer"][start:end]
+                snippet += "…" if end < len(item["answer"]) else ""
+                break
+        cat_info = next((c for c in FAQ_CATEGORIES
+                         if c["slug"] == item["category"]), None)
+        scored.append((score, {
+            "slug": item["slug"],
+            "question": item["question"],
+            "snippet": snippet,
+            "category": item["category"],
+            "category_label": cat_info["label"] if cat_info else item["category"],
+            "score": score,
+        }))
+
+    scored.sort(key=lambda t: -t[0])
+    results = [r for _, r in scored[: max(1, min(limit, 50))]]
+    return {
+        "query": q,
+        "tokens": tokens,
+        "results": results,
+        "total": len(scored),
+        "generated_at": _now_iso(),
+    }
+
+
 @router.get("/site/faq/{slug}")
 async def site_faq_item(slug: str, response: Response):
     """Single FAQ article by slug — for deep-linkable /faq/[slug] routes."""
@@ -411,6 +492,86 @@ async def site_faq_item(slug: str, response: Response):
         raise HTTPException(status_code=404, detail=f"FAQ not found: {slug}")
     cat = next((c for c in FAQ_CATEGORIES if c["slug"] == found["category"]), None)
     return {**found, "category_info": cat, "generated_at": _now_iso()}
+
+
+@router.get("/site/faq/search")
+async def site_faq_search(response: Response,
+                          q: str = "",
+                          limit: int = 10):
+    """Token-scored full-text search across all FAQ entries.
+
+    Scoring (deterministic, no ML/ES dependency):
+      • +10 — exact phrase match in the question
+      • +3  — each query token hit in the question
+      • +2  — each query token hit in the category name
+      • +1  — each query token hit in the answer
+
+    Results are returned ranked highest-first. Includes a `snippet` field
+    with the first 180 chars of the answer (or the surrounding context of
+    the first match if the answer is long) so the FE can render result
+    cards without a second hop.
+    """
+    import re
+    _set_cache_headers(response, max_age=300)
+    query = (q or "").strip().lower()
+    if not query:
+        return {"query": "", "results": [], "total": 0,
+                "generated_at": _now_iso()}
+
+    # Tokenize the query: split on whitespace/punctuation, drop 1-char tokens.
+    tokens = [t for t in re.split(r"[^a-z0-9]+", query) if len(t) > 1]
+    if not tokens:
+        return {"query": q, "results": [], "total": 0,
+                "generated_at": _now_iso()}
+
+    scored: list[tuple[int, dict]] = []
+    for item in FAQ_ITEMS:
+        q_lc = item["question"].lower()
+        a_lc = item["answer"].lower()
+        cat_lc = item["category"].lower()
+        score = 0
+        if query in q_lc:
+            score += 10
+        for tok in tokens:
+            if tok in q_lc:
+                score += 3
+            if tok in cat_lc:
+                score += 2
+            if tok in a_lc:
+                score += 1
+        if score == 0:
+            continue
+        # Build a snippet centered on the first answer match, else head.
+        snippet = item["answer"][:180]
+        for tok in tokens:
+            idx = a_lc.find(tok)
+            if idx >= 0:
+                start = max(0, idx - 60)
+                end = min(len(item["answer"]), idx + 120)
+                snippet = ("…" if start > 0 else "") + item["answer"][start:end]
+                snippet += "…" if end < len(item["answer"]) else ""
+                break
+        cat_info = next((c for c in FAQ_CATEGORIES
+                         if c["slug"] == item["category"]), None)
+        scored.append((score, {
+            "slug": item["slug"],
+            "question": item["question"],
+            "snippet": snippet,
+            "category": item["category"],
+            "category_label": cat_info["label"] if cat_info else item["category"],
+            "score": score,
+        }))
+
+    # Sort by descending score, stable on insertion order for ties.
+    scored.sort(key=lambda t: -t[0])
+    results = [r for _, r in scored[: max(1, min(limit, 50))]]
+    return {
+        "query": q,
+        "tokens": tokens,
+        "results": results,
+        "total": len(scored),
+        "generated_at": _now_iso(),
+    }
 
 
 # ---------------------------------------------------------------------------
