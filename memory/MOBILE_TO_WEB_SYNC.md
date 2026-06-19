@@ -6,6 +6,16 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 19, 2026 — Product Q&A**:
+> - NEW collection `product_questions` + `product_answers`. Endpoints under `/api`:
+>   - `GET /products/{id}/questions?sort=helpful|recent&limit=N` (public) — returns rows with `top_answer` preview + `answer_count` + `is_upvoted_by_me`
+>   - `POST /products/{id}/questions` (auth) — text [5,500]
+>   - `POST /questions/{qid}/answers` (auth) — text [2,1000], auto-tags `is_seller` and `is_verified_purchase`
+>   - `POST /questions/{qid}/vote` and `POST /answers/{aid}/helpful` with `{direction: "up" | "clear"}` (idempotent)
+>   - `GET /questions/{qid}/answers` (public) — full paginated answer list
+> - Notifications: new q → seller (`qa_new_question`); new answer → asker (`qa_new_answer`). Both honour the existing notification-prefs mute system.
+> - Web parity recommended for full Q&A consistency across platforms.
+
 > **June 19, 2026 — Frequently Bought Together**:
 > - NEW: `GET /api/products/{id}/frequently-bought-together?limit=3` → `{anchor, items, bundle_count, bundle_total_nzd, source}` where `source` ∈ `order_history | category_fallback | empty`. Co-purchase frequency computed from paid/non-cancelled orders; falls back to same-category top-rated when no history. Out-of-stock peers excluded.
 > - Mobile renders an Amazon-style bundle widget on the PDP (visual strip + checkbox list + live total + "Add N items" CTA). Web parity recommended for AOV lift.
