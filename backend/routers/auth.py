@@ -259,6 +259,16 @@ async def me(current=Depends(get_current_user)):
     return public_user(current)
 
 
+@router.post("/me/onboarding-complete")
+async def mark_onboarding_seen(current=Depends(get_current_user)):
+    """Set `seen_onboarding=true` so the first-run welcome tour stays hidden
+    on every subsequent app launch / device."""
+    await db.users.update_one(
+        {"id": current["id"]}, {"$set": {"seen_onboarding": True}}
+    )
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------------------
 # DELETE /api/auth/me — GDPR-style account deletion
 # ---------------------------------------------------------------------------

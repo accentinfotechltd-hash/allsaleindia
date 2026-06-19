@@ -54,6 +54,7 @@ class UserPublic(BaseModel):
     country: str = "NZ"
     currency: str = "NZD"
     email_verified: bool = False
+    seen_onboarding: bool = False
 
 
 class AuthResponse(BaseModel):

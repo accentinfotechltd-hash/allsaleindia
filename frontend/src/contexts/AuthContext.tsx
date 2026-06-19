@@ -16,6 +16,7 @@ export type User = {
   email_verified?: boolean;
   country?: string;
   currency?: string;
+  seen_onboarding?: boolean;
 };
 
 type AuthState = {
@@ -30,6 +31,7 @@ type AuthState = {
   loginWithApple: (identityToken: string, fullName?: string | null) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
+  refreshMe: () => Promise<void>;
 };
 
 export type LoginResult =
@@ -233,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthCtx.Provider
-      value={{ user, loading, googleSigningIn, login, loginVerify2FA, resend2FACode, register, loginWithGoogle, loginWithApple, logout, refresh }}
+      value={{ user, loading, googleSigningIn, login, loginVerify2FA, resend2FACode, register, loginWithGoogle, loginWithApple, logout, refresh, refreshMe: refresh }}
     >
       {children}
     </AuthCtx.Provider>

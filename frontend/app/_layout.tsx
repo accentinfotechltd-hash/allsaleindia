@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { AuthProvider } from "@/src/contexts/AuthContext";
+import OnboardingTour from "@/src/components/OnboardingTour";
 import { CartProvider } from "@/src/contexts/CartContext";
 import { RegionProvider } from "@/src/contexts/RegionContext";
 import { WishlistProvider } from "@/src/contexts/WishlistContext";
@@ -55,6 +56,7 @@ export default function RootLayout() {
                 <WishlistProvider>
                   <StatusBar style="dark" />
                   <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
+                  <OnboardingTour />
                 </WishlistProvider>
               </CartProvider>
             </RegionProvider>

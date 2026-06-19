@@ -83,6 +83,7 @@ def public_user(doc: dict) -> UserPublic:
         country=country,
         currency=currency_map.get(country, "NZD"),
         email_verified=email_verified,
+        seen_onboarding=bool(doc.get("seen_onboarding")),
     )
 
 
