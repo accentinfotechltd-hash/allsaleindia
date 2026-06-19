@@ -18,12 +18,14 @@ Notes:
 """
 from __future__ import annotations
 
+import base64
 import io
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, EmailStr
 from reportlab.lib import colors as rl_colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -382,3 +384,151 @@ async def invoice_pdf(order_id: str, current=Depends(get_current_user)):
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# Email-this-invoice (Resend)
+# ---------------------------------------------------------------------------
+class InvoiceEmailRequest(BaseModel):
+    """Body for POST /orders/{id}/invoice/email.
+
+    Both fields are optional — when omitted we send to the buyer's account
+    email. `to` lets a buyer forward the receipt (e.g. to an employer).
+    """
+    to: Optional[EmailStr] = None
+    message: Optional[str] = None  # optional buyer note prepended in the body
+
+
+def _invoice_email_html(order: dict, short_id: str, buyer_name: str | None,
+                        custom_message: str | None) -> str:
+    total = _format_money(
+        order.get("charge_amount") or order.get("total_nzd") or 0,
+        order.get("buyer_currency") or "NZD",
+    )
+    when = order.get("paid_at") or order.get("created_at") or ""
+    if isinstance(when, datetime):
+        when = when.strftime("%d %b %Y")
+    item_rows = []
+    for it in (order.get("items") or [])[:12]:
+        item_rows.append(
+            f"<tr><td style='padding:6px 0;color:#0f172a;'>{(it.get('name') or it.get('product_name') or '—')[:80]}"
+            f"</td><td style='text-align:right;color:#475569;'>x{it.get('quantity', 1)}</td></tr>"
+        )
+    body_blocks = []
+    if custom_message:
+        # Light XSS-safety — Resend does NOT sanitise, so we keep it primitive.
+        safe = (
+            custom_message.replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace("\n", "<br/>")
+        )[:1000]
+        body_blocks.append(
+            f"<p style='font-size:14px;color:#334155;background:#f1f5f9;padding:12px;border-radius:8px;'>{safe}</p>"
+        )
+    return f"""
+    <div style='font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;'>
+      <div style='background:#7c3aed;color:#fff;padding:18px 22px;border-radius:12px 12px 0 0;'>
+        <h2 style='margin:0;font-size:20px;'>Allsale receipt</h2>
+        <p style='margin:4px 0 0;opacity:0.9;font-size:13px;'>Order #{short_id} · {when}</p>
+      </div>
+      <div style='border:1px solid #e2e8f0;border-top:none;padding:20px 22px;border-radius:0 0 12px 12px;'>
+        <p style='margin:0 0 12px;font-size:14px;'>Hi {buyer_name or 'there'},</p>
+        <p style='margin:0 0 16px;font-size:14px;color:#334155;'>
+          Your invoice for order <strong>#{short_id}</strong> is attached as a PDF.
+          Keep it for your records — it's also available any time inside the Allsale app.
+        </p>
+        {''.join(body_blocks)}
+        <table style='width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;'>
+          {''.join(item_rows)}
+        </table>
+        <div style='margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;'>
+          <span style='font-size:13px;color:#64748b;'>Total paid</span>
+          <strong style='font-size:18px;color:#0f172a;'>{total}</strong>
+        </div>
+      </div>
+      <p style='font-size:11px;color:#94a3b8;text-align:center;margin-top:18px;'>
+        Questions? Reply to this email or contact support@allsale.co.nz
+      </p>
+    </div>
+    """
+
+
+@router.post("/orders/{order_id}/invoice/email")
+async def email_invoice(
+    order_id: str,
+    body: InvoiceEmailRequest | None = None,
+    current=Depends(get_current_user),
+):
+    """Send the buyer's invoice PDF as a Resend email.
+
+    Auth: only the buyer who placed the order (or any admin). Same gate as
+    `GET /orders/{id}/invoice.pdf`.
+
+    Body (optional):
+        - `to`: forward the receipt to a different email (defaults to the
+          buyer's account email).
+        - `message`: a short personal note prepended in the email body.
+
+    Returns `{ok, sent, to, resend_id}` or `{ok, sent:false, skipped, reason}`
+    when Resend isn't configured (handy in CI / dev).
+    """
+    order = await _fetch_order_for_invoice(order_id, current)
+    try:
+        pdf_bytes = _build_pdf_bytes(order, current.get("email"))
+    except Exception as e:
+        logger.exception("invoice email pdf gen failed for %s: %s", order_id, e)
+        raise HTTPException(status_code=500, detail="Couldn't generate invoice")
+
+    short = _short_id(order_id)
+    addr_name = (order.get("address") or {}).get("full_name")
+    to_email = (body.to if body and body.to else current.get("email"))
+    if not to_email:
+        raise HTTPException(status_code=400, detail="No email on file — pass `to` in the body.")
+
+    # Lazy import to avoid an import cycle (services.email re-imports cleanly).
+    from services.email import send_email
+
+    html = _invoice_email_html(
+        order, short, addr_name, body.message if body else None
+    )
+    attachment_b64 = base64.b64encode(pdf_bytes).decode("ascii")
+    result = send_email(
+        to=str(to_email),
+        subject=f"Your Allsale invoice · Order #{short}",
+        html=html,
+        text=f"Your Allsale invoice for order #{short} is attached.",
+        attachments=[
+            {
+                "filename": f"allsale-invoice-{short}.pdf",
+                "content": attachment_b64,
+                "content_type": "application/pdf",
+            }
+        ],
+    )
+
+    # Record the dispatch so /admin can audit "did the buyer ever ask for a
+    # resend?" without needing Resend's dashboard.
+    await db.orders.update_one(
+        {"id": order_id},
+        {
+            "$push": {
+                "invoice_email_log": {
+                    "to": to_email,
+                    "sent_at": datetime.utcnow(),
+                    "by_user_id": current.get("id"),
+                    "resend_id": result.get("id"),
+                    "ok": bool(result.get("sent")),
+                    "reason": result.get("reason"),
+                }
+            }
+        },
+    )
+
+    return {
+        "ok": True,
+        "sent": bool(result.get("sent")),
+        "to": str(to_email),
+        "skipped": bool(result.get("skipped")),
+        "reason": result.get("reason"),
+        "resend_id": result.get("id"),
+    }

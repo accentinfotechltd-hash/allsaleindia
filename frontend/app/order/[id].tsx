@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system";
 import * as Linking from "expo-linking";
 import * as Sharing from "expo-sharing";
-import { CheckCircle2, ChevronLeft, ExternalLink, FileText, MapPin, MessageCircle, Package, PenSquare, RefreshCcw, RotateCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
+import { CheckCircle2, ChevronLeft, ExternalLink, FileText, Mail, MapPin, MessageCircle, Package, PenSquare, RefreshCcw, RotateCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api, getAuthToken } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
-import { useToast } from "@/src/components/UiOverlayProvider";
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import OrderTrackingTimeline from "@/src/components/OrderTrackingTimeline";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -106,6 +106,7 @@ export default function OrderDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const [order, setOrder] = useState<Order | null>(null);
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
@@ -114,6 +115,7 @@ export default function OrderDetail() {
   const [reason, setReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [emailingInvoice, setEmailingInvoice] = useState(false);
   const [confirmingReceipt, setConfirmingReceipt] = useState(false);
   const [reordering, setReordering] = useState(false);
   const mounted = useRef(true);
@@ -193,6 +195,52 @@ export default function OrderDetail() {
       setDownloadingInvoice(false);
     }
   }, [order, downloadingInvoice, toast]);
+
+  const emailInvoice = useCallback(async () => {
+    if (!order || emailingInvoice) return;
+    const ok = await confirm({
+      title: "Email this invoice?",
+      message: "We'll send a PDF copy to the email on your account.",
+      confirmLabel: "Send",
+    });
+    if (!ok) return;
+    setEmailingInvoice(true);
+    try {
+      const resp = await api<{
+        sent: boolean;
+        to: string;
+        skipped?: boolean;
+        reason?: string;
+      }>(`/orders/${order.id}/invoice/email`, { method: "POST", body: {} });
+      if (resp.sent) {
+        toast.show({
+          title: "Invoice emailed",
+          body: `Sent to ${resp.to}`,
+          kind: "success",
+        });
+      } else if (resp.skipped) {
+        toast.show({
+          title: "Email service not configured",
+          body: "Ask support to enable Resend — or download the PDF instead.",
+          kind: "error",
+        });
+      } else {
+        toast.show({
+          title: "Couldn't send invoice",
+          body: resp.reason || "Try again or download the PDF.",
+          kind: "error",
+        });
+      }
+    } catch (e: any) {
+      toast.show({
+        title: "Couldn't send invoice",
+        body: e?.message || "Please try again in a moment.",
+        kind: "error",
+      });
+    } finally {
+      setEmailingInvoice(false);
+    }
+  }, [order, emailingInvoice, toast, confirm]);
 
   const canCancel = useMemo(() => {
     if (!order) return false;
@@ -656,6 +704,30 @@ export default function OrderDetail() {
             )}
             <Text style={styles.invoiceBtnText}>
               {downloadingInvoice ? "Generating invoice…" : "Download invoice (PDF)"}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {/* Email this invoice (Resend) */}
+        {order.payment_status === "paid" ? (
+          <Pressable
+            testID="order-email-invoice"
+            disabled={emailingInvoice}
+            onPress={emailInvoice}
+            style={({ pressed }) => [
+              styles.invoiceBtn,
+              { marginTop: 8 },
+              pressed && { opacity: 0.85 },
+              emailingInvoice && { opacity: 0.55 },
+            ]}
+          >
+            {emailingInvoice ? (
+              <ActivityIndicator size="small" color={colors.primary} />
+            ) : (
+              <Mail size={16} color={colors.primary} />
+            )}
+            <Text style={styles.invoiceBtnText}>
+              {emailingInvoice ? "Sending…" : "Email this invoice"}
             </Text>
           </Pressable>
         ) : null}

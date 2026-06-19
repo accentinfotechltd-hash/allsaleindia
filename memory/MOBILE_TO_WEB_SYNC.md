@@ -88,5 +88,44 @@ GET /api/products?seller_id=user_xxx&bestseller=true   # AND'd
 ### Test coverage
 `/app/backend/tests/test_products_filters.py` — **7/7 pass** (unknown-seller empty, single-seller scoping, new=30d, bestseller heuristic, on_sale=active flash sale, ambassador_pick empty-collection, combined AND).
 
-No breaking changes to existing params — purely additive.
+## ⚡ June 19, 2026 — `POST /api/orders/{id}/invoice/email` (Resend)
+
+NEW endpoint for the "Email this invoice" button on order detail.
+
+### Auth
+Buyer JWT — same `_fetch_order_for_invoice` gate as the PDF download. 401 anon, 403 if not your order, 400 if not paid yet.
+
+### Body (all optional)
+```json
+{
+  "to": "alt@email.com",          // forward to a different address; defaults to account email
+  "message": "Hi team, attached…"  // short personal note prepended in the HTML body (≤1000 chars, lightly escaped)
+}
+```
+
+### Response
+```json
+{
+  "ok": true,
+  "sent": true,                    // false when skipped (Resend not configured)
+  "to": "buyer@example.com",
+  "skipped": false,
+  "reason": null,
+  "resend_id": "re_…"              // null when not sent
+}
+```
+
+When Resend isn't configured (dev / CI) the endpoint **does not 500** — it returns `sent:false, skipped:true, reason:"resend_not_configured"` so clients can show a friendly fallback.
+
+### Side effects
+- Pushes one row into `orders.invoice_email_log[]` per dispatch:
+  ```json
+  { "to": "...", "sent_at": ISO, "by_user_id": "user_xxx",
+    "resend_id": "re_...", "ok": true, "reason": null }
+  ```
+  Used by admin/support to audit "did the buyer ever ask for a resend?"
+
+### Tests
+`/app/backend/tests/test_invoice_email.py` — **3/3 PASS** (graceful-skip happy path with audit log, 401 anon, 403 cross-buyer).
+
 

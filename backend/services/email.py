@@ -40,8 +40,15 @@ def send_email(
     *,
     text: Optional[str] = None,
     reply_to: Optional[str] = None,
+    attachments: Optional[list[dict]] = None,
 ) -> dict:
-    """Send one transactional email. Returns a small status dict."""
+    """Send one transactional email. Returns a small status dict.
+
+    `attachments` (optional) follows Resend's contract:
+        [{"filename": "invoice.pdf", "content": "<base64>", "content_type": "application/pdf"}]
+    `content` MUST be a base64-encoded string. `content_type` is optional but
+    recommended for non-PDF binaries.
+    """
     if not _RESEND_AVAILABLE:
         return {"sent": False, "skipped": True, "reason": "resend_not_installed"}
     api_key = os.getenv("RESEND_API_KEY")
@@ -59,6 +66,8 @@ def send_email(
         payload["text"] = text
     if reply_to:
         payload["reply_to"] = reply_to
+    if attachments:
+        payload["attachments"] = attachments
     try:
         resp = resend.Emails.send(payload)  # type: ignore[attr-defined]
         return {"sent": True, "id": (resp or {}).get("id")}
