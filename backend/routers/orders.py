@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from db import db
 from deps import get_current_user
@@ -156,6 +156,102 @@ async def cancel_order(
 async def list_orders(current=Depends(get_current_user)):
     cursor = db.orders.find({"user_id": current["id"]}, {"_id": 0}).sort("created_at", -1)
     return [Order(**o) async for o in cursor]
+
+
+# ---------------------------------------------------------------------------
+# Buy-it-again rail (June 2026)
+# IMPORTANT: This STATIC path must be registered BEFORE the dynamic
+# `/orders/{order_id}` below — Starlette matches in registration order and
+# would otherwise treat "buy-it-again" as an order_id.
+# ---------------------------------------------------------------------------
+@router.get("/orders/buy-it-again")
+async def buy_it_again(
+    limit: int = Query(default=12, ge=1, le=40),
+    current=Depends(get_current_user),
+):
+    """Distinct products from the buyer's past **delivered** orders.
+
+    Ranked by `last_purchased_at` (newest order containing the product wins
+    when the same product appears in multiple orders). Skips products that
+    are now out of stock or in a hidden buyer category.
+
+    Returns a lean projection (id, name, image, price, last_purchased_at,
+    times_purchased) — sized for a horizontal home-tab rail.
+    """
+    last_buy: dict[str, dict] = {}
+    cursor = db.orders.find(
+        {
+            "user_id": current["id"],
+            "$or": [
+                {"status": "delivered"},
+                {"delivered_at": {"$ne": None}},
+                {"buyer_confirmed_at": {"$ne": None}},
+            ],
+        },
+        {"_id": 0, "id": 1, "items": 1, "delivered_at": 1, "created_at": 1, "buyer_confirmed_at": 1},
+    ).sort("created_at", -1)
+    async for o in cursor:
+        when = (
+            o.get("delivered_at")
+            or o.get("buyer_confirmed_at")
+            or o.get("created_at")
+        )
+        for it in (o.get("items") or []):
+            pid = it.get("product_id") or it.get("id")
+            if not pid:
+                continue
+            existing = last_buy.get(pid)
+            if existing is None or (when and when > existing["last_purchased_at"]):
+                last_buy[pid] = {
+                    "last_purchased_at": when,
+                    "times_purchased": (existing or {}).get("times_purchased", 0) + 1,
+                    "qty_last": it.get("quantity") or 1,
+                }
+            else:
+                existing["times_purchased"] += 1
+
+    if not last_buy:
+        return {"items": [], "total": 0}
+
+    pids = list(last_buy.keys())
+    fields = {
+        "_id": 0,
+        "id": 1, "name": 1, "image": 1, "price_nzd": 1, "price_inr": 1,
+        "category": 1, "in_stock": 1, "stock_count": 1, "rating": 1,
+        "reviews_count": 1, "seller_name": 1,
+    }
+    products: dict[str, dict] = {}
+    async for p in db.products.find({"id": {"$in": pids}}, fields):
+        if int(p.get("stock_count", 0) or 0) <= 0 and not p.get("in_stock"):
+            continue
+        products[p["id"]] = p
+
+    out: list[dict] = []
+    for pid in sorted(
+        last_buy.keys(),
+        key=lambda k: last_buy[k]["last_purchased_at"] or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    ):
+        prod = products.get(pid)
+        if not prod:
+            continue
+        meta = last_buy[pid]
+        out.append(
+            {
+                **prod,
+                "last_purchased_at": (
+                    meta["last_purchased_at"].isoformat()
+                    if isinstance(meta["last_purchased_at"], datetime)
+                    else None
+                ),
+                "times_purchased": meta["times_purchased"],
+                "qty_last": meta["qty_last"],
+            }
+        )
+        if len(out) >= limit:
+            break
+
+    return {"items": out, "total": len(out)}
 
 
 @router.get("/orders/{order_id}", response_model=Order)

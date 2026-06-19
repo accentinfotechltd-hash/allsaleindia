@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
+import BuyItAgainRail from "@/src/components/BuyItAgainRail";
 import FlashSalesCarousel from "@/src/components/FlashSalesCarousel";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import AmbassadorWelcomeBanner from "@/src/components/AmbassadorWelcomeBanner";
@@ -254,6 +255,7 @@ export default function Home() {
             <View style={{ paddingHorizontal: spacing.lg }}>
               <RecentlyViewedRail limit={10} />
             </View>
+            <BuyItAgainRail limit={12} />
           </View>
         }
         ListEmptyComponent={
