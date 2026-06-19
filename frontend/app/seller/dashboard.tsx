@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, PiggyBank, Plus, RefreshCcw, Settings, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, PiggyBank, Plus, RefreshCcw, Settings, Sparkles, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -248,6 +248,17 @@ export default function SellerDashboard() {
                   </View>
                   <Text style={styles.quickTitle}>{t("seller.profile")}</Text>
                   <Text style={styles.quickSubtitle}>{t("seller.profile_sub")}</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-referrals-link"
+                  onPress={() => router.push("/seller/referrals")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <Sparkles size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Refer & Earn</Text>
+                  <Text style={styles.quickSubtitle}>5% commission · NZ$500 cap</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-support-link"
