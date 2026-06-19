@@ -13,6 +13,7 @@ from db import db
 from deps import get_current_user
 from models import Shipment
 from services.notifications import create_notification
+from services.shipment_milestones import detect_milestone
 from services.shiprocket import (
     map_shiprocket_status,
     webhook_signature_ok,
@@ -168,6 +169,37 @@ async def shiprocket_webhook(
                 body=title_body[1],
                 order_id=order["id"],
             )
+
+    # ------------------------------------------------------------------
+    # Phase 1.5 #4 — fire one-time in-transit milestones (e.g. arrived in
+    # destination country, customs cleared) so buyers see meaningful nudges
+    # in the bell drawer even when the overall order status hasn't flipped.
+    # ------------------------------------------------------------------
+    try:
+        # Re-read because we just appended an event above.
+        fresh = await db.orders.find_one({"id": order["id"]}, {"_id": 0})
+        milestone = detect_milestone(
+            event_status=payload.get("current_status") or payload.get("shipment_status"),
+            event_location=payload.get("current_location") or payload.get("location"),
+            event_remark=payload.get("scan_remark") or payload.get("activity"),
+            order=fresh or order,
+        )
+        if milestone:
+            await create_notification(
+                user_id=order["user_id"],
+                role="buyer",
+                n_type=f"shipment_milestone_{milestone['key']}",
+                title=milestone["title"],
+                body=milestone["body"],
+                order_id=order["id"],
+            )
+            await db.orders.update_one(
+                {"id": order["id"]},
+                {"$addToSet": {"milestones_notified": milestone["key"]}},
+            )
+    except Exception:
+        # Milestone notifications are a UX nicety — never break the webhook.
+        pass
 
     return {
         "received": True,

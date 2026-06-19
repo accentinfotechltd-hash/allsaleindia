@@ -165,6 +165,7 @@ Seller uploads a photo proving the parcel reached the buyer. Auth + `is_seller=t
 | `last_tracking_update` | datetime | Shiprocket webhook |
 | `awb_code` | string | denormalised for snappy UI lookup |
 | `proof_of_delivery` | object `{image, note, uploaded_by: "carrier"\|"seller", uploaded_at}` | Shiprocket webhook (`pod_url`) OR `POST /seller/orders/{id}/proof-of-delivery` |
+| `milestones_notified` | array<string> | Shiprocket webhook; tracks one-time in-transit milestones (`arrived_in_destination`, `customs_cleared`). |
 
 ### `shipments` (existing, no schema change)
 - The `events` array (Mongo `$push` in webhook) is now exposed via `GET /orders/{id}/tracking`.

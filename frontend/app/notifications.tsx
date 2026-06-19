@@ -43,9 +43,19 @@ function iconFor(type: string) {
       return <PackageX size={18} color={colors.error} />;
     case "order_shipped":
     case "out_for_delivery":
+    case "order_out_for_delivery":
+    case "shipment_milestone_arrived_in_destination":
+    case "shipment_milestone_customs_cleared":
       return <Truck size={18} color={colors.accent} />;
     case "order_delivered":
+    case "proof_of_delivery_uploaded":
+    case "order_received_by_buyer":
       return <CheckCircle2 size={18} color={colors.success} />;
+    case "return_requested":
+    case "return_approved":
+    case "return_rejected":
+    case "return_received":
+      return <PackageX size={18} color={colors.accent} />;
     default:
       return <Bell size={18} color={colors.textMuted} />;
   }
