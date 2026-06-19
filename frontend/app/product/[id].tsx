@@ -8,6 +8,7 @@ import SizeGuideModal from "@/src/components/SizeGuideModal";
 import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import FrequentlyBoughtTogether from "@/src/components/FrequentlyBoughtTogether";
+import ProductQuestionsSection from "@/src/components/ProductQuestionsSection";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
 import NotifyWhenInStock from "@/src/components/NotifyWhenInStock";
@@ -384,6 +385,9 @@ export default function ProductDetail() {
           {/* Amazon-style "Frequently Bought Together" — co-purchase
               bundle widget. Auto-hides when there's no signal. */}
           <FrequentlyBoughtTogether productId={product.id} />
+
+          {/* Amazon-style Q&A — buyers ask, sellers + verified buyers answer. */}
+          <ProductQuestionsSection productId={product.id} />
 
           <ReviewsSection
             productId={product.id}

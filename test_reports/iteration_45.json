@@ -1,0 +1,32 @@
+{
+  "summary": "Tested Amazon-style Product Q&A end-to-end. Backend pytest at /app/backend/tests/test_qa.py: 17/17 PASS — covers public list, auth-gated ask/answer/vote, [5,500] / [2,1000] validation, 404 paths for unknown product/question/answer, helpful vs recent sort, top_answer + answer_count in listing, idempotent upvote, clear undoes upvote, helpful vote on answers (with is_helpful_to_me), seller badge on own listing, NEW verified-purchase badge (seeded paid order → is_verified_purchase=True), and NEW answer_count increment check. Frontend tested on /product/55f0a169-c66c-4f3b-8ead-91dc18491778 at mobile viewport 390x844 with buyer@example.com: (1) Q&A section renders below FBT and above Ratings & Reviews; (2) empty-state card shows 'No questions yet' with hint copy; (3) anonymous tap on 'Ask' redirects to /login (auth gate works); (4) after login, tapping 'Ask' opens the bottom sheet titled 'Ask a question' with placeholder, '0 / 500' char counter, Cancel + 'Post question' buttons; (5) submitting a valid question (>=5 chars) hits POST /api/products/{id}/questions, closes the sheet, refreshes the list, and shows 'Question posted' success toast; (6) the posted question row shows Q. prefix + body + Helpful + Answer footer actions; (7) tapping 'Helpful' optimistically toggles to 'Helpful · 1' and persists across a full reload; (8) tapping 'Answer' opens the same sheet with title 'Add an answer' and the question text as a preview block (Q. label + body). Cancel works. No red screen, only generic React-Native-Web deprecation warnings (shadow*/textShadow*/pointerEvents) — pre-existing, not from this feature. The 401 console error on the unauthenticated PDP visit is the auth-check call (expected for anon).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_qa.py",
+    "/app/test_reports/pytest/iter45_qa.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ProductQuestionsSection.tsx is 660 lines but well-structured — fine for now. If a third sheet (edit / report) is added, consider extracting QuestionAskSheet into its own file.",
+    "qa.py uses fire-and-forget create_notification inside try/except — good defensive pattern; matches the rest of the codebase.",
+    "The /products/{id}/questions endpoint always issues N+1 reads to product_answers (one per question for top_answer). At PREVIEW_LIMIT=3 visible + max 20 fetched, that is 20 extra round-trips per PDP load. Consider $lookup or a single `$facet` aggregation once Q&A volume grows. Not a release blocker."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_qa.py — added TestSellerBadge::test_verified_purchase_badge_when_buyer_has_paid_order and ::test_answer_count_increments"
+  ],
+  "success_rate": {"backend": "100% (17/17 pytest)", "frontend": "100% (all 8 FE acceptance criteria verified)"},
+  "seed_data_creation": "Test ephemerally inserts products + orders + questions; cleaned up per test via _cleanup(). UI test posted one real question against product 55f0a169 — left in DB (clearly tagged with timestamp 'Test 17...').",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Q&A widget is fully working. testIDs: qa-section (wrap), qa-loading, qa-ask-btn (Ask), qa-q-{qid} (each question card), qa-vote-{qid} (Helpful pressable), qa-reply-{qid} (Answer pressable), qa-see-more (when items > 3), qa-sheet-input (TextInput in modal), qa-sheet-submit (Post question/answer). Backend endpoints (all /api): GET /products/{id}/questions[?sort=helpful|recent&limit=N], POST /products/{id}/questions, POST /questions/{qid}/vote {direction:up|clear}, POST /questions/{qid}/answers, GET /questions/{qid}/answers, POST /answers/{aid}/helpful {direction:up|clear}. Run pytest with: cd /app/backend && PYTHONPATH=/app/backend pytest tests/test_qa.py -v",
+  "rca_of_issue": ""
+}
