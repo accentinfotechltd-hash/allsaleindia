@@ -22,6 +22,7 @@ Refer to:
 - `web_agent_handoff_ambassadors.md`
 - `web_agent_handoff_approval_flow.md`
 - `web_agent_handoff_order_tracking.md` *(includes ETA, proof-of-delivery, milestones)*
+- `web_agent_handoff_notifications.md` *(NEW June 19 — bell icon + dropdown schema)*
 
 ---
 
