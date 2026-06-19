@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Sparkles } from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -25,6 +25,7 @@ export default function SellerSignup() {
   const { form, set, setType } = useBusinessForm();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -36,6 +37,9 @@ export default function SellerSignup() {
     }
     setBusy(true);
     try {
+      // Sanitize ambassador code: strip non-alphanum, uppercase. Backend
+      // silently ignores invalid codes, so no client-side validation needed.
+      const code = referralCode.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
       const res = await api<{ user: any; access_token: string }>("/seller/register", {
         method: "POST",
         auth: false,
@@ -48,6 +52,7 @@ export default function SellerSignup() {
             cin: form.cin.trim() || null,
             llpin: form.llpin.trim() || null,
           },
+          referral_code: code || undefined,
         },
       });
       await setToken(res.access_token);
@@ -100,6 +105,35 @@ export default function SellerSignup() {
           </View>
 
           <BusinessFields form={form} set={set} setType={setType} prefix="seller-signup" />
+
+          {/* Ambassador referral CTA — Indian sellers referred by an
+              Allsale Ambassador get 3 months Pro free. Optional + silently
+              ignored by backend if invalid. Sanitized to A-Z0-9. */}
+          <View style={styles.referralCard} testID="seller-signup-referral-card">
+            <View style={styles.referralHeader}>
+              <Sparkles size={16} color={colors.primary} />
+              <Text style={styles.referralTitle}>Referred by an Ambassador?</Text>
+            </View>
+            <Text style={styles.referralSub}>
+              Enter their code to get{" "}
+              <Text style={styles.referralHighlight}>3 months Pro free</Text>
+              {" "}— they earn a bounty once you ship 5 orders.
+            </Text>
+            <TextInput
+              testID="seller-signup-referral-code"
+              style={styles.referralInput}
+              value={referralCode}
+              onChangeText={setReferralCode}
+              placeholder="e.g. RAJESHBIZ"
+              placeholderTextColor={colors.textFaint}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={40}
+            />
+            <Text style={styles.referralHint}>
+              Optional — leave blank if you don&apos;t have a code.
+            </Text>
+          </View>
 
           {err ? <Text style={styles.error} testID="seller-signup-error">{err}</Text> : null}
 
@@ -163,5 +197,32 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   ctaText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  // ---- Referral card (mirrors /seller/upgrade) ----
+  referralCard: {
+    marginTop: spacing.lg,
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 8,
+  },
+  referralHeader: { flexDirection: "row", alignItems: "center", gap: 6 },
+  referralTitle: { fontWeight: "800", color: colors.text, fontSize: 14 },
+  referralSub: { color: "#78350F", fontSize: 12, lineHeight: 18 },
+  referralHighlight: { color: colors.primary, fontWeight: "800" },
+  referralInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: colors.text,
+    letterSpacing: 1.5,
+    fontWeight: "700",
+  },
+  referralHint: { color: "#9A3412", fontSize: 11, fontStyle: "italic" },
   terms: { color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: spacing.md, lineHeight: 18 },
 });
