@@ -549,6 +549,9 @@ class ChatConversation(BaseModel):
     last_message_preview: Optional[str] = None
     last_message_at: Optional[datetime] = None
     unread_count: int = 0  # for the CURRENT user
+    # Per-side flags — surfaced relative to the calling user.
+    pinned: bool = False
+    archived: bool = False
     created_at: datetime
 
 

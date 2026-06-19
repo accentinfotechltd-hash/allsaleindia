@@ -43,6 +43,8 @@ def _self_unread_field(role: str) -> str:
 
 
 def _public_conv(conv: dict, role: str) -> ChatConversation:
+    pin_field = f"{role}_pinned"
+    archive_field = f"{role}_archived"
     return ChatConversation(
         id=conv["id"],
         buyer_id=conv["buyer_id"],
@@ -56,6 +58,8 @@ def _public_conv(conv: dict, role: str) -> ChatConversation:
         last_message_preview=conv.get("last_message_preview"),
         last_message_at=conv.get("last_message_at"),
         unread_count=int(conv.get(_self_unread_field(role), 0) or 0),
+        pinned=bool(conv.get(pin_field, False)),
+        archived=bool(conv.get(archive_field, False)),
         created_at=conv["created_at"],
     )
 
@@ -132,17 +136,97 @@ async def start_conversation(body: ChatStartRequest, current=Depends(get_current
 # List my conversations
 # ---------------------------------------------------------------------------
 @router.get("/conversations", response_model=List[ChatConversation])
-async def list_conversations(current=Depends(get_current_user)):
+async def list_conversations(
+    archived: bool = False,
+    q: Optional[str] = None,
+    current=Depends(get_current_user),
+):
+    """List conversations for the calling user.
+
+    Filters:
+      * `archived` (default False) — set True to fetch the archive shelf.
+      * `q` — case-insensitive substring match against partner name + product name
+        + last message preview.
+
+    Sorted by: pinned-first, then `last_message_at DESC`.
+    Soft-deleted conversations (per-side `*_deleted_at`) are excluded.
+    """
     out: list[ChatConversation] = []
-    q = {"$or": [{"buyer_id": current["id"]}, {"seller_id": current["id"]}]}
-    async for c in db.chat_conversations.find(q, {"_id": 0}).sort(
-        "last_message_at", -1
-    ):
+    base_q: dict = {"$or": [{"buyer_id": current["id"]}, {"seller_id": current["id"]}]}
+    cursor = db.chat_conversations.find(base_q, {"_id": 0}).sort("last_message_at", -1)
+    needle = (q or "").strip().lower()
+    async for c in cursor:
         role = _role_for(c, current["id"])
         if not role:
             continue
+        # Per-side soft-delete check
+        if c.get(f"{role}_deleted_at"):
+            continue
+        # Per-side archive filter
+        is_archived = bool(c.get(f"{role}_archived", False))
+        if archived != is_archived:
+            continue
+        # Search filter
+        if needle:
+            partner = (c.get("seller_name") if role == "buyer" else c.get("buyer_name")) or ""
+            haystack = " ".join(
+                str(x or "").lower()
+                for x in (partner, c.get("product_name"), c.get("last_message_preview"))
+            )
+            if needle not in haystack:
+                continue
         out.append(_public_conv(c, role))
+    # Pinned first, then by last_message_at desc (already sorted by ts above)
+    out.sort(key=lambda c: (0 if c.pinned else 1, -(c.last_message_at.timestamp() if c.last_message_at else 0)))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Per-side conversation actions: pin / archive / delete (Phase 8.3)
+# ---------------------------------------------------------------------------
+async def _patch_self_flag(conv_id: str, current: dict, field_suffix: str, value):
+    conv = await db.chat_conversations.find_one({"id": conv_id}, {"_id": 0})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    role = _role_for(conv, current["id"])
+    if not role:
+        raise HTTPException(status_code=403, detail="Not a participant")
+    await db.chat_conversations.update_one(
+        {"id": conv_id}, {"$set": {f"{role}_{field_suffix}": value}}
+    )
+
+
+@router.post("/conversations/{conv_id}/pin", status_code=204)
+async def pin_conversation(conv_id: str, current=Depends(get_current_user)):
+    await _patch_self_flag(conv_id, current, "pinned", True)
+    return None
+
+
+@router.post("/conversations/{conv_id}/unpin", status_code=204)
+async def unpin_conversation(conv_id: str, current=Depends(get_current_user)):
+    await _patch_self_flag(conv_id, current, "pinned", False)
+    return None
+
+
+@router.post("/conversations/{conv_id}/archive", status_code=204)
+async def archive_conversation(conv_id: str, current=Depends(get_current_user)):
+    await _patch_self_flag(conv_id, current, "archived", True)
+    return None
+
+
+@router.post("/conversations/{conv_id}/unarchive", status_code=204)
+async def unarchive_conversation(conv_id: str, current=Depends(get_current_user)):
+    await _patch_self_flag(conv_id, current, "archived", False)
+    return None
+
+
+@router.delete("/conversations/{conv_id}", status_code=204)
+async def delete_conversation(conv_id: str, current=Depends(get_current_user)):
+    """Soft-delete on the caller's side. The other participant still sees the
+    thread until they delete it too. (Mirrors the WhatsApp UX.)
+    """
+    await _patch_self_flag(conv_id, current, "deleted_at", now_utc())
+    return None
 
 
 # ---------------------------------------------------------------------------

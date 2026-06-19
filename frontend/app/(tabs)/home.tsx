@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Bell, Globe2, Search, Sparkles } from "lucide-react-native";
+import { Bell, Globe2, MessageCircle, Search, Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -44,6 +44,48 @@ const HERO_BANNERS = [
       "https://images.unsplash.com/photo-1650383044645-5d32141ad1a3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2ODh8MHwxfHNlYXJjaHwzfHxpbmRpYW4lMjBoYW5kaWNyYWZ0cyUyMGJyYXNzfGVufDB8fHx8MTc4MTEzMjI2OXww&ixlib=rb-4.1.0&q=85",
   },
 ];
+
+function ChatBellButton() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    let stopped = false;
+    let timer: any = null;
+    const tick = async () => {
+      try {
+        const d = await api<{ total: number }>("/chat/unread-count");
+        if (!stopped) setUnread(d?.total || 0);
+      } catch {
+        /* silent */
+      }
+      if (!stopped) timer = setTimeout(tick, 30000);
+    };
+    tick();
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [user]);
+
+  if (!user) return null;
+  return (
+    <Pressable
+      testID="home-chat-bell-btn"
+      onPress={() => router.push("/chat")}
+      style={styles.iconBtn}
+    >
+      <MessageCircle size={20} color={colors.text} />
+      {unread > 0 ? (
+        <View style={styles.iconBadge} testID="home-chat-bell-badge">
+          <Text style={styles.iconBadgeText}>{unread > 99 ? "99+" : unread}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
 
 export default function Home() {
   const router = useRouter();
@@ -123,13 +165,16 @@ export default function Home() {
                   <Text style={styles.region}>Shipping to New Zealand</Text>
                 </View>
               </View>
-              <Pressable
-                testID="home-notifications-btn"
-                style={styles.iconBtn}
-                onPress={() => {}}
-              >
-                <Bell size={20} color={colors.text} />
-              </Pressable>
+              <View style={styles.headerActions}>
+                <ChatBellButton />
+                <Pressable
+                  testID="home-notifications-btn"
+                  style={styles.iconBtn}
+                  onPress={() => router.push("/notifications")}
+                >
+                  <Bell size={20} color={colors.text} />
+                </Pressable>
+              </View>
             </View>
 
             <Text style={styles.hello} testID="home-greeting">
@@ -271,6 +316,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  headerActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+  iconBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
+  iconBadgeText: { color: "#fff", fontSize: 9, fontWeight: "800" },
   hello: {
     fontSize: 26,
     fontWeight: "800",
