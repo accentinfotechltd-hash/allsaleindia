@@ -617,6 +617,17 @@ class Order(BaseModel):
     # Loyalty points
     points_used: Optional[int] = 0
     points_discount_nzd: Optional[float] = 0.0
+    # Tracking timestamps (set as carrier events arrive via Shiprocket webhook)
+    shipped_at: Optional[datetime] = None
+    out_for_delivery_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    # Buyer-confirmed delivery (independent of carrier status)
+    buyer_confirmed_at: Optional[datetime] = None
+    # Latest tracking metadata for snappier UI rendering
+    tracking_status: Optional[str] = None
+    last_tracking_update: Optional[datetime] = None
+    last_tracking_location: Optional[str] = None
+    awb_code: Optional[str] = None
 
 
 class CancelOrderRequest(BaseModel):
@@ -700,6 +711,50 @@ class Shipment(BaseModel):
     status: str
     estimated_delivery: str
     is_mocked: bool
+
+
+# ---------------------------------------------------------------------------
+# Order Tracking (June 2026 — detailed scan event timeline)
+# ---------------------------------------------------------------------------
+class TrackingEvent(BaseModel):
+    at: datetime
+    status: Optional[str] = None  # raw carrier status, e.g. "In Transit"
+    location: Optional[str] = None  # e.g. "Mumbai, IN" / "Auckland, NZ"
+    remark: Optional[str] = None  # carrier note / activity description
+
+
+class TrackingStage(BaseModel):
+    key: str  # "paid" | "shipped" | "out_for_delivery" | "delivered"
+    label: str
+    done: bool
+    at: Optional[datetime] = None
+
+
+class OrderTracking(BaseModel):
+    order_id: str
+    status: str  # current order status
+    progress_pct: int  # 0..100 derived from stages
+    stages: List[TrackingStage]
+    events: List[TrackingEvent] = Field(default_factory=list)  # newest first
+    awb_code: Optional[str] = None
+    carrier: Optional[str] = None
+    tracking_url: Optional[str] = None
+    estimated_delivery: Optional[str] = None
+    last_tracking_status: Optional[str] = None
+    last_tracking_location: Optional[str] = None
+    last_tracking_update: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    buyer_confirmed_at: Optional[datetime] = None
+
+
+class ReorderResult(BaseModel):
+    cart_item_count: int
+    added: List[str] = Field(default_factory=list)  # product_ids successfully added
+    skipped: List[dict] = Field(default_factory=list)  # [{product_id, reason}]
+
+
+class ReviewReportRequest(BaseModel):
+    reason: str = Field(..., min_length=2, max_length=300)
 
 
 # ---------------------------------------------------------------------------

@@ -11,14 +11,35 @@ from deps import get_current_user
 from models import (
     CancelOrderRequest,
     Order,
+    OrderTracking,
+    ReorderResult,
     Shipment,
+    TrackingEvent,
+    TrackingStage,
 )
+from services.cart import hydrate_cart
 from services.notifications import create_notification, notify_admins
 from services.stock import restock_for_order
 from services.stripe_svc import issue_stripe_refund
 from utils import now_utc
 
 router = APIRouter(tags=["orders"])
+
+
+# Stage order used for both the timeline and progress percentage.
+_STAGES: list[tuple[str, str]] = [
+    ("paid", "Order confirmed"),
+    ("shipped", "Shipped from India"),
+    ("out_for_delivery", "Out for delivery"),
+    ("delivered", "Delivered"),
+]
+_STAGE_KEYS = [k for k, _ in _STAGES]
+_STAGE_TS_FIELD = {
+    "paid": "created_at",
+    "shipped": "shipped_at",
+    "out_for_delivery": "out_for_delivery_at",
+    "delivered": "delivered_at",
+}
 
 
 @router.post("/orders/{order_id}/cancel", response_model=Order)
@@ -175,3 +196,199 @@ async def account_order_detail_alias(
 async def me_orders_alias(current=Depends(get_current_user)):
     """Alias for GET /orders."""
     return await list_orders(current)  # type: ignore[name-defined]
+
+
+# ---------------------------------------------------------------------------
+# Tracking timeline + post-delivery actions (June 2026)
+# ---------------------------------------------------------------------------
+@router.get("/orders/{order_id}/tracking", response_model=OrderTracking)
+async def get_order_tracking(order_id: str, current=Depends(get_current_user)):
+    """Detailed tracking timeline for a buyer's order.
+
+    Returns:
+      - 4-stage progress (paid → shipped → out_for_delivery → delivered) w/ per-stage timestamps
+      - Detailed scan events from the shipment doc (sorted newest first)
+      - Progress percentage (0..100) derived from stages reached
+      - Estimated delivery, AWB, carrier and the carrier's deep-link URL
+    """
+    order = await db.orders.find_one(
+        {"id": order_id, "user_id": current["id"]}, {"_id": 0}
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    current_status = order.get("status") or ""
+    shp = await db.shipments.find_one({"order_id": order_id}, {"_id": 0}) or {}
+
+    # Build stage list — "done" if either the current status matches/exceeds
+    # the stage OR a stage-specific timestamp has been captured.
+    try:
+        current_idx = _STAGE_KEYS.index(current_status)
+    except ValueError:
+        # paid is the implicit starting stage even if status is unknown.
+        current_idx = -1 if current_status in {"cancelled", "refunded"} else 0
+
+    stages: list[TrackingStage] = []
+    for i, (key, label) in enumerate(_STAGES):
+        done = i <= current_idx if current_idx >= 0 else False
+        ts_field = _STAGE_TS_FIELD[key]
+        at_val = order.get(ts_field)
+        # Fallback: if stage is done and no explicit ts, use created_at for "paid"
+        if done and not at_val and key == "paid":
+            at_val = order.get("created_at")
+        stages.append(TrackingStage(key=key, label=label, done=done, at=at_val))
+
+    progress_pct = 0
+    if current_status in {"cancelled", "refunded"}:
+        progress_pct = 0
+    elif current_idx >= 0:
+        progress_pct = int(round(((current_idx + 1) / len(_STAGES)) * 100))
+
+    # Latest scan events from shipment.events array (oldest first stored, return newest first)
+    raw_events = list(shp.get("events", []) or [])
+    raw_events.sort(key=lambda e: e.get("at") or datetime.min, reverse=True)
+    events: list[TrackingEvent] = []
+    for e in raw_events[:60]:  # cap at most-recent 60 to keep payload small
+        events.append(
+            TrackingEvent(
+                at=e.get("at") or now_utc(),
+                status=e.get("status"),
+                location=e.get("location"),
+                remark=e.get("remark"),
+            )
+        )
+
+    return OrderTracking(
+        order_id=order_id,
+        status=current_status,
+        progress_pct=progress_pct,
+        stages=stages,
+        events=events,
+        awb_code=shp.get("awb_code") or order.get("awb_code"),
+        carrier=shp.get("carrier"),
+        tracking_url=shp.get("tracking_url"),
+        estimated_delivery=order.get("estimated_delivery"),
+        last_tracking_status=order.get("tracking_status"),
+        last_tracking_location=order.get("last_tracking_location"),
+        last_tracking_update=order.get("last_tracking_update"),
+        delivered_at=order.get("delivered_at"),
+        buyer_confirmed_at=order.get("buyer_confirmed_at"),
+    )
+
+
+@router.post("/orders/{order_id}/mark-received", response_model=Order)
+async def mark_order_received(order_id: str, current=Depends(get_current_user)):
+    """Buyer confirms physical receipt of the parcel.
+
+    Only allowed once `delivered` per Shiprocket *or* the buyer wants to
+    confirm an out_for_delivery parcel because the carrier never closed
+    out their scan. Setting this is independent of the return window.
+    """
+    order = await db.orders.find_one(
+        {"id": order_id, "user_id": current["id"]}, {"_id": 0}
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.get("status") in {"cancelled", "refunded"}:
+        raise HTTPException(status_code=400, detail="This order was cancelled.")
+    if order.get("status") not in {"out_for_delivery", "delivered"}:
+        raise HTTPException(
+            status_code=400,
+            detail="You can confirm receipt once the parcel is out for delivery or has been delivered.",
+        )
+    if order.get("buyer_confirmed_at"):
+        raise HTTPException(status_code=409, detail="You've already confirmed delivery.")
+
+    patch: dict = {"buyer_confirmed_at": now_utc()}
+    # If carrier never closed out as delivered, flip the order to delivered now —
+    # buyer confirmation is authoritative for the return window.
+    if order.get("status") != "delivered":
+        patch["status"] = "delivered"
+        if not order.get("delivered_at"):
+            patch["delivered_at"] = now_utc()
+
+    await db.orders.update_one({"id": order_id}, {"$set": patch})
+
+    # Notify the sellers — useful when carrier scan failed
+    short = order_id.replace("order_", "").upper()[:8]
+    seen: set[str] = set()
+    for it in order.get("items", []):
+        sid = it.get("seller_id")
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        try:
+            await create_notification(
+                user_id=sid,
+                role="seller",
+                n_type="order_received_by_buyer",
+                title=f"Order #{short} confirmed received",
+                body="The buyer has confirmed receipt of their parcel.",
+                order_id=order_id,
+            )
+        except Exception:
+            pass
+
+    fresh = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    return Order(**fresh)
+
+
+@router.post("/orders/{order_id}/reorder", response_model=ReorderResult)
+async def reorder_order(order_id: str, current=Depends(get_current_user)):
+    """Add every in-stock item from a past order back into the buyer's cart.
+
+    Items that are now out of stock, hidden, or no longer exist are reported
+    in `skipped` with a reason instead of silently dropping them. The buyer
+    can review the cart immediately afterwards.
+    """
+    order = await db.orders.find_one(
+        {"id": order_id, "user_id": current["id"]}, {"_id": 0}
+    )
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    added: list[str] = []
+    skipped: list[dict] = []
+
+    cart = await db.carts.find_one({"user_id": current["id"]}, {"_id": 0}) or {}
+    cart_items: list[dict] = list(cart.get("items", []) or [])
+
+    for it in order.get("items", []):
+        pid = it.get("product_id")
+        qty = max(1, int(it.get("quantity", 1)))
+        if not pid:
+            continue
+        prod = await db.products.find_one({"id": pid}, {"_id": 0})
+        if not prod:
+            skipped.append({"product_id": pid, "reason": "no_longer_available"})
+            continue
+        if not prod.get("in_stock", True):
+            skipped.append({"product_id": pid, "reason": "out_of_stock"})
+            continue
+        stock_count = prod.get("stock_count")
+        if isinstance(stock_count, int) and stock_count <= 0:
+            skipped.append({"product_id": pid, "reason": "out_of_stock"})
+            continue
+        # Cap qty by available stock if known
+        if isinstance(stock_count, int) and stock_count > 0:
+            qty = min(qty, stock_count)
+
+        existing = next((c for c in cart_items if c["product_id"] == pid), None)
+        if existing:
+            existing["quantity"] = int(existing["quantity"]) + qty
+        else:
+            cart_items.append({"product_id": pid, "quantity": qty})
+        added.append(pid)
+
+    await db.carts.update_one(
+        {"user_id": current["id"]},
+        {"$set": {"items": cart_items, "updated_at": now_utc()}},
+        upsert=True,
+    )
+    view = await hydrate_cart(current["id"])
+    return ReorderResult(
+        cart_item_count=sum(int(i["quantity"]) for i in cart_items),
+        added=added,
+        skipped=skipped,
+    )

@@ -74,6 +74,15 @@ async def shiprocket_webhook(
         "tracking_status": payload.get("current_status") or payload.get("shipment_status"),
         "last_tracking_update": now_utc(),
     }
+    # Capture latest scan location for snappy UI display without joins.
+    loc = payload.get("current_location") or payload.get("location")
+    if loc:
+        update_ts["last_tracking_location"] = loc
+    # Stage transition timestamps power the tracking timeline UI.
+    if mapped == "shipped" and not order.get("shipped_at"):
+        update_ts["shipped_at"] = now_utc()
+    if mapped == "out_for_delivery" and not order.get("out_for_delivery_at"):
+        update_ts["out_for_delivery_at"] = now_utc()
     if mapped == "delivered":
         update_ts["delivered_at"] = now_utc()
         update_ts["return_window_until"] = now_utc() + timedelta(days=RETURN_WINDOW_DAYS)

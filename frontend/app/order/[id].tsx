@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system";
 import * as Linking from "expo-linking";
 import * as Sharing from "expo-sharing";
-import { ChevronLeft, ExternalLink, FileText, MapPin, Package, PenSquare, RefreshCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
+import { CheckCircle2, ChevronLeft, ExternalLink, FileText, MapPin, MessageCircle, Package, PenSquare, RefreshCcw, RotateCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api, getAuthToken } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import OrderTrackingTimeline from "@/src/components/OrderTrackingTimeline";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Order = {
@@ -51,6 +52,7 @@ type Order = {
   refund_amount_nzd?: number | null;
   awb_code?: string | null;
   tracking_status?: string | null;
+  buyer_confirmed_at?: string | null;
 };
 
 type Shipment = {
@@ -112,6 +114,8 @@ export default function OrderDetail() {
   const [reason, setReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [confirmingReceipt, setConfirmingReceipt] = useState(false);
+  const [reordering, setReordering] = useState(false);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -226,6 +230,93 @@ export default function OrderDetail() {
       if (mounted.current) setCancelling(false);
     }
   }, [order, reason]);
+
+  const onMarkReceived = useCallback(async () => {
+    if (!order || confirmingReceipt) return;
+    setConfirmingReceipt(true);
+    try {
+      const updated = await api<Order>(`/orders/${order.id}/mark-received`, {
+        method: "POST",
+      });
+      if (mounted.current) setOrder(updated);
+      toast.show({
+        title: "Delivery confirmed",
+        body: "Thanks! Your return window starts now if anything's wrong.",
+        kind: "success",
+      });
+    } catch (e: any) {
+      toast.show({
+        title: "Couldn't confirm",
+        body: e?.message || "Please try again.",
+        kind: "error",
+      });
+    } finally {
+      if (mounted.current) setConfirmingReceipt(false);
+    }
+  }, [order, confirmingReceipt, toast]);
+
+  const onReorder = useCallback(async () => {
+    if (!order || reordering) return;
+    setReordering(true);
+    try {
+      const res = await api<{ cart_item_count: number; added: string[]; skipped: { product_id: string; reason: string }[] }>(
+        `/orders/${order.id}/reorder`,
+        { method: "POST" },
+      );
+      const addedCount = res.added.length;
+      const skippedCount = res.skipped.length;
+      toast.show({
+        title: addedCount ? `Added ${addedCount} item${addedCount === 1 ? "" : "s"} to cart` : "Nothing added",
+        body: skippedCount
+          ? `${skippedCount} item${skippedCount === 1 ? "" : "s"} skipped (out of stock or unavailable).`
+          : "Heading to your cart…",
+        kind: addedCount ? "success" : "error",
+      });
+      if (addedCount > 0) {
+        router.push("/(tabs)/cart");
+      }
+    } catch (e: any) {
+      toast.show({
+        title: "Couldn't reorder",
+        body: e?.message || "Please try again.",
+        kind: "error",
+      });
+    } finally {
+      if (mounted.current) setReordering(false);
+    }
+  }, [order, reordering, toast, router]);
+
+  const onMessageSeller = useCallback(async () => {
+    if (!order) return;
+    // Use the first seller_id from items (most orders are single-seller in MVP).
+    const sellerId = order.items.find((it: any) => it.seller_id)?.["seller_id"] || null;
+    if (!sellerId) {
+      toast.show({
+        title: "Can't open chat",
+        body: "We couldn't find a seller for this order.",
+        kind: "error",
+      });
+      return;
+    }
+    try {
+      const firstItem = order.items.find((it: any) => it.seller_id) as any;
+      const conv = await api<{ id: string }>(`/chat/conversations`, {
+        method: "POST",
+        body: {
+          seller_id: sellerId,
+          product_id: firstItem?.product_id,
+          order_id: order.id,
+        },
+      });
+      router.push(`/chat/${conv.id}`);
+    } catch (e: any) {
+      toast.show({
+        title: "Couldn't open chat",
+        body: e?.message || "Please try again.",
+        kind: "error",
+      });
+    }
+  }, [order, toast, router]);
 
   if (loading) {
     return (
@@ -409,57 +500,77 @@ export default function OrderDetail() {
         {!isCancelled ? (
           <>
             <Text style={styles.sectionTitle}>Tracking</Text>
-            {shipment ? (
-              <Pressable
-                testID="order-tracking-card"
-                onPress={() =>
-                  shipment.tracking_url ? Linking.openURL(shipment.tracking_url) : null
-                }
-                style={({ pressed }) => [styles.trackingCard, pressed && { opacity: 0.85 }]}
-              >
-                <View style={styles.trackingTopRow}>
-                  <View style={styles.trackingIcon}>
-                    <Truck size={16} color={colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.trackingCarrier}>
-                      {shipment.carrier.replace(" (mock)", "")} · India → NZ
-                    </Text>
-                    <Text style={styles.trackingAwb}>
-                      AWB <Text style={styles.trackingAwbCode}>{shipment.awb_code}</Text>
-                    </Text>
-                  </View>
-                  <ExternalLink size={14} color={colors.textMuted} />
-                </View>
-                {order.tracking_status ? (
-                  <Text style={styles.trackingLatest} numberOfLines={1}>
-                    {order.tracking_status}
-                  </Text>
-                ) : null}
-                <Text style={styles.trackingTap}>Tap to open live tracking</Text>
-              </Pressable>
-            ) : order.payment_status === "paid" ? (
-              <View style={styles.trackingCard} testID="order-tracking-card">
-                <Text style={styles.trackingCarrier}>Shiprocket X · India → NZ</Text>
-                <Text style={styles.trackingAwb}>
-                  AWB pending · check back once shipment is dispatched
-                </Text>
-              </View>
-            ) : null}
-            <View style={styles.timeline}>
-              {TIMELINE.map((t, i) => {
-                const done = i <= currentIdx;
-                return (
-                  <View key={t.key} style={styles.timelineRow}>
-                    <View style={[styles.dot, done && styles.dotDone]} />
-                    <Text style={[styles.timelineLabel, done && styles.timelineLabelDone]}>
-                      {t.label}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
+            <OrderTrackingTimeline orderId={order.id} />
           </>
+        ) : null}
+
+        {/* Post-delivery actions: Mark received + Reorder + Message seller */}
+        {!isCancelled && ["out_for_delivery", "delivered"].includes(order.status) && !order.buyer_confirmed_at ? (
+          <Pressable
+            testID="order-mark-received-btn"
+            disabled={confirmingReceipt}
+            onPress={onMarkReceived}
+            style={({ pressed }) => [
+              styles.markReceivedBtn,
+              pressed && { opacity: 0.85 },
+              confirmingReceipt && { opacity: 0.6 },
+            ]}
+          >
+            {confirmingReceipt ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <>
+                <CheckCircle2 size={16} color="#fff" />
+                <Text style={styles.markReceivedText}>
+                  {order.status === "delivered" ? "Confirm I received it" : "I've already received it"}
+                </Text>
+              </>
+            )}
+          </Pressable>
+        ) : null}
+
+        {!isCancelled && order.buyer_confirmed_at ? (
+          <View style={styles.confirmedBanner} testID="order-confirmed-banner">
+            <CheckCircle2 size={16} color={colors.success} />
+            <Text style={styles.confirmedText}>
+              Delivery confirmed by you on {formatLocalDate(order.buyer_confirmed_at)}
+            </Text>
+          </View>
+        ) : null}
+
+        {(order.status === "delivered" || isCancelled) ? (
+          <View style={styles.actionGrid}>
+            <Pressable
+              testID="order-reorder-btn"
+              disabled={reordering}
+              onPress={onReorder}
+              style={({ pressed }) => [
+                styles.actionTile,
+                pressed && { opacity: 0.85 },
+                reordering && { opacity: 0.6 },
+              ]}
+            >
+              {reordering ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <RotateCcw size={18} color={colors.primary} />
+              )}
+              <Text style={styles.actionTileText}>Reorder</Text>
+              <Text style={styles.actionTileSub}>Add all items back to cart</Text>
+            </Pressable>
+            <Pressable
+              testID="order-message-seller-btn"
+              onPress={onMessageSeller}
+              style={({ pressed }) => [
+                styles.actionTile,
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <MessageCircle size={18} color={colors.primary} />
+              <Text style={styles.actionTileText}>Message seller</Text>
+              <Text style={styles.actionTileSub}>Ask about this order</Text>
+            </Pressable>
+          </View>
         ) : null}
 
         <Text style={styles.sectionTitle}>Items</Text>
@@ -649,6 +760,19 @@ function Line({
       </Text>
     </View>
   );
+}
+
+function formatLocalDate(iso?: string | null): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  } catch {
+    return "";
+  }
 }
 
 function formatReturnStatus(s: string): string {
@@ -966,4 +1090,46 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalPrimaryText: { color: "#fff", fontWeight: "800" },
+
+  markReceivedBtn: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 48,
+    borderRadius: radius.pill,
+    backgroundColor: colors.success,
+  },
+  markReceivedText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  confirmedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.successSoft,
+  },
+  confirmedText: { color: colors.success, fontWeight: "700", fontSize: 13, flex: 1 },
+  actionGrid: {
+    marginTop: spacing.md,
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  actionTile: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  actionTileText: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  actionTileSub: { color: colors.textMuted, fontSize: 11, textAlign: "center" },
 });

@@ -27,6 +27,7 @@ from models import (
     ReviewCreate,
     ReviewReply,
     ReviewReplyCreate,
+    ReviewReportRequest,
     ReviewSummary,
     ReviewsPage,
 )
@@ -384,6 +385,62 @@ async def get_review(review_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="Review not found")
     return _review_public(doc)
+
+
+# ---------------------------------------------------------------------------
+# Buyer-side report (flag inappropriate / abusive reviews)
+# ---------------------------------------------------------------------------
+@router.post("/{review_id}/report", status_code=204)
+async def report_review(
+    review_id: str,
+    body: ReviewReportRequest,
+    current=Depends(get_current_user),
+):
+    """Flag a review as inappropriate so an admin can moderate it.
+
+    - Buyer can't report their own review.
+    - Sets `reported=True` and appends to `reports` history (idempotent per user).
+    - Admin sees these in /admin/reviews?status=reported.
+    """
+    doc = await db.reviews.find_one({"id": review_id}, {"_id": 0})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if doc.get("user_id") == current["id"]:
+        raise HTTPException(status_code=400, detail="You can't report your own review.")
+    # One report per (user, review) — silently no-op on duplicates.
+    reports = list(doc.get("reports", []) or [])
+    if any(r.get("user_id") == current["id"] for r in reports):
+        return None
+    reports.append(
+        {
+            "user_id": current["id"],
+            "user_name": current.get("full_name") or current.get("email") or "Buyer",
+            "reason": (body.reason or "").strip()[:300],
+            "at": now_utc(),
+        }
+    )
+    await db.reviews.update_one(
+        {"id": review_id},
+        {
+            "$set": {
+                "reports": reports,
+                "reported": True,
+                "moderation_status": "reported",
+                "reported_at": now_utc(),
+            }
+        },
+    )
+    # Best-effort admin nudge
+    try:
+        from services.notifications import notify_admins
+        await notify_admins(
+            n_type="review_reported",
+            title="Review flagged for moderation",
+            body=(body.reason or "")[:160],
+        )
+    except Exception:
+        pass
+    return None
 
 
 # ---------------------------------------------------------------------------

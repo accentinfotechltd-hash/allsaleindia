@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { ThumbsUp, MessageCircle, PenSquare } from "lucide-react-native";
+import { Flag, ThumbsUp, MessageCircle, PenSquare } from "lucide-react-native";
 
 import StarRating from "@/src/components/StarRating";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useToast } from "@/src/components/UiOverlayProvider";
 
 type Review = {
   id: string;
@@ -64,10 +66,12 @@ const SORTS: { key: "recent" | "helpful" | "rating_desc" | "rating_asc"; label: 
 
 export default function ReviewsSection({ productId, onWriteReview }: Props) {
   const { user } = useAuth();
+  const { show } = useToast();
   const [page, setPage] = useState<ReviewsPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<(typeof SORTS)[number]["key"]>("recent");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [reportedIds, setReportedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -106,6 +110,62 @@ export default function ReviewsSection({ productId, onWriteReview }: Props) {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const onReport = (rid: string, authorId: string) => {
+    if (!user) {
+      show({ title: "Sign in to report", kind: "error" });
+      return;
+    }
+    if (authorId === user.id) {
+      show({ title: "You can't report your own review", kind: "error" });
+      return;
+    }
+    if (reportedIds.has(rid)) {
+      show({ title: "Already reported", message: "Thanks — our team will review it.", kind: "info" });
+      return;
+    }
+    const REASONS = [
+      { label: "Inappropriate / abusive", value: "inappropriate" },
+      { label: "Spam or promotional", value: "spam" },
+      { label: "Fake / not a real buyer", value: "fake" },
+      { label: "Off-topic / not about product", value: "off_topic" },
+      { label: "Cancel", value: "" },
+    ];
+    Alert.alert(
+      "Report this review",
+      "Tell us why so our team can review it. False reports may affect your account.",
+      REASONS.map((r) => ({
+        text: r.label,
+        style: r.value === "" ? "cancel" : "default",
+        onPress: r.value
+          ? async () => {
+              try {
+                await api(`/reviews/${rid}/report`, {
+                  method: "POST",
+                  body: { reason: r.value },
+                });
+                setReportedIds((prev) => {
+                  const next = new Set(prev);
+                  next.add(rid);
+                  return next;
+                });
+                show({
+                  title: "Reported. Thanks for letting us know.",
+                  message: "An admin will take a look soon.",
+                  kind: "success",
+                });
+              } catch (e: any) {
+                show({
+                  title: "Couldn't submit report",
+                  message: e?.message || "Please try again.",
+                  kind: "error",
+                });
+              }
+            }
+          : undefined,
+      })),
+    );
   };
 
   if (loading) {
@@ -267,6 +327,28 @@ export default function ReviewsSection({ productId, onWriteReview }: Props) {
                       Helpful{r.helpful_count > 0 ? ` · ${r.helpful_count}` : ""}
                     </Text>
                   </Pressable>
+                  {user && r.user_id !== user.id ? (
+                    <Pressable
+                      onPress={() => onReport(r.id, r.user_id)}
+                      style={styles.reportBtn}
+                      testID={`review-report-${r.id}`}
+                      hitSlop={6}
+                    >
+                      <Flag
+                        size={12}
+                        color={reportedIds.has(r.id) ? colors.error : colors.textMuted}
+                        fill={reportedIds.has(r.id) ? colors.error : "transparent"}
+                      />
+                      <Text
+                        style={[
+                          styles.reportText,
+                          reportedIds.has(r.id) && { color: colors.error },
+                        ]}
+                      >
+                        {reportedIds.has(r.id) ? "Reported" : "Report"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
             );
@@ -430,4 +512,14 @@ const styles = StyleSheet.create({
   },
   helpfulBtnActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   helpfulText: { color: colors.textMuted, fontSize: 12, fontWeight: "700" },
+  reportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: "transparent",
+  },
+  reportText: { color: colors.textMuted, fontSize: 11, fontWeight: "700" },
 });
