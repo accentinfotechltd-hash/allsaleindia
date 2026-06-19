@@ -9,6 +9,7 @@ import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
+import NotifyWhenInStock from "@/src/components/NotifyWhenInStock";
 import AskSellerButton from "@/src/components/AskSellerButton";
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
@@ -288,6 +289,9 @@ export default function ProductDetail() {
               <Text style={styles.stockOkText}>In stock</Text>
             </View>
           )}
+
+          {/* Back-in-stock notify CTA (only when product is OOS) */}
+          {outOfStock ? <NotifyWhenInStock productId={product.id} /> : null}
 
           {/* Colors */}
           {product.colors?.length ? (

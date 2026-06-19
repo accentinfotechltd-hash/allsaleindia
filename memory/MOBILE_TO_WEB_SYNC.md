@@ -161,5 +161,31 @@ Returns the full hydrated `CartView`. **404** if the product is not in the cart.
 ### Tests
 `/app/backend/tests/test_cart_gift_wrap.py` — **3/3 PASS** (end-to-end toggle with message + fee math, auth gate, 240-char truncation).
 
+---
+
+## ⚡ June 19, 2026 — Back-in-stock waitlist
+
+NEW one-shot "Notify me when back in stock" flow. Web can wire it on any OOS PDP.
+
+### Endpoints (buyer JWT auth)
+
+| Verb | Path | Returns |
+|---|---|---|
+| `GET` | `/api/products/{id}/notify-when-in-stock` | `{ "watching": bool }` |
+| `POST` | `/api/products/{id}/notify-when-in-stock` | `{ "watching": true, "newly_added": bool }`. **400** if product is already in stock; idempotent on repeat opt-in. |
+| `DELETE` | `/api/products/{id}/notify-when-in-stock` | `{ "watching": false, "removed": bool }` |
+| `GET` | `/api/me/stock-watch` | `{ "items": [{ product_id, name, image, price_nzd, in_stock, created_at }] }` |
+
+### Server-side fan-out
+
+Whenever a seller's listing update crosses stock from **0 → >0** (via `PATCH /seller/products/{id}`), `notify_back_in_stock(product_id)` fires automatically:
+- creates `notifications` row with `type="back_in_stock"` for every waitlisted buyer
+- sends a Resend email (best-effort; degrades silently if Resend isn't configured)
+- **deletes the waitlist rows** so each buyer is notified exactly once. Buyers must opt in again on the next OOS event.
+
+### Tests
+`/app/backend/tests/test_stock_waitlist.py` — **4/4 PASS** (opt-in/out, 400-when-already-in-stock, fan-out + waitlist clear, /me/stock-watch list).
+
+
 
 

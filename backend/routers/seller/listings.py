@@ -168,6 +168,21 @@ async def update_listing(
 
     update["updated_at"] = now_utc()
     await db.products.update_one({"id": product_id}, {"$set": update})
+
+    # Back-in-stock fan-out: if this update crossed stock from 0 → >0,
+    # notify every buyer on the waitlist (best-effort, never blocks).
+    try:
+        was_oos = (
+            int(existing.get("stock_count", 0) or 0) <= 0
+            or not existing.get("in_stock", True)
+        )
+        now_in_stock = int(update.get("stock_count", existing.get("stock_count") or 0)) > 0
+        if was_oos and now_in_stock:
+            from services.stock_waitlist import notify_back_in_stock
+            await notify_back_in_stock(product_id)
+    except Exception:
+        pass
+
     merged = {**existing, **update}
     return Product(
         **{

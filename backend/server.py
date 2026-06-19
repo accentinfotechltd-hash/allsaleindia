@@ -58,6 +58,7 @@ from routers import (
     search,
     seller,
     sellers_public,
+    stock_waitlist,
     shiprocket,
     shipping,
     site,
@@ -107,6 +108,7 @@ api.include_router(returns.router)
 api.include_router(reviews.router)
 api.include_router(search.router)
 api.include_router(sellers_public.router)
+api.include_router(stock_waitlist.router)
 api.include_router(coupons.router)
 api.include_router(flash_sales.router)
 api.include_router(wishlist.router)
