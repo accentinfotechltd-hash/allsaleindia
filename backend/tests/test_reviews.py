@@ -151,6 +151,22 @@ def _relink_product_to_seller(product_id, order_id, seller_user_id):
 
 
 # ---------- fixtures ----------
+@pytest.fixture(autouse=True)
+def _clean_reviews_collection():
+    """Guarantee a clean reviews collection between tests to avoid sort/distribution
+    flakes when accumulated reviews on the shared first-product survive across runs.
+    """
+    async def _wipe():
+        cli = AsyncIOMotorClient(MONGO_URL)
+        db = cli[DB_NAME]
+        await db.reviews.delete_many({})
+        await db.products.update_many({}, {"$set": {"rating": 0.0, "reviews_count": 0}})
+        cli.close()
+    asyncio.run(_wipe())
+    yield
+    # No post-test cleanup — next test's setUp wipes again.
+
+
 @pytest.fixture
 def buyer(api_client, base_url):
     return _new_user(api_client, base_url, "buyer")
