@@ -54,6 +54,7 @@ from routers import (
     referrals,
     returns,
     reviews,
+    search,
     seller,
     shiprocket,
     shipping,
@@ -102,6 +103,7 @@ api.include_router(ambassadors.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
+api.include_router(search.router)
 api.include_router(coupons.router)
 api.include_router(flash_sales.router)
 api.include_router(wishlist.router)
@@ -147,6 +149,8 @@ async def on_startup() -> None:
     await ensure_indexes()
     await seed_products()
     await seed_owner_admin()
+    from routers.search import ensure_product_text_index
+    await ensure_product_text_index()
     from services.scheduler import init_scheduler
     init_scheduler()
 

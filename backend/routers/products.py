@@ -104,7 +104,12 @@ async def list_products(
     if subcategory and subcategory.lower() != "all":
         query["subcategory"] = subcategory
     if q:
-        query["name"] = {"$regex": q, "$options": "i"}
+        # Prefer the full-text index for relevance ranking; fall back to a
+        # case-insensitive substring match if the index isn't ready yet.
+        try:
+            query["$text"] = {"$search": q}
+        except Exception:
+            query["name"] = {"$regex": q, "$options": "i"}
     if brand:
         query["seller_name"] = {"$regex": brand, "$options": "i"}
     if in_stock is True:

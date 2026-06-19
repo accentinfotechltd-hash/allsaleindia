@@ -184,18 +184,17 @@ export default function Home() {
             {/* Ambassador welcome banner — auto-hides when no ref captured */}
             <AmbassadorWelcomeBanner />
 
-            {/* Search */}
-            <View style={styles.searchWrap}>
+            {/* Search — tap-to-open full search screen */}
+            <Pressable
+              testID="home-search-open"
+              onPress={() => router.push("/search")}
+              style={styles.searchWrap}
+            >
               <Search size={18} color={colors.textMuted} />
-              <TextInput
-                testID="home-search-input"
-                placeholder="Search sarees, brass, spices…"
-                placeholderTextColor={colors.textFaint}
-                style={styles.searchInput}
-                value={search}
-                onChangeText={setSearch}
-              />
-            </View>
+              <Text style={[styles.searchInput, { color: colors.textFaint }]}>
+                {search || "Search sarees, brass, spices…"}
+              </Text>
+            </Pressable>
 
             {/* Hero banners */}
             <ScrollView
