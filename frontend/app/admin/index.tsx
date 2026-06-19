@@ -27,6 +27,7 @@ import {
   setAdminSecret,
 } from "@/src/lib/adminApi";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { Skeleton } from "@/src/components/Skeleton";
 import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -287,7 +288,27 @@ export default function AdminDashboard() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {loading && !overview && (
-          <ActivityIndicator color={colors.primary} style={{ marginTop: 24 }} />
+          <View testID="admin-dashboard-skeleton" style={{ gap: 16 }}>
+            {/* KPI stat grid — 6 tiles matching the real layout */}
+            <View style={styles.grid}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <View key={i} style={styles.skeletonStat}>
+                  <Skeleton width={48} height={22} />
+                  <Skeleton width={64} height={10} style={{ marginTop: 6 }} />
+                </View>
+              ))}
+            </View>
+            {/* CTA buttons */}
+            <Skeleton width="100%" height={48} radius={8} />
+            <Skeleton width="100%" height={48} radius={8} />
+            {/* Section row */}
+            <Skeleton width="40%" height={14} />
+            <View style={{ gap: 8 }}>
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} width="100%" height={56} radius={8} />
+              ))}
+            </View>
+          </View>
         )}
         {overview && (
           <View style={styles.grid}>
@@ -492,6 +513,7 @@ const styles = StyleSheet.create({
   scroll: { padding: spacing.md, paddingBottom: 64 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   stat: { flexBasis: "31%", flexGrow: 1, backgroundColor: "#fff", borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
+  skeletonStat: { flexBasis: "31%", flexGrow: 1, backgroundColor: "#fff", borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border, alignItems: "center" },
   statWarn: { backgroundColor: "#FEF3C7", borderColor: "#FCD34D" },
   statLabel: { color: colors.textMuted, fontSize: 11, marginBottom: 4 },
   statValue: { color: colors.text, fontWeight: "800", fontSize: 16 },

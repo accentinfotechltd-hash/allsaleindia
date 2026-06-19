@@ -6,12 +6,14 @@ import {
   FlatList,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Skeleton, SkeletonGroup } from "@/src/components/Skeleton";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { SellerStatusBanner } from "@/src/components/SellerStatusBanner";
@@ -81,9 +83,39 @@ export default function SellerDashboard() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, gap: 12 }}
+          testID="seller-dashboard-skeleton"
+        >
+          {/* Header card */}
+          <View style={styles.skeletonHeaderCard}>
+            <Skeleton width={40} height={40} radius={20} />
+            <SkeletonGroup gap={8} style={{ flex: 1, marginLeft: 12 }}>
+              <Skeleton width="70%" height={16} />
+              <Skeleton width="90%" height={11} />
+            </SkeletonGroup>
+          </View>
+          {/* KPI tiles row */}
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={styles.skeletonKpi}>
+                <Skeleton width={60} height={20} />
+                <Skeleton width={40} height={10} style={{ marginTop: 6 }} />
+              </View>
+            ))}
+          </View>
+          {/* Listing rows */}
+          {[0, 1, 2, 3].map((i) => (
+            <View key={i} style={styles.skeletonListing}>
+              <Skeleton width={56} height={56} radius={8} />
+              <SkeletonGroup gap={6} style={{ flex: 1 }}>
+                <Skeleton width="80%" height={14} />
+                <Skeleton width="50%" height={11} />
+                <Skeleton width="35%" height={11} />
+              </SkeletonGroup>
+            </View>
+          ))}
+        </ScrollView>
       ) : !user?.is_seller || !profile ? (
         <View style={styles.center}>
           <Text style={styles.muted}>{t("seller.profile_not_found")}</Text>
@@ -307,6 +339,22 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: "800", color: colors.text },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl, gap: spacing.md },
   muted: { color: colors.textMuted },
+  // ---- Skeleton placeholders ----
+  skeletonHeaderCard: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#fff", padding: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+  },
+  skeletonKpi: {
+    flex: 1, backgroundColor: "#fff", padding: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+    alignItems: "center",
+  },
+  skeletonListing: {
+    flexDirection: "row", alignItems: "center", gap: 12,
+    backgroundColor: "#fff", padding: spacing.md,
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.border,
+  },
   headerCard: {
     flexDirection: "row",
     alignItems: "center",
