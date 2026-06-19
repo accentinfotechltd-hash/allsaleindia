@@ -182,7 +182,8 @@ export default function Checkout() {
     cart.subtotal_nzd +
     (shipOpt ? (shipOpt.free ? 0 : shipOpt.rate_in_currency) : cart.shipping_nzd) -
     (cart.discount_nzd || 0) -
-    (cart.points_discount_nzd || 0);
+    (cart.points_discount_nzd || 0) +
+    (cart.gift_wrap_fee_nzd || 0);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -359,6 +360,12 @@ export default function Checkout() {
                 label={`Loyalty points (-${cart.points_used} pts)`}
                 value={`-${formatNZD(cart.points_discount_nzd || 0)}`}
                 highlight
+              />
+            ) : null}
+            {(cart.gift_wrap_fee_nzd || 0) > 0 ? (
+              <Line
+                label={`🎁 Gift wrap × ${cart.gift_wrap_count || 0}`}
+                value={`+${formatNZD(cart.gift_wrap_fee_nzd || 0)}`}
               />
             ) : null}
             <View style={styles.lineDivider} />

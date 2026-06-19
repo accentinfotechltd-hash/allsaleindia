@@ -128,4 +128,38 @@ When Resend isn't configured (dev / CI) the endpoint **does not 500** — it ret
 ### Tests
 `/app/backend/tests/test_invoice_email.py` — **3/3 PASS** (graceful-skip happy path with audit log, 401 anon, 403 cross-buyer).
 
+---
+
+## ⚡ June 19, 2026 — Gift wrap per line item
+
+NEW per-line gift-wrap support. Each cart line now carries `gift_wrap: bool` + `gift_message?: string` (≤240 chars). Flat **$5 NZD fee per wrapped line**, added on top of the existing total. Hydrated `CartView` now exposes `gift_wrap_fee_nzd` and `gift_wrap_count`.
+
+### Endpoint
+```
+PATCH /api/cart/{product_id}/gift
+Body: { gift_wrap: bool, gift_message?: string }
+```
+Returns the full hydrated `CartView`. **404** if the product is not in the cart. Toggling `gift_wrap=false` also clears any saved message. Messages are server-side trimmed to 240 chars.
+
+### Cart hydration changes
+```jsonc
+{
+  ...,
+  "items": [
+    { ..., "gift_wrap": true, "gift_message": "Happy birthday!" }
+  ],
+  "gift_wrap_fee_nzd": 5.00,
+  "gift_wrap_count": 1,
+  "total_nzd": <subtotal + shipping − discounts + gift_wrap_fee_nzd>
+}
+```
+
+### Frontend usage hint
+- Web checkout/cart should add a 🎁 "Gift wrap (+$5)" toggle next to each line.
+- Show the per-order summary line `🎁 Gift wrap × N · +$<fee>` between Discount and Total (mirrors the mobile cart + checkout summary).
+
+### Tests
+`/app/backend/tests/test_cart_gift_wrap.py` — **3/3 PASS** (end-to-end toggle with message + fee math, auth gate, 240-char truncation).
+
+
 

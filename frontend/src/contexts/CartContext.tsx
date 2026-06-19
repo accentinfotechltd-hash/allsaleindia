@@ -27,6 +27,8 @@ export type Cart = {
   points_discount_nzd?: number;
   points_balance?: number;
   points_max_usable?: number;
+  gift_wrap_fee_nzd?: number;
+  gift_wrap_count?: number;
 };
 
 type CartState = {
@@ -39,6 +41,11 @@ type CartState = {
   remove: (productId: string) => Promise<void>;
   applyCoupon: (code: string) => Promise<Cart>;
   removeCoupon: () => Promise<void>;
+  setGiftWrap: (
+    productId: string,
+    giftWrap: boolean,
+    giftMessage?: string,
+  ) => Promise<Cart>;
 };
 
 const EMPTY: Cart = {
@@ -54,6 +61,8 @@ const EMPTY: Cart = {
   points_discount_nzd: 0,
   points_balance: 0,
   points_max_usable: 0,
+  gift_wrap_fee_nzd: 0,
+  gift_wrap_count: 0,
 };
 
 const CartCtx = createContext<CartState | undefined>(undefined);
@@ -150,11 +159,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setCart(c);
   }, []);
 
+  const setGiftWrap = useCallback(
+    async (productId: string, giftWrap: boolean, giftMessage?: string) => {
+      const c = await api<Cart>(`/cart/${productId}/gift`, {
+        method: "PATCH",
+        body: {
+          gift_wrap: giftWrap,
+          gift_message: giftMessage,
+        },
+      });
+      setCart(c);
+      return c;
+    },
+    [],
+  );
+
   const itemCount = cart.items.reduce((sum, it) => sum + it.quantity, 0);
 
   return (
     <CartCtx.Provider
-      value={{ cart, loading, itemCount, refresh, add, update, remove, applyCoupon, removeCoupon }}
+      value={{ cart, loading, itemCount, refresh, add, update, remove, applyCoupon, removeCoupon, setGiftWrap }}
     >
       {children}
     </CartCtx.Provider>

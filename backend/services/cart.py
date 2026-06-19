@@ -5,6 +5,9 @@ from db import db
 from models import CartItem, CartView
 from utils import compute_cart_totals
 
+# Pricing dial — keep central so we can later move it into admin/config.
+GIFT_WRAP_FEE_PER_LINE_NZD: float = 5.00
+
 
 async def hydrate_cart(user_id: str) -> CartView:
     cart_doc = await db.carts.find_one({"user_id": user_id}, {"_id": 0})
@@ -42,9 +45,27 @@ async def hydrate_cart(user_id: str) -> CartView:
                 "category": prod["category"],
                 "seller_id": prod.get("seller_id"),
                 "flash_sale_id": (sale or {}).get("id"),
+                "gift_wrap": bool(getattr(it, "gift_wrap", False)),
+                "gift_message": (getattr(it, "gift_message", None) or None),
             }
         )
     cart = compute_cart_totals(hydrated)
+
+    # ----- Gift-wrap fee (per gift-wrapped LINE, flat) -------------------
+    gift_count = sum(1 for h in hydrated if h.get("gift_wrap"))
+    gift_fee = round(gift_count * GIFT_WRAP_FEE_PER_LINE_NZD, 2)
+    if gift_fee > 0:
+        cart = cart.model_copy(
+            update={
+                "gift_wrap_fee_nzd": gift_fee,
+                "gift_wrap_count": gift_count,
+                "total_nzd": round(cart.total_nzd + gift_fee, 2),
+            }
+        )
+    else:
+        cart = cart.model_copy(
+            update={"gift_wrap_fee_nzd": 0.0, "gift_wrap_count": 0}
+        )
 
     # Apply persistent coupon if any (best-effort — silently drop if stale).
     if coupon_code:

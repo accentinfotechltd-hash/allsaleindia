@@ -283,6 +283,8 @@ class ProhibitedCheckResponse(BaseModel):
 class CartItem(BaseModel):
     product_id: str
     quantity: int
+    gift_wrap: bool = False
+    gift_message: Optional[str] = None
 
 
 class CartAddRequest(BaseModel):
@@ -292,6 +294,12 @@ class CartAddRequest(BaseModel):
 
 class CartUpdateRequest(BaseModel):
     quantity: int
+
+
+class CartGiftRequest(BaseModel):
+    """Body for PATCH /cart/{product_id}/gift — set gift-wrap state per line."""
+    gift_wrap: bool
+    gift_message: Optional[str] = None
 
 
 class CartView(BaseModel):
@@ -308,6 +316,9 @@ class CartView(BaseModel):
     points_discount_nzd: float = 0.0
     points_balance: int = 0
     points_max_usable: int = 0
+    # Gift wrap
+    gift_wrap_fee_nzd: float = 0.0
+    gift_wrap_count: int = 0
 
 
 # ---------------------------------------------------------------------------

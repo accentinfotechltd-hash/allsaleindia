@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
 import CouponInput from "@/src/components/CouponInput";
+import GiftWrapToggle from "@/src/components/GiftWrapToggle";
 import PointsRedeemInput from "@/src/components/PointsRedeemInput";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { useTranslation } from "@/src/i18n";
@@ -110,6 +111,18 @@ export default function Cart() {
                   <Trash2 size={16} color={colors.error} />
                 </Pressable>
               </View>
+              <View style={{ marginTop: 8 }}>
+                <GiftWrapToggle
+                  productId={item.product_id}
+                  giftWrap={!!item.gift_wrap}
+                  giftMessage={item.gift_message}
+                />
+                {item.gift_wrap && item.gift_message ? (
+                  <Text style={styles.giftMessagePreview} numberOfLines={2}>
+                    💌 “{item.gift_message}”
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
         )}
@@ -135,6 +148,12 @@ export default function Cart() {
             label={cart.coupon_code ? `Coupon (${cart.coupon_code})` : "Discount"}
             value={`-${formatPrice(cart.discount_nzd)}`}
             highlight
+          />
+        ) : null}
+        {(cart.gift_wrap_fee_nzd ?? 0) > 0 ? (
+          <SummaryRow
+            label={`🎁 Gift wrap × ${cart.gift_wrap_count ?? 0}`}
+            value={`+${formatPrice(cart.gift_wrap_fee_nzd ?? 0)}`}
           />
         ) : null}
         <View style={{ marginTop: spacing.sm, marginBottom: spacing.sm }}>
@@ -236,6 +255,7 @@ const styles = StyleSheet.create({
   qtyBtn: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
   qtyNum: { fontSize: 14, fontWeight: "700", color: colors.text, minWidth: 20, textAlign: "center" },
   removeBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  giftMessagePreview: { color: "#7C2D12", fontSize: 11, marginTop: 4, fontStyle: "italic", lineHeight: 14 },
   summary: {
     position: "absolute",
     left: 0,

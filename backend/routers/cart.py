@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from db import db
 from deps import get_current_user
-from models import CartAddRequest, CartUpdateRequest, CartView, CouponValidateRequest
+from models import CartAddRequest, CartGiftRequest, CartUpdateRequest, CartView, CouponValidateRequest
 from services.cart import hydrate_cart
 from services.coupons import validate_for_cart
 from utils import now_utc
@@ -137,6 +137,47 @@ async def apply_points_to_cart(
 async def remove_points_from_cart(current=Depends(get_current_user)):
     await db.carts.update_one(
         {"user_id": current["id"]}, {"$unset": {"points_to_use": ""}}
+    )
+    return await hydrate_cart(current["id"])
+
+
+# ---------------------------------------------------------------------------
+# Gift wrap per line item (June 2026)
+# ---------------------------------------------------------------------------
+@router.patch("/cart/{product_id}/gift", response_model=CartView)
+async def set_gift_wrap(
+    product_id: str,
+    body: CartGiftRequest,
+    current=Depends(get_current_user),
+):
+    """Toggle gift-wrap (and optional message) on a single cart line.
+
+    Flat $5 NZD per gift-wrapped line — fee is added to the cart total on
+    hydration. Message is capped at 240 chars and lightly trimmed.
+    """
+    cart = await db.carts.find_one({"user_id": current["id"]}, {"_id": 0})
+    items: list[dict] = (cart or {}).get("items", [])
+    found = False
+    for it in items:
+        if it.get("product_id") == product_id:
+            it["gift_wrap"] = bool(body.gift_wrap)
+            msg = (body.gift_message or "").strip()[:240]
+            if body.gift_wrap and msg:
+                it["gift_message"] = msg
+            else:
+                # Clear message when wrap is off (or no msg provided).
+                it.pop("gift_message", None)
+                if body.gift_wrap and not msg:
+                    # explicit "wrap without message" → keep wrap=True but no msg
+                    pass
+            found = True
+            break
+    if not found:
+        raise HTTPException(status_code=404, detail="Item not in cart")
+    await db.carts.update_one(
+        {"user_id": current["id"]},
+        {"$set": {"items": items, "updated_at": now_utc()}},
+        upsert=True,
     )
     return await hydrate_cart(current["id"])
 
