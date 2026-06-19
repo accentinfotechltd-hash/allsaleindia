@@ -68,6 +68,9 @@ async def list_products(
     is_new: Optional[bool] = Query(default=None, alias="new", description="Products created within the last 30 days."),
     bestseller: Optional[bool] = Query(default=None, description="Top-rated, well-reviewed items (rating >=4.0, reviews >=50)."),
     ambassador_pick: Optional[bool] = Query(default=None, description="Curated by Allsale ambassadors."),
+    # ---------------- Amazon-style facet filters (June 2026) -----------------
+    min_rating: Optional[float] = Query(default=None, ge=0, le=5, description="Only products with rating >= this value (Amazon-style 4★ & up)."),
+    min_discount_pct: Optional[int] = Query(default=None, ge=0, le=99, description="Only products in an active flash sale with discount_pct >= this."),
     # --------------------------------------------------------------------------
     limit: int = Query(default=200, ge=1, le=5000, description="Max products to return"),
     skip: int = Query(default=0, ge=0, description="Number of products to skip for pagination"),
@@ -218,6 +221,34 @@ async def list_products(
             return []
         extra_id_constraints.append(pick_pids)
 
+    # Amazon-style facets ----------------------------------------------------
+    if min_rating is not None:
+        # Combine with any existing rating constraint (e.g. bestseller=true).
+        existing = query.get("rating")
+        floor = float(min_rating)
+        if isinstance(existing, dict):
+            existing["$gte"] = max(float(existing.get("$gte", 0)), floor)
+        else:
+            query["rating"] = {"$gte": floor}
+
+    if min_discount_pct is not None and min_discount_pct > 0:
+        now = datetime.now(timezone.utc)
+        discount_pids: list[str] = []
+        async for fs in db.flash_sales.find(
+            {
+                "active": True,
+                "valid_from": {"$lte": now},
+                "valid_to": {"$gte": now},
+                "discount_pct": {"$gte": int(min_discount_pct)},
+            },
+            {"_id": 0, "product_id": 1},
+        ):
+            if fs.get("product_id"):
+                discount_pids.append(fs["product_id"])
+        if not discount_pids:
+            return []
+        extra_id_constraints.append(discount_pids)
+
     if extra_id_constraints:
         # Intersect each constraint so multiple flags combine via AND.
         intersected = set(extra_id_constraints[0])
@@ -280,6 +311,78 @@ async def get_taxonomy():
         for node in TAXONOMY
         if node["name"] not in HIDDEN_BUYER_CATEGORIES
     ]
+
+
+@router.get("/categories/{category_name}/subcategories")
+async def category_subcategory_tiles(category_name: str):
+    """Amazon-style "Shop by subcategory" tiles for a given category.
+
+    Returns one row per subcategory declared in the static TAXONOMY, enriched
+    with a sample product image and the live in-stock product count from
+    Mongo. Subcategories without a single live listing are still returned
+    (with `product_count=0`, `sample_image=None`) so the taxonomy stays
+    discoverable while the catalog is being seeded.
+    """
+    if category_name in HIDDEN_BUYER_CATEGORIES:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    node = next(
+        (t for t in TAXONOMY if t["name"] == category_name),
+        None,
+    )
+    if not node:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    # Sellers in vacation mode are hidden from buyers, same as /products.
+    paused_seller_ids: list[str] = []
+    async for s in db.sellers.find(
+        {"vacation_mode": True}, {"_id": 0, "user_id": 1}
+    ):
+        if s.get("user_id"):
+            paused_seller_ids.append(s["user_id"])
+
+    base_match: dict = {"category": category_name}
+    if paused_seller_ids:
+        base_match["seller_id"] = {"$nin": paused_seller_ids}
+
+    # Single $group aggregation per subcategory — counts + first image.
+    pipeline = [
+        {"$match": base_match},
+        {
+            "$group": {
+                "_id": "$subcategory",
+                "product_count": {"$sum": 1},
+                "sample_image": {"$first": "$image"},
+            }
+        },
+    ]
+    agg: dict[str, dict] = {}
+    async for row in db.products.aggregate(pipeline):
+        key = row.get("_id")
+        if not key:
+            continue
+        agg[key] = {
+            "product_count": int(row.get("product_count") or 0),
+            "sample_image": row.get("sample_image"),
+        }
+
+    tiles: list[dict] = []
+    for sub in node.get("subcategories", []):
+        bucket = agg.get(sub, {})
+        tiles.append(
+            {
+                "name": sub,
+                "product_count": bucket.get("product_count", 0),
+                "sample_image": bucket.get("sample_image"),
+            }
+        )
+
+    return {
+        "category": category_name,
+        "blurb": node.get("blurb", ""),
+        "subcategories": tiles,
+    }
+
 
 
 @router.post("/duty/estimate", response_model=DutyEstimateResponse)

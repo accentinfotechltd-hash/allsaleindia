@@ -30,6 +30,10 @@ export type FilterState = {
   inStockOnly: boolean;
   sizes: string[];
   colors: string[];
+  /** Amazon-style "4★ & up" filter. 0 = no rating constraint. */
+  minRating: number;
+  /** "25% off & up" — only items in an active flash sale at >= this %. */
+  minDiscountPct: number;
 };
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -40,6 +44,8 @@ export const DEFAULT_FILTERS: FilterState = {
   inStockOnly: false,
   sizes: [],
   colors: [],
+  minRating: 0,
+  minDiscountPct: 0,
 };
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -56,6 +62,22 @@ const PRICE_PRESETS: { label: string; min: string; max: string }[] = [
   { label: "$50 – $100", min: "50", max: "100" },
   { label: "$100 – $250", min: "100", max: "250" },
   { label: "Over $250", min: "250", max: "" },
+];
+
+// Amazon-style "Customer review" presets — each is "stars & up".
+const RATING_PRESETS: { label: string; value: number }[] = [
+  { label: "★ 4 & up", value: 4 },
+  { label: "★ 3 & up", value: 3 },
+  { label: "★ 2 & up", value: 2 },
+  { label: "★ 1 & up", value: 1 },
+];
+
+// Active flash-sale discount presets.
+const DISCOUNT_PRESETS: { label: string; value: number }[] = [
+  { label: "10% off+", value: 10 },
+  { label: "25% off+", value: 25 },
+  { label: "50% off+", value: 50 },
+  { label: "70% off+", value: 70 },
 ];
 
 // Common apparel sizes & colors. We don't yet pull the catalog facets
@@ -214,6 +236,66 @@ export function SortFilterSheet({
               <Text style={styles.toggleText}>Only show items in stock</Text>
             </Pressable>
 
+            {/* Customer review (Amazon-style "4★ & up") */}
+            <Text style={styles.section}>Customer review</Text>
+            <View style={styles.chipsWrap}>
+              <Pressable
+                testID="rating-chip-any"
+                onPress={() => setState((s) => ({ ...s, minRating: 0 }))}
+                style={[styles.chip, state.minRating === 0 && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, state.minRating === 0 && styles.chipTextActive]}>
+                  Any
+                </Text>
+              </Pressable>
+              {RATING_PRESETS.map((p) => {
+                const active = state.minRating === p.value;
+                return (
+                  <Pressable
+                    key={p.value}
+                    testID={`rating-chip-${p.value}`}
+                    onPress={() => setState((s) => ({ ...s, minRating: p.value }))}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {p.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Discount (active flash sales) */}
+            <Text style={styles.section}>Deals & discount</Text>
+            <View style={styles.chipsWrap}>
+              <Pressable
+                testID="discount-chip-any"
+                onPress={() => setState((s) => ({ ...s, minDiscountPct: 0 }))}
+                style={[styles.chip, state.minDiscountPct === 0 && styles.chipActive]}
+              >
+                <Text
+                  style={[styles.chipText, state.minDiscountPct === 0 && styles.chipTextActive]}
+                >
+                  Any
+                </Text>
+              </Pressable>
+              {DISCOUNT_PRESETS.map((p) => {
+                const active = state.minDiscountPct === p.value;
+                return (
+                  <Pressable
+                    key={p.value}
+                    testID={`discount-chip-${p.value}`}
+                    onPress={() => setState((s) => ({ ...s, minDiscountPct: p.value }))}
+                    style={[styles.chip, active && styles.chipActive]}
+                  >
+                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                      {p.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             {/* Sizes & colors — only meaningful for apparel/lifestyle catalogs */}
             {showSizeColor ? (
               <>
@@ -343,6 +425,9 @@ export function buildProductsQuery(filters: FilterState): string {
   if (filters.maxPrice) params.push(`max_price=${encodeURIComponent(filters.maxPrice)}`);
   if (filters.brand) params.push(`brand=${encodeURIComponent(filters.brand)}`);
   if (filters.inStockOnly) params.push(`in_stock=true`);
+  if (filters.minRating > 0) params.push(`min_rating=${filters.minRating}`);
+  if (filters.minDiscountPct > 0)
+    params.push(`min_discount_pct=${filters.minDiscountPct}`);
   filters.sizes.forEach((s) => params.push(`sizes=${encodeURIComponent(s)}`));
   filters.colors.forEach((c) => params.push(`colors=${encodeURIComponent(c)}`));
   return params.length ? `&${params.join("&")}` : "";
@@ -359,6 +444,8 @@ export function activeFilterSummary(filters: FilterState): string[] {
   }
   if (filters.brand) out.push(filters.brand);
   if (filters.inStockOnly) out.push("In stock");
+  if (filters.minRating > 0) out.push(`★ ${filters.minRating}+`);
+  if (filters.minDiscountPct > 0) out.push(`${filters.minDiscountPct}% off+`);
   if (filters.sizes.length) out.push(`Size ${filters.sizes.join("/")}`);
   if (filters.colors.length) out.push(`${filters.colors.length} colour${filters.colors.length > 1 ? "s" : ""}`);
   return out;

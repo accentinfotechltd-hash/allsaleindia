@@ -22,6 +22,7 @@ import {
   FilterState,
   SortFilterSheet,
 } from "@/src/components/SortFilterSheet";
+import SubcategoryTileGrid from "@/src/components/SubcategoryTileGrid";
 import { api } from "@/src/lib/api";
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { fetchTaxonomy, NZ_FAQS, TRUST_POINTS, TaxonomyNode } from "@/src/lib/nz";
@@ -146,7 +147,16 @@ export default function CategoryDetail() {
               </Text>
             </Pressable>
 
-            {/* Subcategory chips */}
+            {/* Amazon-style subcategory tile grid — shown only on the
+                "All" view, hides as soon as the buyer taps a chip
+                to scope down. Tiles open the dedicated subcategory
+                route for deep-linking & breadcrumb navigation. */}
+            {subcat === "All" ? (
+              <SubcategoryTileGrid category={String(name)} />
+            ) : null}
+
+            {/* Subcategory chips — tapping navigates to the dedicated
+                subcategory route (Amazon-style breadcrumb + deep link). */}
             {chips.length > 1 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
                 {chips.map((c) => {
@@ -155,7 +165,16 @@ export default function CategoryDetail() {
                     <Pressable
                       key={c}
                       testID={`subcat-chip-${c.toLowerCase().replace(/\s+/g, "-").replace(/&/g, "and")}`}
-                      onPress={() => setSubcat(c)}
+                      onPress={() => {
+                        if (c === "All") {
+                          setSubcat("All");
+                        } else {
+                          router.push({
+                            pathname: "/category/[name]/[subcategory]",
+                            params: { name: String(name), subcategory: c },
+                          });
+                        }
+                      }}
                       style={[styles.chip, active && styles.chipActive]}
                     >
                       <Text style={[styles.chipText, active && styles.chipTextActive]}>{c}</Text>
