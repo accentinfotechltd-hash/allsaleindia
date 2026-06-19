@@ -66,7 +66,26 @@ export default function FlashSalesCarousel() {
     };
   }, []);
 
-  if (sales.length === 0) return null;
+  if (sales.length === 0) {
+    // Still expose the deals destination so buyers can browse coupons +
+    // category-wide discounts even when no flash sales are live.
+    return (
+      <Pressable
+        testID="deals-promo-card"
+        onPress={() => router.push("/deals")}
+        style={styles.dealsPromoCard}
+      >
+        <Zap size={18} color="#F97316" fill="#F97316" />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.dealsPromoTitle}>Today&apos;s Deals</Text>
+          <Text style={styles.dealsPromoSub}>
+            Browse coupons & 10%+ off items
+          </Text>
+        </View>
+        <Text style={styles.dealsPromoCta}>See deals →</Text>
+      </Pressable>
+    );
+  }
 
   const dod = sales.find((s) => s.is_deal_of_the_day);
   const rest = sales.filter((s) => s.id !== dod?.id);
@@ -76,6 +95,14 @@ export default function FlashSalesCarousel() {
       <View style={styles.headerRow}>
         <Zap size={16} color="#F97316" fill="#F97316" />
         <Text style={styles.heading}>Flash sales</Text>
+        <Pressable
+          testID="flash-sales-see-all"
+          onPress={() => router.push("/deals")}
+          hitSlop={8}
+          style={{ marginLeft: "auto" }}
+        >
+          <Text style={styles.seeAll}>See all →</Text>
+        </Pressable>
       </View>
 
       {dod ? (
@@ -149,6 +176,22 @@ const styles = StyleSheet.create({
   wrap: { marginTop: spacing.lg, gap: spacing.sm },
   headerRow: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: spacing.lg },
   heading: { fontSize: 16, fontWeight: "800", color: colors.text, letterSpacing: -0.3 },
+  seeAll: { fontSize: 12, fontWeight: "800", color: colors.primary },
+  dealsPromoCard: {
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: "#FFF7ED",
+    borderWidth: 1,
+    borderColor: "#FED7AA",
+  },
+  dealsPromoTitle: { fontWeight: "800", color: colors.text, fontSize: 14 },
+  dealsPromoSub: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  dealsPromoCta: { color: "#F97316", fontWeight: "800", fontSize: 12 },
   dodCard: {
     marginHorizontal: spacing.lg,
     backgroundColor: "#FFF7ED",

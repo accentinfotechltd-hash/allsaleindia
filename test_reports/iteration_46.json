@@ -1,0 +1,47 @@
+{
+  "summary": "Tested the new 'Today's Deals' page (/deals) + 'See all' link in FlashSalesCarousel. Backend pytest (/app/backend/tests/test_iter46_deals_smoke.py): 5/6 PASS — the 6th (GET /api/coupons/active authenticated) returns 500 due to a pre-existing data-quality issue. Frontend: anonymous /deals renders perfectly — header 'Today's Deals' + back button + flame icon, subtitle '1 flash sale live now', flash-sale grid card with -30% red badge, $45.85 sale price, $65.50 strikethrough original, '14 sold' progress bar, LIVE countdown that visibly ticks (04:20:00 → 04:19:53 over 2s window), 'More deals · 10%+ off' 2-col grid below; Coupons section correctly hidden for anon. Tap on flash-sale card navigates to /product/{id} (verified). On the buyer-logged-in home tab the 'See all →' link is rendered next to 'Flash sales' and routes to /deals (verified). HOWEVER, the Coupons section never renders for logged-in users because /api/coupons/active throws 500 — see RCA below.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "GET /api/coupons/active",
+        "issue": "Returns 500 Internal Server Error for any authenticated buyer because the response serializer at routers/coupons.py:86 builds CouponPublic from raw docs and pydantic rejects coupons whose 'description' is None. 18 ambassador-issued coupons (cpn_amb_*) in the live DB have description=None, scope='all', countries=[] — they pass every filter in list_active_coupons and trigger the validation crash. Net effect: the new 'Coupons for you' strip on /deals NEVER renders for any buyer, even though the seller-created 'WELCOME10' coupon is otherwise valid.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Logged-in /deals → Coupons section",
+        "issue": "Because GET /api/coupons/active returns 500, the Coupons section never appears even when the buyer is signed in and a valid sitewide coupon (WELCOME10) exists. The page's .catch(() => []) gracefully swallows the failure so the rest of /deals still renders, but the feature is fully broken end-to-end.",
+        "affected_testIDs": ["coupon-WELCOME10", "coupon-copy-WELCOME10"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter46_deals_smoke.py",
+    "/app/test_reports/pytest/iter46_deals_smoke.xml"
+  ],
+  "action_items": [
+    "BACKEND FIX (priority CRITICAL): In /app/backend/routers/coupons.py list_active_coupons (line ~86), coerce None description to '' (or skip docs where description is None/empty) before constructing CouponPublic. Minimal patch: `for k in CouponPublic.model_fields.keys(): val = d.get(k); if k == 'description' and val is None: val = ''; ...`. Alternative: in models.py make CouponPublic.description Optional[str] = ''.",
+    "OPTIONAL DATA CLEAN-UP: 18 ambassador coupons (cpn_amb_*) in the live DB have description=None. Backfill with a sane default ('Ambassador referral bonus') or filter them out at the list_active_coupons level since their owner_id is None (they aren't really browseable coupons — they are personal referral codes seeded for ambassadors).",
+    "After the backend fix is applied, retest GET /api/coupons/active with buyer@example.com (expect 200 + list) and re-verify the 'Coupons for you' strip renders on /deals with WELCOME10 + Copy button + 'Copied \"WELCOME10\"' toast."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/app/deals.tsx is 575 lines including embedded sub-components and styles — still readable but at the soft limit. If a 4th section is added, extract FlashSaleCard and CouponCard into /src/components/.",
+    "FlashSaleCard countdown text says 'MM:HH:SS' in the spec but the implementation correctly formats as HH:MM:SS via `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`. The spec text is misleading — the screenshot shows 04:20:00 which IS HH:MM:SS. No code change needed; just flag the spec wording.",
+    "useFocusEffect+1Hz interval — when no flash sales exist the interval never starts (good). When sales exist the interval re-renders every screen every second. For long sessions this is fine, but consider clearing on tab blur if battery becomes a concern.",
+    "/app/backend/routers/coupons.py — the `_coupon_public` helper (and the inlined comprehension on line 86) trusts mongo data shape. Add a defensive default for nullable string fields, OR write a CouponPublic.model_validate(d) with a model_validator that coerces None→''."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "5/6 (83%) — 1 critical 500 bug", "frontend": "10/11 acceptance criteria PASS (Coupons strip blocked by backend bug)"},
+  "seed_data_creation": "No new seed data. Test used existing buyer@example.com + seeded 'Embroidered Anarkali Suit Set' flash sale (30% off) + pre-existing ambassador coupons in DB.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest: cd /app/backend && PYTHONPATH=/app/backend pytest tests/test_iter46_deals_smoke.py -v. After main agent fixes /api/coupons/active, retest TestCouponsActiveAuthGated::test_auth_returns_list (must be 200 with list of dicts each having a string 'description'). For UI re-verification: api-login buyer@example.com, inject token via localStorage.setItem('allsale_token', token), then navigate to /deals — the 'Coupons for you' horizontal strip should render with WELCOME10 + a working Copy button that triggers the 'Copied \"WELCOME10\"' toast. testIDs available: deals-back-btn, flash-sale-{id}, coupon-{code}, coupon-copy-{code}, deals-promo-card, flash-sales-see-all, flash-sales-carousel.",
+  "rca_of_issue": "ROOT CAUSE: /app/backend/routers/coupons.py:86 — `[CouponPublic(**{k: d.get(k) for k in CouponPublic.model_fields.keys()}) for d in docs]` directly passes raw mongo values into CouponPublic. The CouponPublic model declares `description: str` (non-Optional). 18 ambassador-issued coupons (codes NZAMB*, UITESTER*, NZPHASE*) were inserted (presumably by ambassador attribution or test suite) with description=None. They have scope='all', countries=[], owner_id=None — so they pass every filter (active+not-expired+region check+usage cap) inside list_active_coupons. When pydantic encounters the first None description, the whole endpoint raises ValidationError → 500. REPRO STEPS: 1) curl POST /api/auth/login {buyer@example.com / Buyer2026!} → grab token. 2) curl GET /api/coupons/active -H 'Authorization: Bearer …' → 500 'Internal Server Error'. 3) Backend log shows: pydantic_core._pydantic_core.ValidationError: 1 validation error for CouponPublic. description Input should be a valid string [type=string_type, input_value=None, input_type=NoneType]. MITIGATION: minimal one-liner — `val = d.get(k) or ('' if k == 'description' else d.get(k))` in the comprehension, OR make `description: str = ''` (default empty) in models.CouponPublic. Long-term: also filter out ambassador coupons (`owner_id != None`) from the buyer-facing list since they are personal referral codes, not browseable sitewide promos."
+}
