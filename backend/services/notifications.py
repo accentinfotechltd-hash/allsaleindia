@@ -5,7 +5,27 @@ import uuid
 from typing import Optional
 
 from db import db
+from services.notification_prefs import category_for_type, default_prefs
 from utils import now_utc
+
+
+async def _is_muted_for(user_id: str, n_type: str) -> bool:
+    """Returns True iff the recipient has explicitly muted the category
+    this notification type belongs to. Admin recipients are never muted.
+    Unknown types (no category) are always delivered.
+    """
+    if user_id == "admin":
+        return False
+    cat = category_for_type(n_type)
+    if cat is None:
+        return False
+    doc = await db.notification_prefs.find_one(
+        {"user_id": user_id}, {"_id": 0, "prefs": 1}
+    )
+    prefs = (doc or {}).get("prefs") or {}
+    # Default = enabled when the key is absent.
+    merged = {**default_prefs(), **prefs}
+    return merged.get(cat, True) is False
 
 
 async def create_notification(
@@ -20,7 +40,14 @@ async def create_notification(
 
     `user_id` should be a real user id; for admin recipients pass the literal
     string ``"admin"``.
+
+    Honours the recipient's per-category mute preferences — if the
+    notification's category is muted, **nothing is inserted** and an empty
+    dict is returned (callers do not currently rely on the return value
+    for control flow, so this is a safe no-op).
     """
+    if await _is_muted_for(user_id, n_type):
+        return {}
     doc = {
         "id": f"ntf_{uuid.uuid4().hex[:12]}",
         "user_id": user_id,

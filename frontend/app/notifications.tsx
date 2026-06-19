@@ -6,6 +6,7 @@ import {
   PackageX,
   PackageCheck,
   Receipt,
+  Settings,
   Truck,
 } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
@@ -134,18 +135,28 @@ export default function NotificationsScreen() {
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>Notifications</Text>
-        <Pressable
-          testID="notif-mark-all-btn"
-          onPress={markAllRead}
-          disabled={unread === 0}
-          style={{ width: 80, alignItems: "flex-end" }}
-        >
-          <Text
-            style={[styles.markRead, unread === 0 && { color: colors.textFaint }]}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          <Pressable
+            testID="notif-prefs-link"
+            onPress={() => router.push("/account/notification-prefs")}
+            style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+            hitSlop={8}
           >
-            Mark read
-          </Text>
-        </Pressable>
+            <Settings size={18} color={colors.text} />
+          </Pressable>
+          <Pressable
+            testID="notif-mark-all-btn"
+            onPress={markAllRead}
+            disabled={unread === 0}
+            style={{ paddingLeft: 4, paddingRight: 4 }}
+          >
+            <Text
+              style={[styles.markRead, unread === 0 && { color: colors.textFaint }]}
+            >
+              Mark read
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       {loading ? (

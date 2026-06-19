@@ -267,6 +267,13 @@ export default function Account() {
             testID="account-privacy-btn"
           />
           <Row
+            icon={<Bell size={18} color={colors.primary} />}
+            label="Notifications"
+            subtitle="Mute categories: orders, deals, reviews…"
+            onPress={() => router.push("/account/notification-prefs")}
+            testID="account-notif-prefs-btn"
+          />
+          <Row
             icon={<Settings size={18} color={colors.text} />}
             label="Preferences"
             onPress={() => {}}
