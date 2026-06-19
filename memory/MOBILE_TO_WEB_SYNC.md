@@ -6,6 +6,10 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 19, 2026 — Frequently Bought Together**:
+> - NEW: `GET /api/products/{id}/frequently-bought-together?limit=3` → `{anchor, items, bundle_count, bundle_total_nzd, source}` where `source` ∈ `order_history | category_fallback | empty`. Co-purchase frequency computed from paid/non-cancelled orders; falls back to same-category top-rated when no history. Out-of-stock peers excluded.
+> - Mobile renders an Amazon-style bundle widget on the PDP (visual strip + checkbox list + live total + "Add N items" CTA). Web parity recommended for AOV lift.
+
 > **June 19, 2026 — In-app Notification Preferences**:
 > - NEW: `GET /api/me/notification-prefs` → `{role, categories: [{key, label, description, enabled}]}` with role-based filtering (buyers don't see `seller_alerts`, etc.). Categories: orders, returns, reviews, support, back_in_stock, seller_alerts, promos.
 > - NEW: `PUT /api/me/notification-prefs` body `{prefs: {<key>: bool}}` — partial upsert, returns merged state.
