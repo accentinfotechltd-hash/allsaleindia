@@ -426,10 +426,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Checkout: Saved Addresses picker integration"
-    - "Checkout: Points Redemption UI"
-    - "Checkout: Save new address toggle"
-    - "Checkout: Order summary now shows coupon + points discount lines"
+    - "Seller Low-Stock Alerts: GET /api/seller/analytics/low-stock endpoint"
+    - "Seller Dashboard: StockAlertsBanner appears when alerts > 0, hidden otherwise"
+    - "Seller Analytics screen: LowStockAlerts section renders rows with urgency chips"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -437,41 +436,58 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      Wired saved-addresses + loyalty-points into the checkout flow.
+      Shipped Seller Stock Alerts (P1 follow-up to analytics dashboard).
       
-      Backend was already complete (no changes):
-        - GET/POST/PATCH/DELETE /api/account/addresses
-        - POST /api/account/addresses/{id}/default
-        - POST /api/cart/points {points}
-        - DELETE /api/cart/points
-        - GET /api/points/balance
+      Backend (NEW endpoint):
+        GET /api/seller/analytics/low-stock?threshold=10&window_days=30
+        Returns urgency-ranked alerts per seller listing:
+          • out      — stock_count <= 0 OR in_stock=False
+          • critical — days_of_cover <= 3 OR (stock <= 3 with sales)
+          • low      — days_of_cover <= 7 OR stock <= threshold
+        Each row carries daily_velocity (sold/window_days), days_of_cover,
+        recommended_restock (rounded to nearest 5, min 5), and price/image
+        for client rendering. Summary block includes total_alerts, per-bucket
+        counts, and est_lost_revenue_window_nzd (velocity × 3d × price for
+        out-of-stock SKUs).
       
-      Frontend changes:
-        1. NEW component: /app/frontend/src/components/SavedAddressesPicker.tsx
-           - Horizontal scroll of saved-address chips, auto-selects default,
-             plus a "Use new" chip to clear selection.
-        2. Updated /app/frontend/app/checkout.tsx:
-           a) Renders SavedAddressesPicker above the address form; tapping a
-              chip pre-fills full_name/phone/line1/line2/city/state/postcode/country.
-           b) When no saved address is selected, shows "Save this address for
-              faster checkout next time" toggle (default ON). On submit it POSTs
-              to /api/account/addresses (best-effort, never blocks payment).
-           c) Renders PointsRedeemInput in a purple "Loyalty rewards" card.
-           d) Order summary now shows: Coupon discount line (if any) and Loyalty
-              points line (if any). Total is recomputed locally with both
-              subtracted.
-           e) ISO_TO_LONG_COUNTRY map normalises ISO-2 → long name for the
-              backend's existing `country` field (still defaults to "New Zealand"
-              for safety).
+      File: /app/backend/routers/seller/analytics.py (lines 451–end).
+      Pytest: /app/backend/tests/test_analytics_low_stock.py — 15/15 PASS.
+      Regression: test_analytics_insights + test_analytics_timeseries — 25/25 PASS.
       
-      Please test:
-        - Backend: /api/account/addresses CRUD + /api/points/balance + 
-          /api/cart/points apply/remove still work as before.
-        - Frontend (auth as buyer@example.com / Buyer2026!):
-          1. Visit /checkout - SavedAddressesPicker should appear and 
-             auto-pick the default address (pre-filling all form fields).
-          2. Tap "Use new" - fields clear.
-          3. Fill a fresh address, ensure "Save this address" toggle is ON.
-          4. Tap pay-btn - confirm address saved (then check /account/addresses).
-          5. With non-zero balance, apply points in checkout → summary shows 
-             "Loyalty points (-N pts)" + total reflects.
+      Frontend (NEW components):
+        - /app/frontend/src/components/LowStockAlerts.tsx
+            Section component slotted into the seller analytics screen above
+            Insights. Hidden entirely when no alerts. Shows summary stat row
+            (out/critical/low counts + est. lost sales pill) followed by
+            urgency-ranked product rows with restock recommendations. Tap a
+            row → /seller/edit-listing/{product_id}.
+        - /app/frontend/src/components/StockAlertsBanner.tsx
+            Compact red/yellow banner on the seller dashboard (right under
+            SellerStatusBanner). Hidden when no alerts. Renders count + tier
+            breakdown + ChevronRight → /seller/analytics.
+      
+      Wiring:
+        - /app/frontend/app/seller/analytics.tsx — imports & renders
+          <LowStockAlerts/> above <InsightsSection/>.
+        - /app/frontend/app/seller/dashboard.tsx — imports & renders
+          <StockAlertsBanner/> right after the SellerStatusBanner block.
+      
+      Sync doc: MOBILE_TO_WEB_SYNC.md updated with the new endpoint contract
+      so the parallel web agent can opt in for parity.
+      
+      Please verify:
+        - Backend: as verified-seller@example.com,
+            GET /api/seller/analytics/low-stock should return 200 with the
+            schema { window_days, threshold, alerts[], summary{...} }.
+            With no products: empty alerts + zero counts.
+            threshold=0 should clamp to 1; threshold=9999 → 100.
+            window_days=1 → 7; window_days=400 → 90.
+            buyer@example.com → 403.
+        - Frontend:
+            1. Log in as verified-seller@example.com / VerifiedSeller2026!
+            2. Visit /seller/dashboard — banner hidden if no alerts (default).
+               Seed an out-of-stock product → banner appears (red).
+            3. Tap banner → routes to /seller/analytics with LowStockAlerts
+               section visible above Insights.
+            4. Row tap → /seller/edit-listing/{product_id}.
+

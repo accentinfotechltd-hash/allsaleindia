@@ -26,6 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { TimeseriesChart, type Metric } from "@/src/components/TimeseriesChart";
 import InsightsSection from "@/src/components/InsightsSection";
+import LowStockAlerts from "@/src/components/LowStockAlerts";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -187,6 +188,9 @@ export default function SellerAnalyticsScreen() {
               {series ? (
                 <TimeseriesChart buckets={series.buckets} metric={metric} />
               ) : null}
+
+              {/* Phase 4 — Low stock & stockout alerts (hidden when none) */}
+              <LowStockAlerts />
 
               {/* Phase 3 — Insights: returns rate, revenue by region, customer demographics */}
               <InsightsSection days={30} />

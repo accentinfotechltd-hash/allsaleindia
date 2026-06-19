@@ -17,6 +17,7 @@ import { Skeleton, SkeletonGroup } from "@/src/components/Skeleton";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { SellerStatusBanner } from "@/src/components/SellerStatusBanner";
+import StockAlertsBanner from "@/src/components/StockAlertsBanner";
 import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -145,6 +146,8 @@ export default function SellerDashboard() {
               <View style={{ marginBottom: spacing.md }}>
                 <SellerStatusBanner />
               </View>
+
+              <StockAlertsBanner />
 
               <View style={styles.quickActions}>
                 <Pressable

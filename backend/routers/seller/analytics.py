@@ -448,3 +448,200 @@ async def seller_analytics_insights(
             "aov_nzd": aov,
         },
     }
+
+
+
+@router.get("/seller/analytics/low-stock")
+async def seller_low_stock_alerts(
+    threshold: int = 10,
+    window_days: int = 30,
+    seller=Depends(get_current_user),
+):
+    """Low-stock & stockout alerts for the current seller, ranked by urgency.
+
+    For each listing belonging to the seller we compute:
+
+    * ``stock_count`` (current inventory)
+    * ``sold_window`` — units sold in the last ``window_days`` from paid orders
+    * ``daily_velocity`` — sold_window / window_days
+    * ``days_of_cover`` — stock_count / daily_velocity (``None`` if zero velocity)
+    * ``urgency``:
+        - ``out``       — stock_count <= 0 or ``in_stock=False``  (lost sales now)
+        - ``critical``  — days_of_cover <= 3 OR (stock_count <= 3 and any sales)
+        - ``low``       — days_of_cover <= 7 OR stock_count <= ``threshold``
+        - excluded otherwise (healthy)
+
+    ``threshold`` is clamped to ``[1, 100]``, ``window_days`` to ``[7, 90]``.
+    Sorted by urgency rank (out → critical → low), then by days_of_cover asc,
+    then by recent revenue desc.
+    """
+    if not seller.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+
+    threshold = max(1, min(int(threshold), 100))
+    window_days = max(7, min(int(window_days), 90))
+
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=window_days)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    # --- 1) Pull all seller listings (we need every product, not just low ones,
+    #        to decide which ones cross the threshold).
+    products = [
+        p
+        async for p in db.products.find(
+            {"seller_id": seller["id"]},
+            {
+                "_id": 0,
+                "id": 1,
+                "name": 1,
+                "image": 1,
+                "price_nzd": 1,
+                "stock_count": 1,
+                "in_stock": 1,
+            },
+        )
+    ]
+    if not products:
+        return {
+            "window_days": window_days,
+            "threshold": threshold,
+            "alerts": [],
+            "summary": {
+                "total_alerts": 0,
+                "out_of_stock": 0,
+                "critical": 0,
+                "low": 0,
+                "est_lost_revenue_window_nzd": 0.0,
+            },
+        }
+
+    # --- 2) Aggregate sold-in-window per product from paid orders.
+    sold_by_pid: dict[str, dict[str, float]] = {}
+    async for o in db.orders.find(
+        {
+            "items.seller_id": seller["id"],
+            "payment_status": "paid",
+            "status": {"$nin": ["cancelled", "refunded"]},
+            "$or": [
+                {"paid_at": {"$gte": start}},
+                {
+                    "$and": [
+                        {"paid_at": None},
+                        {"created_at": {"$gte": start}},
+                    ]
+                },
+                {
+                    "paid_at": {"$exists": False},
+                    "created_at": {"$gte": start},
+                },
+            ],
+        },
+        {"_id": 0, "items": 1, "paid_at": 1, "created_at": 1},
+    ):
+        when = o.get("paid_at") or o.get("created_at")
+        if isinstance(when, datetime) and when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        if when and when < start:
+            continue
+        for it in o.get("items", []):
+            if it.get("seller_id") != seller["id"]:
+                continue
+            pid = it.get("product_id")
+            if not pid:
+                continue
+            qty = int(it.get("quantity", 0))
+            bucket = sold_by_pid.setdefault(pid, {"sold": 0, "revenue": 0.0})
+            bucket["sold"] += qty
+            bucket["revenue"] += float(it.get("price_nzd", 0)) * qty
+
+    # --- 3) Score each listing and keep only those needing attention.
+    URGENCY_RANK = {"out": 0, "critical": 1, "low": 2}
+    alerts: list[dict] = []
+    est_lost_revenue = 0.0
+
+    for p in products:
+        pid = p["id"]
+        stock = int(p.get("stock_count") or 0)
+        in_stock = bool(p.get("in_stock", True))
+        sold = int(sold_by_pid.get(pid, {}).get("sold", 0))
+        daily_velocity = round(sold / window_days, 2) if window_days else 0.0
+        days_of_cover: float | None
+        if daily_velocity > 0:
+            days_of_cover = round(stock / daily_velocity, 1)
+        else:
+            days_of_cover = None
+
+        # Classify urgency.
+        urgency: str | None = None
+        if stock <= 0 or not in_stock:
+            urgency = "out"
+            # Estimate lost revenue: assume velocity holds for ~3 days of stockout.
+            est_lost_revenue += float(p.get("price_nzd", 0)) * daily_velocity * 3
+        elif (days_of_cover is not None and days_of_cover <= 3) or (
+            stock <= 3 and sold > 0
+        ):
+            urgency = "critical"
+        elif (
+            (days_of_cover is not None and days_of_cover <= 7)
+            or stock <= threshold
+        ):
+            urgency = "low"
+
+        if urgency is None:
+            continue
+
+        # Suggested restock = enough for 14 days of cover, minimum 5 units,
+        # rounded up to nearest 5 for nicer ordering quantities.
+        if daily_velocity > 0:
+            recommended = max(5, int(round(daily_velocity * 14)))
+        else:
+            recommended = max(5, threshold)
+        # round up to multiple of 5
+        recommended = ((recommended + 4) // 5) * 5
+
+        alerts.append(
+            {
+                "product_id": pid,
+                "name": p.get("name"),
+                "image": p.get("image"),
+                "price_nzd": float(p.get("price_nzd", 0)),
+                "stock_count": stock,
+                "in_stock": in_stock,
+                "sold_window": sold,
+                "window_days": window_days,
+                "daily_velocity": daily_velocity,
+                "days_of_cover": days_of_cover,
+                "urgency": urgency,
+                "recommended_restock": recommended,
+            }
+        )
+
+    # Sort: urgency rank asc, then days_of_cover asc (None last), then
+    # higher recent sales first as a tiebreaker.
+    def _sort_key(a: dict):
+        rank = URGENCY_RANK.get(a["urgency"], 99)
+        doc = a["days_of_cover"]
+        # None = infinite cover; push to the end of its urgency bucket
+        doc_key = doc if doc is not None else float("inf")
+        return (rank, doc_key, -a["sold_window"])
+
+    alerts.sort(key=_sort_key)
+
+    counts = {
+        "out_of_stock": sum(1 for a in alerts if a["urgency"] == "out"),
+        "critical": sum(1 for a in alerts if a["urgency"] == "critical"),
+        "low": sum(1 for a in alerts if a["urgency"] == "low"),
+    }
+
+    return {
+        "window_days": window_days,
+        "threshold": threshold,
+        "alerts": alerts,
+        "summary": {
+            "total_alerts": len(alerts),
+            **counts,
+            "est_lost_revenue_window_nzd": round(est_lost_revenue, 2),
+        },
+    }

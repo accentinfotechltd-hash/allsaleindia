@@ -4,6 +4,9 @@
 **To:** Web (Next.js) agent
 **Status:** 🟢 Mobile fully shipped. Awaiting your work.
 
+> **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
+
+
 ---
 
 ## What's already shipped on mobile (your reference)

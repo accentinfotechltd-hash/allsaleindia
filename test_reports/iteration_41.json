@@ -1,0 +1,31 @@
+{
+  "summary": "Tested NEW Seller Stock Alerts feature (low-stock + stockout detection). Backend: pytest 15/15 PASS for test_analytics_low_stock.py (auth 401/403, threshold + window_days clamping, empty inventory, out/critical/low classification, sort order out→critical→low, healthy exclusion, seller isolation, velocity window, cancelled/old orders excluded, recommended_restock rounding). Live curl on public URL also confirmed: no-token=401, buyer=403, verified seller=200, clamping works (threshold[1,100], window_days[7,90]). Frontend: After seeding 2 low-stock products (1 out, 1 low) for verified-seller@example.com and restarting Metro bundler, both UI components render correctly. StockAlertsBanner on /seller/dashboard shows '2 listings need attention · 1 out of stock · 1 low' and navigates to /seller/analytics on tap. LowStockAlerts section on /seller/analytics renders above Insights section with correct count pill (2), 2 alert rows in correct urgency order (out → low), and tapping a row navigates to /seller/edit-listing/{product_id}. All 9 specified test cases PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_analytics_low_stock.py",
+    "/app/test_reports/pytest/iter41_low_stock.xml",
+    "/app/test_reports/_seed_low_stock.py"
+  ],
+  "action_items": [
+    "None — all 15 backend tests + 4 frontend integration flows PASS. Feature is shipping-ready.",
+    "Note: During initial frontend test the new components didn't render (stale Metro bundler). A `sudo supervisorctl restart expo` fixed it. If main agent or user reports the section missing, restart expo first."
+  ],
+  "critical_code_review_comments": [
+    "analytics.py endpoint is 195 lines for low-stock handler alone — within file limits but consider extracting urgency classification into a helper service module for testability and reuse if more analytics endpoints are added.",
+    "StockAlertsBanner uses useEffect (one-shot on mount) instead of useFocusEffect — banner won't refresh if seller restocks an item and returns to dashboard without remount. Minor UX nit, not blocking.",
+    "LowStockAlerts swallows all errors with a bare `catch { setData(null) }` — if the API ever returns an unexpected shape, the section silently disappears. Consider logging the error or showing a retry chip in dev."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (4/4 flows)"},
+  "seed_data_creation": "Created 2 low-stock products (id prefix TEST_LOWSTOCK_) under user_f37c688bce13 to exercise the banner + section, then cleaned up after testing. Reproduction script saved at /app/test_reports/_seed_low_stock.py.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Verified seller has user_id=user_f37c688bce13. To exercise the low-stock UI again, run `python /app/test_reports/_seed_low_stock.py` (inserts 2 products: 1 out, 1 low). Both UI components require Metro bundler to be fresh — `sudo supervisorctl restart expo` if components silently fail to render after a code change. Onboarding tutorial modal appears on first login; dismiss with the 'Skip' button.",
+  "rca_of_issue": "Initially observed: LowStockAlerts & StockAlertsBanner missing from DOM despite backend returning 2 alerts. RCA: Metro bundler was serving stale/cached bundle from before the new component files (LowStockAlerts.tsx, StockAlertsBanner.tsx) were saved — the bundle's React tree still referenced the previous version of analytics.tsx/dashboard.tsx without the new <LowStockAlerts /> and <StockAlertsBanner /> imports. After `sudo supervisorctl restart expo`, both components rendered correctly. Not a code defect — operational only."
+}
