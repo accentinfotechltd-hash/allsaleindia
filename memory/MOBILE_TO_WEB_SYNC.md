@@ -218,6 +218,22 @@ Verified live against `https://allsale-shop.preview.emergentagent.com`:
 ### Cost
 Google free tier covers ~17,000 autocomplete sessions/month at $200 credit. Session-token mode is the cheapest pattern by ~80×.
 
+---
+
+## ⚡ June 19, 2026 — Static Maps endpoint + Recently-viewed clean contract
+
+### `GET /api/geo/places/static-map?lat=&lng=&zoom=&width=&height=`
+Server-proxied Static Maps PNG with a red marker. Raw `image/png` bytes, 24h cache header. Key never leaks.
+
+**⚠️ Requires "Maps Static API" enabled** in the Google Cloud project (in addition to Places + Geocoding). Returns **502** with a logged 403 if Google rejects.
+
+### Recently-viewed — already cross-device synced ✅
+`db.product_views` is keyed on `user_id` — logging in on a new device automatically restores the rail. No new work needed; documenting only.
+
+Two equivalent endpoints:
+- `GET /api/recommendations/recently-viewed?limit=12` — legacy, supports `?session_id=` for anon
+- `GET /api/me/recently-viewed?limit=20` — **NEW** cleaner contract (auth-only). Same upsert + clear semantics via `POST`/`DELETE`.
+
 
 
 

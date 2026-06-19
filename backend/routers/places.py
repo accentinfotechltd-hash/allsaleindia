@@ -132,7 +132,6 @@ def _flatten_address_components(components: list[dict]) -> dict:
                 iso = (c.get("shortText") or c.get("longText") or "").upper()[:2]
             elif field:
                 parts[field] = c.get("longText") or c.get("shortText") or ""
-    # Compose line1 = "street_number route" with sublocality fallback.
     sn = parts.pop("_street_number", "")
     route = parts.pop("_route", "")
     sublocality = parts.pop("_sublocality", "")
@@ -145,6 +144,35 @@ def _flatten_address_components(components: list[dict]) -> dict:
         "postal_code": parts.get("postal_code", ""),
         "country": iso or "",
     }
+
+
+@router.get("/static-map")
+async def static_map(
+    lat: float = Query(...),
+    lng: float = Query(...),
+    zoom: int = Query(default=15, ge=1, le=20),
+    width: int = Query(default=600, ge=100, le=1280),
+    height: int = Query(default=300, ge=100, le=1280),
+    current=Depends(get_current_user),
+):
+    """Server-proxied Static Maps image so the API key never ships to clients.
+    Returns the raw PNG bytes — clients use it directly via `<Image source={{ uri }} />`."""
+    from fastapi.responses import Response
+    url = (
+        "https://maps.googleapis.com/maps/api/staticmap"
+        f"?center={lat},{lng}&zoom={zoom}&size={width}x{height}"
+        f"&scale=2&markers=color:red%7C{lat},{lng}&key={_api_key()}"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.get(url)
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail="Static maps error")
+        return Response(content=r.content, media_type="image/png", headers={
+            "Cache-Control": "public, max-age=86400",
+        })
+    except httpx.RequestError:
+        raise HTTPException(status_code=504, detail="Static maps timeout")
 
 
 @router.get("/details")

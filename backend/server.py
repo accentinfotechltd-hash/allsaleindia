@@ -50,6 +50,7 @@ from routers import (
     orders,
     places,
     points,
+    recently_viewed,
     policies,
     products,
     recommendations,
@@ -115,6 +116,7 @@ api.include_router(flash_sales.router)
 api.include_router(wishlist.router)
 api.include_router(points.router)
 api.include_router(places.router)
+api.include_router(recently_viewed.router)
 api.include_router(referrals.router)
 api.include_router(chat.router)
 api.include_router(wallet.router)
