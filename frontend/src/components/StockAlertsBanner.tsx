@@ -4,9 +4,9 @@
  * + CTA to `/seller/analytics` when there are any out / critical / low
  * stock items. Renders nothing when stock is healthy.
  */
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { AlertCircle, ChevronRight, PackageX } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { api } from "@/src/lib/api";
@@ -23,22 +23,24 @@ export default function StockAlertsBanner() {
   const router = useRouter();
   const [summary, setSummary] = useState<Summary | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const d = await api<{ summary: Summary }>(
-          "/seller/analytics/low-stock?threshold=10&window_days=30"
-        );
-        if (!cancelled) setSummary(d.summary);
-      } catch {
-        if (!cancelled) setSummary(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const d = await api<{ summary: Summary }>(
+            "/seller/analytics/low-stock?threshold=10&window_days=30"
+          );
+          if (!cancelled) setSummary(d.summary);
+        } catch {
+          if (!cancelled) setSummary(null);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   if (!summary || summary.total_alerts === 0) return null;
 
