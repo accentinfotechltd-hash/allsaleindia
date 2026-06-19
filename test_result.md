@@ -426,11 +426,52 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Shiprocket webhook + per-status notifications + AWB tracking"
-    - "Returns API (buyer request, seller approve/reject, partial Stripe refund)"
-    - "Order tracking card (AWB, latest status, link to carrier site)"
-    - "Buyer Return Request screen + return-status card on order detail"
-    - "Seller Returns screen + tile on dashboard"
+    - "Checkout: Saved Addresses picker integration"
+    - "Checkout: Points Redemption UI"
+    - "Checkout: Save new address toggle"
+    - "Checkout: Order summary now shows coupon + points discount lines"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Wired saved-addresses + loyalty-points into the checkout flow.
+      
+      Backend was already complete (no changes):
+        - GET/POST/PATCH/DELETE /api/account/addresses
+        - POST /api/account/addresses/{id}/default
+        - POST /api/cart/points {points}
+        - DELETE /api/cart/points
+        - GET /api/points/balance
+      
+      Frontend changes:
+        1. NEW component: /app/frontend/src/components/SavedAddressesPicker.tsx
+           - Horizontal scroll of saved-address chips, auto-selects default,
+             plus a "Use new" chip to clear selection.
+        2. Updated /app/frontend/app/checkout.tsx:
+           a) Renders SavedAddressesPicker above the address form; tapping a
+              chip pre-fills full_name/phone/line1/line2/city/state/postcode/country.
+           b) When no saved address is selected, shows "Save this address for
+              faster checkout next time" toggle (default ON). On submit it POSTs
+              to /api/account/addresses (best-effort, never blocks payment).
+           c) Renders PointsRedeemInput in a purple "Loyalty rewards" card.
+           d) Order summary now shows: Coupon discount line (if any) and Loyalty
+              points line (if any). Total is recomputed locally with both
+              subtracted.
+           e) ISO_TO_LONG_COUNTRY map normalises ISO-2 → long name for the
+              backend's existing `country` field (still defaults to "New Zealand"
+              for safety).
+      
+      Please test:
+        - Backend: /api/account/addresses CRUD + /api/points/balance + 
+          /api/cart/points apply/remove still work as before.
+        - Frontend (auth as buyer@example.com / Buyer2026!):
+          1. Visit /checkout - SavedAddressesPicker should appear and 
+             auto-pick the default address (pre-filling all form fields).
+          2. Tap "Use new" - fields clear.
+          3. Fill a fresh address, ensure "Save this address" toggle is ON.
+          4. Tap pay-btn - confirm address saved (then check /account/addresses).
+          5. With non-zero balance, apply points in checkout → summary shows 
+             "Loyalty points (-N pts)" + total reflects.

@@ -1,6 +1,15 @@
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
-import { ChevronLeft, CreditCard, Lock, Truck } from "lucide-react-native";
+import {
+  Bookmark,
+  CheckSquare,
+  ChevronLeft,
+  CreditCard,
+  Lock,
+  Sparkles,
+  Square,
+  Truck,
+} from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -15,20 +24,38 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { useCart } from "@/src/contexts/CartContext";
+import PointsRedeemInput from "@/src/components/PointsRedeemInput";
+import SavedAddressesPicker, {
+  SavedAddress,
+} from "@/src/components/SavedAddressesPicker";
 import ShippingSelector, { ShippingOption } from "@/src/components/ShippingSelector";
+import { useToast } from "@/src/components/UiOverlayProvider";
+import { useCart } from "@/src/contexts/CartContext";
 import { useTranslation } from "@/src/i18n";
 import { api, ORIGIN_URL } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
+
+// ISO-2 → long name expected by the checkout/session backend.
+const ISO_TO_LONG_COUNTRY: Record<string, string> = {
+  NZ: "New Zealand",
+  AU: "Australia",
+  US: "United States",
+  GB: "United Kingdom",
+  CA: "Canada",
+  IN: "India",
+};
 
 export default function Checkout() {
   const router = useRouter();
   const { cart, refresh } = useCart();
   const { t } = useTranslation();
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [shipOpt, setShipOpt] = useState<ShippingOption | null>(null);
 
+  const [selectedAddrId, setSelectedAddrId] = useState<string | null>(null);
+  const [saveAddress, setSaveAddress] = useState(true);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [line1, setLine1] = useState("");
@@ -36,6 +63,58 @@ export default function Checkout() {
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("Auckland");
   const [postcode, setPostcode] = useState("");
+  const [country, setCountry] = useState<string>("NZ");
+
+  const onPickAddress = (a: SavedAddress | null) => {
+    if (!a) {
+      // Reset to fresh new-address state
+      setSelectedAddrId(null);
+      setFullName("");
+      setPhone("");
+      setLine1("");
+      setLine2("");
+      setCity("");
+      setRegion("Auckland");
+      setPostcode("");
+      setCountry("NZ");
+      setSaveAddress(true);
+      return;
+    }
+    setSelectedAddrId(a.id);
+    setFullName(a.full_name || "");
+    setPhone(a.phone || "");
+    setLine1(a.line1 || "");
+    setLine2(a.line2 || "");
+    setCity(a.city || "");
+    setRegion(a.state || "");
+    setPostcode(a.postal_code || "");
+    setCountry((a.country || "NZ").toUpperCase().slice(0, 2));
+    // Already saved — no need to re-save by default
+    setSaveAddress(false);
+  };
+
+  const persistNewAddress = async () => {
+    // Best-effort save — never block the order on a save failure.
+    try {
+      await api("/account/addresses", {
+        method: "POST",
+        body: {
+          label: `${city || "My address"} · ${postcode}`.slice(0, 60),
+          full_name: fullName,
+          phone,
+          line1,
+          line2,
+          city,
+          state: region,
+          postal_code: postcode,
+          country: (country || "NZ").toUpperCase().slice(0, 2),
+          is_default: false,
+        },
+      });
+    } catch {
+      // silent
+    }
+  };
 
   const submit = async () => {
     setErr("");
@@ -45,6 +124,11 @@ export default function Checkout() {
     }
     setBusy(true);
     try {
+      // If user typed a new address and opted to save it, persist before checkout.
+      if (!selectedAddrId && saveAddress) {
+        await persistNewAddress();
+      }
+
       const res = await api<{ url: string; session_id: string; order_id: string }>(
         "/checkout/session",
         {
@@ -58,36 +142,56 @@ export default function Checkout() {
               city,
               region,
               postcode,
-              country: "New Zealand",
+              country:
+                ISO_TO_LONG_COUNTRY[country?.toUpperCase() || "NZ"] || "New Zealand",
             },
             origin_url: ORIGIN_URL,
             shipping_tier: shipOpt?.tier ?? null,
             shipping_courier_id: shipOpt?.courier_id ?? null,
             shipping_courier_name: shipOpt?.courier_name ?? null,
-            // Override cart's shipping_nzd with the user's chosen tier (in NZD).
-            // The server already has the buyer currency price; we send NZD because backend stores NZD.
-            // Convert rate_in_currency back to NZD using fx if currency != NZD.
-            shipping_cost_nzd: shipOpt?.free ? 0 : (shipOpt?.rate_in_currency ?? null),
+            shipping_cost_nzd: shipOpt?.free
+              ? 0
+              : shipOpt?.rate_in_currency ?? null,
           },
         },
       );
-      const result = await WebBrowser.openAuthSessionAsync(res.url, `${ORIGIN_URL}/checkout/success`);
-      // After the browser closes (success, cancel, or dismiss), navigate to status screen.
+      const result = await WebBrowser.openAuthSessionAsync(
+        res.url,
+        `${ORIGIN_URL}/checkout/success`,
+      );
       if (result.type === "success" || result.type === "dismiss") {
         await refresh();
-        router.replace({ pathname: "/checkout-status", params: { session_id: res.session_id } });
+        router.replace({
+          pathname: "/checkout-status",
+          params: { session_id: res.session_id },
+        });
       }
     } catch (e: any) {
       setErr(e?.message || t("checkout.could_not_start"));
+      toast.show({
+        title: "Couldn't start checkout",
+        body: e?.message,
+        kind: "error",
+      });
     } finally {
       setBusy(false);
     }
   };
 
+  const computedTotal =
+    cart.subtotal_nzd +
+    (shipOpt ? (shipOpt.free ? 0 : shipOpt.rate_in_currency) : cart.shipping_nzd) -
+    (cart.discount_nzd || 0) -
+    (cart.points_discount_nzd || 0);
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <View style={styles.topBar}>
-        <Pressable testID="checkout-back-btn" onPress={() => router.back()} style={styles.backBtn}>
+        <Pressable
+          testID="checkout-back-btn"
+          onPress={() => router.back()}
+          style={styles.backBtn}
+        >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.title}>{t("checkout.title")}</Text>
@@ -99,13 +203,26 @@ export default function Checkout() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxl }}
+          contentContainerStyle={{
+            padding: spacing.lg,
+            paddingBottom: spacing.xxl,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.sectionTitle}>{t("checkout.shipping_to")}</Text>
 
-          <Field label={t("checkout.full_name")} testID="checkout-name" value={fullName} onChangeText={setFullName} />
+          <SavedAddressesPicker
+            selectedId={selectedAddrId}
+            onSelect={onPickAddress}
+          />
+
+          <Field
+            label={t("checkout.full_name")}
+            testID="checkout-name"
+            value={fullName}
+            onChangeText={setFullName}
+          />
           <Field
             label={t("checkout.phone")}
             testID="checkout-phone"
@@ -113,7 +230,12 @@ export default function Checkout() {
             onChangeText={setPhone}
             keyboardType="phone-pad"
           />
-          <Field label={t("checkout.address_line1")} testID="checkout-line1" value={line1} onChangeText={setLine1} />
+          <Field
+            label={t("checkout.address_line1")}
+            testID="checkout-line1"
+            value={line1}
+            onChangeText={setLine1}
+          />
           <Field
             label={t("checkout.address_line2")}
             testID="checkout-line2"
@@ -122,7 +244,12 @@ export default function Checkout() {
           />
           <View style={{ flexDirection: "row", gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Field label={t("checkout.city")} testID="checkout-city" value={city} onChangeText={setCity} />
+              <Field
+                label={t("checkout.city")}
+                testID="checkout-city"
+                value={city}
+                onChangeText={setCity}
+              />
             </View>
             <View style={{ flex: 1 }}>
               <Field
@@ -134,25 +261,77 @@ export default function Checkout() {
               />
             </View>
           </View>
-          <Field label={t("checkout.region")} testID="checkout-region" value={region} onChangeText={setRegion} />
+          <Field
+            label={t("checkout.region")}
+            testID="checkout-region"
+            value={region}
+            onChangeText={setRegion}
+          />
+
+          {!selectedAddrId ? (
+            <Pressable
+              testID="checkout-save-address-toggle"
+              onPress={() => setSaveAddress((v) => !v)}
+              style={styles.saveToggle}
+            >
+              {saveAddress ? (
+                <CheckSquare size={18} color={colors.primary} />
+              ) : (
+                <Square size={18} color={colors.textMuted} />
+              )}
+              <Bookmark
+                size={14}
+                color={saveAddress ? colors.primary : colors.textMuted}
+              />
+              <Text
+                style={[
+                  styles.saveToggleText,
+                  saveAddress && { color: colors.primary, fontWeight: "800" },
+                ]}
+              >
+                Save this address for faster checkout next time
+              </Text>
+            </Pressable>
+          ) : null}
 
           <ShippingSelector
             country="NZ"
             currency="NZD"
-            weightKg={Math.max(0.5, cart.items.reduce((a, it) => a + (it.quantity || 1), 0) * 0.5)}
+            weightKg={Math.max(
+              0.5,
+              cart.items.reduce((a, it) => a + (it.quantity || 1), 0) * 0.5,
+            )}
             subtotal={cart.subtotal_nzd}
             onSelect={setShipOpt}
             selectedTier={shipOpt?.tier}
           />
 
+          {/* Loyalty points redemption */}
+          <View style={styles.pointsCard} testID="checkout-points-card">
+            <View style={styles.pointsHead}>
+              <Sparkles size={14} color="#7C3AED" />
+              <Text style={styles.pointsHeadText}>Loyalty rewards</Text>
+            </View>
+            <PointsRedeemInput />
+          </View>
+
           <View style={styles.summaryCard}>
             <View style={styles.summaryHead}>
               <Truck size={16} color={colors.primary} />
-              <Text style={styles.summaryHeadText}>{t("checkout.order_summary")}</Text>
+              <Text style={styles.summaryHeadText}>
+                {t("checkout.order_summary")}
+              </Text>
             </View>
-            <Line label={t("checkout.items_subtotal", { count: cart.items.length })} value={formatNZD(cart.subtotal_nzd)} />
             <Line
-              label={shipOpt ? `${shipOpt.label} shipping` : t("checkout.shipping_to_nz")}
+              label={t("checkout.items_subtotal", { count: cart.items.length })}
+              value={formatNZD(cart.subtotal_nzd)}
+            />
+            <Line
+              label={
+                shipOpt
+                  ? `${shipOpt.label} shipping`
+                  : t("checkout.shipping_to_nz")
+              }
               value={
                 shipOpt
                   ? shipOpt.free
@@ -164,20 +343,37 @@ export default function Checkout() {
               }
               highlight={shipOpt?.free || cart.shipping_nzd === 0}
             />
+            {(cart.discount_nzd || 0) > 0 ? (
+              <Line
+                label={
+                  cart.coupon_code
+                    ? `Coupon (${cart.coupon_code})`
+                    : "Discount"
+                }
+                value={`-${formatNZD(cart.discount_nzd || 0)}`}
+                highlight
+              />
+            ) : null}
+            {(cart.points_discount_nzd || 0) > 0 ? (
+              <Line
+                label={`Loyalty points (-${cart.points_used} pts)`}
+                value={`-${formatNZD(cart.points_discount_nzd || 0)}`}
+                highlight
+              />
+            ) : null}
             <View style={styles.lineDivider} />
             <Line
               label={t("checkout.total_nzd")}
-              value={formatNZD(
-                cart.subtotal_nzd +
-                  (shipOpt ? (shipOpt.free ? 0 : shipOpt.rate_in_currency) : cart.shipping_nzd) -
-                  (cart.discount_nzd || 0) -
-                  (cart.points_discount_nzd || 0),
-              )}
+              value={formatNZD(Math.max(0, computedTotal))}
               bold
             />
           </View>
 
-          {err ? <Text style={styles.error} testID="checkout-error">{err}</Text> : null}
+          {err ? (
+            <Text style={styles.error} testID="checkout-error">
+              {err}
+            </Text>
+          ) : null}
 
           <Pressable
             testID="checkout-pay-btn"
@@ -194,14 +390,20 @@ export default function Checkout() {
             ) : (
               <>
                 <CreditCard size={18} color="#fff" />
-                <Text style={styles.ctaText}>{t("checkout.pay", { amount: formatNZD(cart.total_nzd) })}</Text>
+                <Text style={styles.ctaText}>
+                  {t("checkout.pay", {
+                    amount: formatNZD(Math.max(0, computedTotal)),
+                  })}
+                </Text>
               </>
             )}
           </Pressable>
 
           <View style={styles.lockRow}>
             <Lock size={12} color={colors.textMuted} />
-            <Text style={styles.lockText}>{t("checkout.secure_payment")}</Text>
+            <Text style={styles.lockText}>
+              {t("checkout.secure_payment")}
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -282,7 +484,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: { fontSize: 18, fontWeight: "800", color: colors.text },
-  sectionTitle: { fontSize: 14, fontWeight: "800", color: colors.text, marginBottom: spacing.md, letterSpacing: -0.2 },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: spacing.md,
+    letterSpacing: -0.2,
+  },
   label: { fontSize: 12, fontWeight: "600", color: colors.text, marginBottom: 6 },
   input: {
     height: 48,
@@ -294,14 +502,57 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: "#fff",
   },
+  saveToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    marginBottom: spacing.sm,
+  },
+  saveToggleText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: "600",
+    flex: 1,
+  },
+  pointsCard: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: "#FAF5FF",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: "#E9D5FF",
+  },
+  pointsHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  pointsHeadText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#7C3AED",
+    letterSpacing: 0.5,
+  },
   summaryCard: {
     marginTop: spacing.md,
     padding: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
   },
-  summaryHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
-  summaryHeadText: { fontSize: 12, fontWeight: "800", color: colors.text, letterSpacing: 0.5 },
+  summaryHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+  },
+  summaryHeadText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: 0.5,
+  },
   line: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 5 },
   lineLabel: { fontSize: 13, color: colors.textMuted },
   lineValue: { fontSize: 13, color: colors.text, fontWeight: "600" },
@@ -319,6 +570,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   ctaText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  lockRow: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, marginTop: spacing.md },
+  lockRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    marginTop: spacing.md,
+  },
   lockText: { fontSize: 11, color: colors.textMuted },
 });

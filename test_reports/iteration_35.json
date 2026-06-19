@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 35 — checkout wiring for saved addresses + loyalty redemption. Backend regression for /api/account/addresses CRUD + default-flip + auto-promote-on-delete passed 5/5. Backend regression for /api/points/balance + POST/DELETE /api/cart/points passed 2/2. Frontend mobile-viewport flow on /checkout fully verified: default saved address chip auto-selects and pre-fills all 5 form fields (checkout-name, checkout-phone, checkout-line1, checkout-city, checkout-postcode); the saved-addr-new (Use new) chip clears all fields AND re-reveals checkout-save-address-toggle; checkout-points-card renders with PointsRedeemInput; applying 100 pts shows 'Loyalty points (-100 pts)' line in the order summary and reduces the Total by $1.00; tapping Remove reverses it. Note — initial /checkout load was missing SavedAddressesPicker, save-toggle and points-card from the DOM until Expo was restarted (Metro CI mode + stale bundle from previous iteration); after `supervisorctl restart expo` all components rendered correctly. Main agent should verify there is no caching/HMR issue across deploys.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_addresses_and_points_cart.py",
+    "/app/test_reports/pytest/iter35_addresses_points.xml"
+  ],
+  "action_items": [
+    "Inform main agent that Expo Metro is running in CI mode (reloads disabled) — the initial render after this iteration's code change required a manual `sudo supervisorctl restart expo` before SavedAddressesPicker / checkout-points-card / checkout-save-address-toggle appeared in the DOM. Verify this isn't going to bite real users (it shouldn't — they always load a freshly bundled chunk) and consider whether the production CI deploy already accounts for full Metro rebuild.",
+    "Minor UX nit (NOT blocking): in PointsRedeemInput.tsx:56 the success toast title 'Min 100 points' uses kind: 'success' — this should be kind: 'error' or 'info' since it represents a validation failure. Cosmetic only."
+  ],
+  "critical_code_review_comments": [
+    "checkout.tsx is 581 lines — still under the 700-line soft cap; no split needed yet but worth watching.",
+    "SavedAddressesPicker auto-selects the default ONCE on mount via empty deps + eslint-disable; this is intentional and documented in the comment, behaviour verified correct.",
+    "On 'Use new' tap (line 68-94 of checkout.tsx) saveAddress is reset to true (default ON) — verified ✅ matches PRD requirement.",
+    "computedTotal at checkout.tsx:181 correctly subtracts both cart.discount_nzd AND cart.points_discount_nzd; clamped with Math.max(0, …) before formatting — ✅."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_addresses_and_points_cart.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (7/7)",
+    "frontend": "100% — all 4 acceptance criteria verified on mobile viewport (auto-prefill, Use new clears + reveals toggle, points apply shows summary line + cuts total, remove reverses)"
+  },
+  "seed_data_creation": "Created 1 TEST_UI_Home address for buyer@example.com via in-browser fetch (token from localStorage 'allsale_token'); buyer was also seeded with 500 points balance (already in DB). Backend test class cleans up its own TEST_* addresses via fixture teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Buyer login flow: localStorage key is 'allsale_token' (value = raw JWT string, not JSON-wrapped). The Expo web preview can serve a stale bundle after edits — if frontend tests show missing testIDs that exist in source, run `sudo supervisorctl restart expo` and wait ~10s for re-bundle before failing. The buyer@example.com account currently has 500 pts + 1 TEST_UI_Home default address. Note Metro runs in CI mode (reloads disabled per /var/log/supervisor/expo.out.log).",
+  "rca_of_issue": "N/A — no bugs found. The transient 'missing components' observation was due to Metro CI-mode caching a pre-iteration bundle and was resolved by restarting the expo supervisor service."
+}
