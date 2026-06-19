@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import SizeGuideModal from "@/src/components/SizeGuideModal";
 import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
+import FrequentlyBoughtTogether from "@/src/components/FrequentlyBoughtTogether";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
 import NotifyWhenInStock from "@/src/components/NotifyWhenInStock";
@@ -379,6 +380,10 @@ export default function ProductDetail() {
 
           <Text style={styles.sectionTitle}>About this item</Text>
           <Text style={styles.description}>{product.description}</Text>
+
+          {/* Amazon-style "Frequently Bought Together" — co-purchase
+              bundle widget. Auto-hides when there's no signal. */}
+          <FrequentlyBoughtTogether productId={product.id} />
 
           <ReviewsSection
             productId={product.id}

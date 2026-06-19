@@ -1,0 +1,36 @@
+{
+  "summary": "Tested Amazon-style 'Frequently Bought Together' bundle widget end-to-end. Backend pytest suite (10/10) PASS at /app/backend/tests/test_frequently_bought_together.py covering 404, schema, limit clamp [1,6], anchor exclusion, co-purchase ranking with frequency>=3 and source='order_history', cancelled-orders exclusion, OOS exclusion, category_fallback, and bundle_total math. Frontend tested on /product/55f0a169-c66c-4f3b-8ead-91dc18491778 at mobile viewport 390x844: 'Pairs well with' section renders below 'About this item' and above 'Ratings & Reviews', visual bundle strip shows anchor tile with 'This' badge + orange border + plus icon + peer tile, anchor checkbox is locked-checked (not Pressable), peer checkbox row toggles correctly, unchecking drops total from $178.00 → $89.00 and CTA label flows 'Add 1 item' → 'Add 0 items' with disabled=true, re-check restores it, tapping the peer image navigates to that peer's /product/{id} page, and tapping 'Add 1 item' (after login as buyer@example.com) shows a success toast '1 item added to cart'. No red screen, no console errors of concern (only generic deprecation warnings for shadow*/textShadow*/pointerEvents which are React Native Web warnings, not bugs).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "FrequentlyBoughtTogether",
+        "issues": [
+          "On anchor 55f0a169-..., the category-fallback peer (75a65d98-...) has the literal same name 'Genuine Leather Crossbody Bag' as the anchor — this is a SEED-DATA dupe (two listings with identical names exist in the catalog), not a code bug. The component itself correctly excludes the anchor by id (covered by test_anchor_never_in_items). If the product/seed catalog is deduped by name later, the widget will already look great."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_frequently_bought_together.py",
+    "/app/test_reports/pytest/iter44_fbt.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "products.py is now 700+ lines (701) — at the soft cap. Consider splitting recommendations/FBT into a separate router module before the next feature lands.",
+    "FBT widget anchor checkbox is a View (not Pressable) and intentionally has no testID — that is the correct lock UX, but consider adding testID='fbt-row-anchor' purely for E2E ergonomics."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (10/10 pytest)", "frontend": "100% (all 6 FE acceptance criteria verified)"},
+  "seed_data_creation": "None — used existing product 55f0a169-c66c-4f3b-8ead-91dc18491778 and existing buyer credentials buyer@example.com / Buyer2026!.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "FBT widget is fully working. testIDs: fbt-section (wrap), fbt-loading, fbt-row-{peerId} (each peer checkbox row), fbt-total (live total text), fbt-add-bundle (CTA). Anchor row is locked View — no testID. Endpoint: GET /api/products/{id}/frequently-bought-together?limit=3 returns {anchor, items, bundle_count, bundle_total_nzd, source: 'order_history'|'category_fallback'|'empty'}. Test pytest with: cd /app/backend && pytest tests/test_frequently_bought_together.py -v (NOT from /app — conftest import is relative to backend dir).",
+  "rca_of_issue": ""
+}

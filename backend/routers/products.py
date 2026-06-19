@@ -544,6 +544,138 @@ async def get_recommendations(product_id: str, limit: int = 8):
     return [Product(**p) for p in out[:limit]]
 
 
+@router.get("/products/{product_id}/frequently-bought-together")
+async def frequently_bought_together(product_id: str, limit: int = 3):
+    """Amazon-style "Frequently Bought Together" bundle widget.
+
+    Aggregates **delivered/paid** orders that contain ``product_id`` and
+    counts co-occurring product IDs in those same orders. Products that
+    co-occur at least twice and live in the catalog (in-stock) are
+    returned ranked by frequency. Falls back to same-category top picks
+    when there's not enough historical signal yet.
+
+    Returns ``{anchor, items, bundle_total_nzd, bundle_count, source}``
+    where ``source`` is one of ``"order_history"`` or ``"category_fallback"``
+    so the client can render a slightly different copy ("Customers also
+    bought these" vs "Pairs well with").
+    """
+    base = await db.products.find_one(
+        {"id": product_id},
+        {
+            "_id": 0,
+            "id": 1,
+            "name": 1,
+            "image": 1,
+            "price_nzd": 1,
+            "category": 1,
+            "subcategory": 1,
+            "rating": 1,
+        },
+    )
+    if not base:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    limit = max(1, min(int(limit), 6))
+
+    # --- Pass 1: co-purchase aggregation from real orders -------------------
+    co_count: dict[str, int] = {}
+    async for o in db.orders.find(
+        {
+            "items.product_id": product_id,
+            "payment_status": "paid",
+            "status": {"$nin": ["cancelled", "refunded"]},
+        },
+        {"_id": 0, "items.product_id": 1},
+    ):
+        ids = {it.get("product_id") for it in (o.get("items") or [])}
+        ids.discard(None)
+        ids.discard(product_id)
+        for pid in ids:
+            co_count[pid] = co_count.get(pid, 0) + 1
+
+    candidates: list[dict] = []
+    source = "order_history"
+    if co_count:
+        # Only keep co-purchases with frequency >= 2 — single-order noise
+        # makes for weird bundles ("phone + dog bed").
+        strong = [pid for pid, c in co_count.items() if c >= 2]
+        if strong:
+            async for p in db.products.find(
+                {
+                    "id": {"$in": strong},
+                    "in_stock": True,
+                    "stock_count": {"$gt": 0},
+                },
+                {"_id": 0},
+            ):
+                p["frequency"] = co_count.get(p["id"], 0)
+                candidates.append(p)
+
+    # --- Pass 2: category fallback when no co-purchase signal --------------
+    if len(candidates) < limit:
+        source = "category_fallback" if not candidates else source
+        seen = {product_id} | {c["id"] for c in candidates}
+        async for p in (
+            db.products.find(
+                {
+                    "category": base.get("category"),
+                    "id": {"$nin": list(seen)},
+                    "in_stock": True,
+                    "stock_count": {"$gt": 0},
+                },
+                {"_id": 0},
+            )
+            .sort([("rating", -1), ("reviews_count", -1)])
+            .limit(limit * 2)
+        ):
+            p["frequency"] = 0
+            candidates.append(p)
+            if len(candidates) >= limit:
+                break
+
+    # Sort: real co-purchase frequency first, then rating as tiebreaker.
+    candidates.sort(
+        key=lambda x: (
+            -int(x.get("frequency", 0)),
+            -float(x.get("rating") or 0),
+        )
+    )
+    items = candidates[:limit]
+
+    # Shape down to client-facing dicts to avoid leaking internal fields.
+    out_items = [
+        {
+            "id": p["id"],
+            "name": p.get("name"),
+            "image": p.get("image"),
+            "price_nzd": float(p.get("price_nzd", 0)),
+            "rating": float(p.get("rating") or 0),
+            "reviews_count": int(p.get("reviews_count") or 0),
+            "in_stock": bool(p.get("in_stock", True)),
+            "frequency": int(p.get("frequency", 0)),
+        }
+        for p in items
+    ]
+
+    anchor_price = float(base.get("price_nzd", 0))
+    bundle_total = round(
+        anchor_price + sum(it["price_nzd"] for it in out_items), 2
+    )
+
+    return {
+        "anchor": {
+            "id": base["id"],
+            "name": base.get("name"),
+            "image": base.get("image"),
+            "price_nzd": anchor_price,
+        },
+        "items": out_items,
+        "bundle_count": 1 + len(out_items),
+        "bundle_total_nzd": bundle_total,
+        "source": source if out_items else "empty",
+    }
+
+
 # ---------------------------------------------------------------------------
 # REST alias: /api/products/{product_id}/reviews
 # (Delegates to the reviews router so business logic stays in one place.)
