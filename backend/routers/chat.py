@@ -242,6 +242,23 @@ async def send_message(
 # ---------------------------------------------------------------------------
 # Unread count badge
 # ---------------------------------------------------------------------------
+@router.post("/conversations/{conv_id}/read", status_code=204)
+async def mark_conversation_read(conv_id: str, current=Depends(get_current_user)):
+    """Idempotently zero the current user's unread counter for a conversation
+    without having to fetch the full thread (cheap badge-clearing call).
+    """
+    conv = await db.chat_conversations.find_one({"id": conv_id}, {"_id": 0})
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    role = _role_for(conv, current["id"])
+    if role is None:
+        raise HTTPException(status_code=403, detail="Not your conversation")
+    await db.chat_conversations.update_one(
+        {"id": conv_id}, {"$set": {_self_unread_field(role): 0}}
+    )
+    return None
+
+
 @router.get("/unread-count", response_model=UnreadCount)
 async def unread_count(current=Depends(get_current_user)):
     total = 0
