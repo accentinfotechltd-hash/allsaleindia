@@ -815,6 +815,7 @@ class OrderTracking(BaseModel):
     buyer_confirmed_at: Optional[datetime] = None
     proof_of_delivery: Optional[dict] = None
     eta_summary: Optional[dict] = None  # ETASummary serialised — see services/eta.py
+    last_tracking_geo: Optional[dict] = None  # {lat, lng, label, static_map_url}
 
 
 class ReorderResult(BaseModel):

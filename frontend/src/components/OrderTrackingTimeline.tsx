@@ -4,6 +4,7 @@ import {
   Image,
   Linking,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -273,6 +274,42 @@ export default function OrderTrackingTimeline({ orderId, initial }: Props) {
         </Pressable>
       ) : null}
 
+      {/* Phase 1.5 #3 — Static map preview from OpenStreetMap (no API key) */}
+      {tracking.last_tracking_geo?.static_map_url ? (
+        <Pressable
+          testID="tracking-map-preview"
+          onPress={() => {
+            const { lat, lng } = tracking.last_tracking_geo!;
+            const url = Platform.select({
+              ios: `https://maps.apple.com/?ll=${lat},${lng}&q=Parcel`,
+              default: `https://www.google.com/maps?q=${lat},${lng}`,
+            })!;
+            Linking.openURL(url).catch(() => {});
+          }}
+          style={styles.mapWrap}
+        >
+          <Image
+            source={{ uri: tracking.last_tracking_geo.static_map_url }}
+            style={styles.mapImage}
+            resizeMode="cover"
+            onError={() => {
+              /* OSM tile failed — UI degrades to text-only carrier card above. */
+            }}
+          />
+          <View style={styles.mapPin}>
+            <MapPin size={14} color="#fff" />
+          </View>
+          {tracking.last_tracking_geo.label ? (
+            <View style={styles.mapLabel}>
+              <Text style={styles.mapLabelText} numberOfLines={1}>
+                {tracking.last_tracking_geo.label}
+              </Text>
+              <Text style={styles.mapLabelHint}>Tap to open in Maps</Text>
+            </View>
+          ) : null}
+        </Pressable>
+      ) : null}
+
       {/* Delivery proof photo (carrier or seller) */}
       {tracking.proof_of_delivery?.image ? (
         <View style={styles.proofBox} testID="tracking-proof-of-delivery">
@@ -517,4 +554,37 @@ const styles = StyleSheet.create({
   etaHeadline: { fontSize: 16, fontWeight: "800", letterSpacing: 0.2 },
   etaSublabel: { fontSize: 12, fontWeight: "600", marginTop: 2, opacity: 0.85 },
   etaOriginal: { fontSize: 11, color: colors.textMuted, marginTop: 4, fontStyle: "italic" },
+
+  mapWrap: {
+    position: "relative",
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  mapImage: { width: "100%", height: 160 },
+  mapPin: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapLabel: {
+    position: "absolute",
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: "rgba(15,23,42,0.78)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.md,
+  },
+  mapLabelText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  mapLabelHint: { color: "rgba(255,255,255,0.78)", fontSize: 10, fontWeight: "600", marginTop: 1 },
 });

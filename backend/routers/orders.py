@@ -19,6 +19,7 @@ from models import (
 )
 from services.cart import hydrate_cart
 from services.eta import compute_eta_summary
+from services.geocode import osm_static_map_url
 from services.notifications import create_notification, notify_admins
 from services.stock import restock_for_order
 from services.stripe_svc import issue_stripe_refund
@@ -284,6 +285,18 @@ async def get_order_tracking(order_id: str, current=Depends(get_current_user)):
             out_for_delivery_at=order.get("out_for_delivery_at"),
             shipped_at=order.get("shipped_at"),
             created_at=order.get("created_at"),
+        ),
+        last_tracking_geo=(
+            {
+                **order["last_tracking_geo"],
+                "static_map_url": osm_static_map_url(
+                    order["last_tracking_geo"]["lat"],
+                    order["last_tracking_geo"]["lng"],
+                ),
+            }
+            if isinstance(order.get("last_tracking_geo"), dict)
+            and order["last_tracking_geo"].get("lat") is not None
+            else None
         ),
     )
 

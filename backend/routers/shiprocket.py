@@ -14,6 +14,7 @@ from deps import get_current_user
 from models import Shipment
 from services.notifications import create_notification
 from services.b2b_referrals import accrue_referral_commission
+from services.geocode import geocode_location
 from services.shipment_milestones import detect_milestone
 from services.shiprocket import (
     map_shiprocket_status,
@@ -80,6 +81,16 @@ async def shiprocket_webhook(
     loc = payload.get("current_location") or payload.get("location")
     if loc:
         update_ts["last_tracking_location"] = loc
+        # Phase 1.5 #3 — best-effort geocoding via Nominatim (cached, free)
+        try:
+            geo = await geocode_location(loc)
+            if geo:
+                update_ts["last_tracking_geo"] = {
+                    "lat": geo["lat"], "lng": geo["lng"],
+                    "label": geo.get("display_name") or loc,
+                }
+        except Exception:
+            pass
     # Stage transition timestamps power the tracking timeline UI.
     if mapped == "shipped" and not order.get("shipped_at"):
         update_ts["shipped_at"] = now_utc()
