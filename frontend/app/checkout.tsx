@@ -13,6 +13,7 @@ import {
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -67,6 +68,9 @@ export default function Checkout() {
   const [region, setRegion] = useState("Auckland");
   const [postcode, setPostcode] = useState("");
   const [country, setCountry] = useState<string>("NZ");
+  const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
 
   const onPickAddress = (a: SavedAddress | null) => {
     if (!a) {
@@ -249,11 +253,28 @@ export default function Checkout() {
               if (addr.country) {
                 setCountry(addr.country.toUpperCase().slice(0, 2));
               }
+              if (typeof addr.lat === "number" && typeof addr.lng === "number") {
+                setMapCoords({ lat: addr.lat, lng: addr.lng });
+              }
               // User picked from autocomplete — treat as new address (not a
               // pre-saved one) so the "Save this address" toggle reappears.
               setSelectedAddrId(null);
             }}
           />
+          {mapCoords ? (
+            <View style={styles.mapPreview} testID="checkout-map-preview">
+              <Image
+                source={{
+                  uri: `${process.env.EXPO_PUBLIC_BACKEND_URL}/api/geo/places/static-map?lat=${mapCoords.lat}&lng=${mapCoords.lng}&zoom=15&width=600&height=200`,
+                }}
+                style={styles.mapImage}
+                resizeMode="cover"
+              />
+              <Text style={styles.mapCaption}>
+                📍 Confirm this is the correct location
+              </Text>
+            </View>
+          ) : null}
           <Field
             label={t("checkout.address_line2")}
             testID="checkout-line2"
@@ -602,4 +623,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   lockText: { fontSize: 11, color: colors.textMuted },
+  mapPreview: {
+    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  mapImage: { width: "100%", height: 140 },
+  mapCaption: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: "600",
+    padding: 8,
+    textAlign: "center",
+    backgroundColor: "#fff",
+  },
 });
