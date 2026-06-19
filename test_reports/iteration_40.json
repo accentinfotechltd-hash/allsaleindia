@@ -1,0 +1,36 @@
+{
+  "summary": "Tested NEW admin user-actions endpoints (suspend, reactivate, reset-2FA, points-adjust) end-to-end. Backend pytest: 12/12 pass (11 passed + 1 RBAC support test passed after fix). Frontend mobile UI verified via Playwright: owner login → /admin/users → tap buyer row → Suspend (with reason 'Test') showed 'Account suspended' banner; Reactivate confirmation modal cleared the banner; Adjust Points with delta=250 + 'Welcome credit' showed toast 'Credited 250 pts · New balance: 750' and the detail row 'Points balance' updated to 750. JWT invalidation on suspend confirmed (old JWT → 401, fresh login JWT → /auth/me 403 'account suspended'). Activity log captured all four action types (user.suspend, user.reactivate, user.reset_2fa, user.points_adjust). RBAC: support role correctly blocked with 403; manager+owner allowed. No deprecated Expo packages introduced in this iteration's diff. NOTE: harmless web-only deprecation warnings observed in console: 'shadow*' style props and 'props.pointerEvents' — exist throughout the app (not new in this iteration).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_user_actions.py",
+    "/app/test_reports/pytest/iter40_admin_user_actions.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "deps.py correctly bumps token_version on suspend AND has a defensive 403 check, so even if a code path forgot to bump tv, the suspended account is blocked. Good belt-and-braces.",
+    "admin_user_actions.py uses SENSITIVE_USER_PROJECTION to strip password_hash / two_factor_secret_hash / _id — sensitive data is NOT leaked.",
+    "Points adjust correctly returns 400 on zero delta and on negative-balance underflow, and 422 on short reason — Pydantic Field(min_length=4) handles validation.",
+    "Reset-2FA also bumps token_version which is a sensible side-effect (forces re-login after the buyer recovers their account)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_user_actions.py (new)"
+  ],
+  "success_rate": {
+    "backend": "100% (12/12)",
+    "frontend": "100% (all flows in scope verified — suspend prompt, banner, reactivate confirm, points-adjust toast + balance update)"
+  },
+  "seed_data_creation": "Throwaway buyer 'TEST_actions_*@allsale.co.nz' created via /api/auth/register and left in a non-suspended state with +500 (from credit test) + 250 (from UI test) = balance 750. Two support sub-admins created (TEST_support_*) for the RBAC test; these are left in admin_users — owner may clean up if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend test file `/app/backend/tests/test_admin_user_actions.py` is reusable. The /api/admin/team endpoint surfaces the new admin password under `_initial_password` (NOT `temp_password`). /api/admin/activity-log returns `{events:[...], total}` (NOT `{items:[...]}`). Reactivate flow on the mobile UI requires a confirmation modal — click the 'Reactivate' button inside the Alert dialog after pressing the Reactivate row button.",
+  "rca_of_issue": "No bug detected. Feature works end-to-end."
+}

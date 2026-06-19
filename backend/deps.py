@@ -29,6 +29,13 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="User not found")
     if int(user.get("token_version") or 0) != tv:
         raise HTTPException(status_code=401, detail="Session expired — please sign in again")
+    if user.get("is_suspended"):
+        # Bumped token_version on suspend already rejects the JWT above, but
+        # double-check here in case any code-path forgot to bump it.
+        raise HTTPException(
+            status_code=403,
+            detail="This account has been suspended. Please contact support.",
+        )
     return user
 
 

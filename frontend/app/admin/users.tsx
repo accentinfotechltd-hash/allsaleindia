@@ -2,11 +2,16 @@ import { useRouter } from "expo-router";
 import {
   Calendar,
   ChevronLeft,
+  Coins,
+  KeyRound,
   Mail,
   Phone,
+  PlayCircle,
+  PowerOff,
   RefreshCw,
   Search,
   ShieldCheck,
+  ShieldOff,
   Store,
   User as UserIcon,
   X,
@@ -35,7 +40,7 @@ import {
   getAdminIdentity,
   getAdminSecret,
 } from "@/src/lib/adminApi";
-import { useToast } from "@/src/components/UiOverlayProvider";
+import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type AdminUser = {
@@ -53,6 +58,10 @@ type AdminUser = {
   last_login_at?: string | null;
   points_balance?: number;
   orders_count?: number;
+  is_suspended?: boolean;
+  suspend_reason?: string | null;
+  suspended_at?: string | null;
+  two_factor_enabled?: boolean;
 };
 
 type ListResp = {
@@ -98,6 +107,7 @@ function formatDate(iso?: string | null) {
 export default function AdminUsersScreen() {
   const router = useRouter();
   const { show } = useToast();
+  const confirm = useConfirm();
 
   const [, setMe] = useState<AdminIdentity | null>(null);
   const [items, setItems] = useState<AdminUser[]>([]);
@@ -111,6 +121,179 @@ export default function AdminUsersScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [role, setRole] = useState<RoleFilter>("all");
   const [detail, setDetail] = useState<AdminUser | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  // Inline prompt-modal for typing a reason or delta on an action.
+  type PromptState = {
+    visible: boolean;
+    kind: "suspend" | "points" | null;
+    title: string;
+    label: string;
+    reason: string;
+    delta: string;
+  };
+  const [prompt, setPrompt] = useState<PromptState>({
+    visible: false,
+    kind: null,
+    title: "",
+    label: "",
+    reason: "",
+    delta: "",
+  });
+  const closePrompt = () =>
+    setPrompt((p) => ({ ...p, visible: false, kind: null }));
+
+  // Fetch full /admin/users/{id} payload (live balance + suspension state)
+  // whenever a row is tapped.
+  const openDetail = useCallback(
+    async (row: AdminUser) => {
+      setDetail(row);
+      try {
+        const full = await adminApi<AdminUser>(`/admin/users/${row.id}`);
+        setDetail((prev) => (prev?.id === row.id ? { ...prev, ...full } : prev));
+      } catch {
+        // silent — keep the row-snapshot
+      }
+    },
+    [],
+  );
+
+  const refreshDetail = useCallback(async () => {
+    if (!detail?.id) return;
+    try {
+      const full = await adminApi<AdminUser>(`/admin/users/${detail.id}`);
+      setDetail(full);
+      // Also update the row in the list so the avatar / badges stay fresh.
+      setItems((prev) =>
+        prev.map((u) => (u.id === full.id ? { ...u, ...full } : u)),
+      );
+    } catch {
+      // silent
+    }
+  }, [detail?.id]);
+
+  // ---- Action: Suspend / Reactivate ---------------------------------------
+  const onSuspend = () => {
+    setPrompt({
+      visible: true,
+      kind: "suspend",
+      title: "Suspend account",
+      label: "Reason (visible only to admins)",
+      reason: "",
+      delta: "",
+    });
+  };
+
+  const submitSuspend = async () => {
+    if (!detail || prompt.reason.trim().length < 4) {
+      show({ title: "Add a reason (min 4 chars)", kind: "error" });
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await adminApi(`/admin/users/${detail.id}/suspend`, {
+        method: "POST",
+        body: { reason: prompt.reason.trim() },
+      });
+      show({ title: "Account suspended", kind: "success" });
+      closePrompt();
+      await refreshDetail();
+    } catch (e: any) {
+      show({ title: e?.message || "Suspend failed", kind: "error" });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const onReactivate = async () => {
+    if (!detail) return;
+    const ok = await confirm({
+      title: "Reactivate account?",
+      message: "The buyer/seller will be able to sign in again immediately.",
+      confirmLabel: "Reactivate",
+    });
+    if (!ok) return;
+    setActionBusy(true);
+    try {
+      await adminApi(`/admin/users/${detail.id}/reactivate`, { method: "POST" });
+      show({ title: "Account reactivated", kind: "success" });
+      await refreshDetail();
+    } catch (e: any) {
+      show({ title: e?.message || "Reactivate failed", kind: "error" });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  // ---- Action: Reset 2FA --------------------------------------------------
+  const onReset2FA = async () => {
+    if (!detail) return;
+    const ok = await confirm({
+      title: "Reset two-factor authentication?",
+      message:
+        "The user will be able to sign in WITHOUT their authenticator app on the next login. Only do this after verifying their identity.",
+      confirmLabel: "Reset 2FA",
+      destructive: true,
+    });
+    if (!ok) return;
+    setActionBusy(true);
+    try {
+      await adminApi(`/admin/users/${detail.id}/reset-2fa`, { method: "POST" });
+      show({ title: "2FA disabled", kind: "success" });
+      await refreshDetail();
+    } catch (e: any) {
+      show({ title: e?.message || "Reset failed", kind: "error" });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  // ---- Action: Points adjust ---------------------------------------------
+  const onPointsAdjust = () => {
+    setPrompt({
+      visible: true,
+      kind: "points",
+      title: "Adjust loyalty points",
+      label: "Reason (visible in the ledger)",
+      reason: "",
+      delta: "",
+    });
+  };
+
+  const submitPointsAdjust = async () => {
+    if (!detail) return;
+    const delta = parseInt(prompt.delta, 10);
+    if (!Number.isFinite(delta) || delta === 0) {
+      show({ title: "Enter a non-zero delta", kind: "error" });
+      return;
+    }
+    if (prompt.reason.trim().length < 4) {
+      show({ title: "Add a reason (min 4 chars)", kind: "error" });
+      return;
+    }
+    setActionBusy(true);
+    try {
+      const res = await adminApi<{ balance: number }>(
+        `/admin/users/${detail.id}/points-adjust`,
+        {
+          method: "POST",
+          body: { delta, reason: prompt.reason.trim() },
+        },
+      );
+      show({
+        title: `${delta > 0 ? "Credited" : "Debited"} ${Math.abs(delta)} pts`,
+        body: `New balance: ${res.balance}`,
+        kind: "success",
+      });
+      closePrompt();
+      await refreshDetail();
+    } catch (e: any) {
+      show({ title: e?.message || "Adjustment failed", kind: "error" });
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
 
   // 400ms debounce on the search input
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -212,7 +395,7 @@ export default function AdminUsersScreen() {
         <Pressable
           testID={`admin-user-row-${item.id}`}
           style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
-          onPress={() => setDetail(item)}
+          onPress={() => openDetail(item)}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -283,7 +466,7 @@ export default function AdminUsersScreen() {
         </Pressable>
       );
     },
-    [],
+    [openDetail],
   );
 
   return (
@@ -482,8 +665,156 @@ export default function AdminUsersScreen() {
                 <Text style={styles.detailIdHint}>
                   ID: {detail.id}
                 </Text>
+
+                {/* Suspension banner */}
+                {detail.is_suspended ? (
+                  <View style={styles.suspendBanner} testID="user-suspended-banner">
+                    <ShieldOff size={14} color={colors.error} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.suspendTitle}>Account suspended</Text>
+                      {detail.suspend_reason ? (
+                        <Text style={styles.suspendReason} numberOfLines={3}>
+                          {detail.suspend_reason}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Admin actions */}
+                <View style={styles.actionsHead}>
+                  <Text style={styles.actionsHeadText}>Admin actions</Text>
+                </View>
+                <View style={styles.actionsGrid}>
+                  {detail.is_suspended ? (
+                    <Pressable
+                      testID="admin-user-reactivate-btn"
+                      disabled={actionBusy}
+                      onPress={onReactivate}
+                      style={[styles.actionBtn, styles.actionPrimary, actionBusy && { opacity: 0.6 }]}
+                    >
+                      <PlayCircle size={14} color="#fff" />
+                      <Text style={styles.actionPrimaryText}>Reactivate</Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      testID="admin-user-suspend-btn"
+                      disabled={actionBusy}
+                      onPress={onSuspend}
+                      style={[styles.actionBtn, styles.actionDanger, actionBusy && { opacity: 0.6 }]}
+                    >
+                      <PowerOff size={14} color={colors.error} />
+                      <Text style={styles.actionDangerText}>Suspend</Text>
+                    </Pressable>
+                  )}
+
+                  <Pressable
+                    testID="admin-user-reset-2fa-btn"
+                    disabled={actionBusy || !detail.two_factor_enabled}
+                    onPress={onReset2FA}
+                    style={[
+                      styles.actionBtn,
+                      styles.actionSecondary,
+                      (actionBusy || !detail.two_factor_enabled) && { opacity: 0.5 },
+                    ]}
+                  >
+                    <KeyRound size={14} color={colors.text} />
+                    <Text style={styles.actionSecondaryText}>
+                      {detail.two_factor_enabled ? "Reset 2FA" : "2FA off"}
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    testID="admin-user-points-adjust-btn"
+                    disabled={actionBusy}
+                    onPress={onPointsAdjust}
+                    style={[styles.actionBtn, styles.actionSecondary, actionBusy && { opacity: 0.6 }]}
+                  >
+                    <Coins size={14} color={colors.text} />
+                    <Text style={styles.actionSecondaryText}>Adjust points</Text>
+                  </Pressable>
+                </View>
               </View>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Prompt Modal — captures reason / delta for suspend & points actions */}
+      <Modal
+        visible={prompt.visible}
+        animationType="fade"
+        transparent
+        onRequestClose={closePrompt}
+      >
+        <View style={styles.modalScrim}>
+          <View style={[styles.modalCard, { padding: spacing.lg }]}>
+            <View style={styles.modalHead}>
+              <Text style={styles.modalTitle}>{prompt.title}</Text>
+              <Pressable onPress={closePrompt} testID="admin-user-prompt-close" hitSlop={8}>
+                <X size={20} color={colors.textMuted} />
+              </Pressable>
+            </View>
+
+            {prompt.kind === "points" ? (
+              <>
+                <Text style={styles.promptLabel}>Delta (+credit / −debit)</Text>
+                <TextInput
+                  testID="admin-user-prompt-delta"
+                  keyboardType="numbers-and-punctuation"
+                  value={prompt.delta}
+                  onChangeText={(v) =>
+                    setPrompt((p) => ({ ...p, delta: v.replace(/[^\d-]/g, "") }))
+                  }
+                  placeholder="e.g. 500 or -100"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.promptInput}
+                />
+              </>
+            ) : null}
+
+            <Text style={styles.promptLabel}>{prompt.label}</Text>
+            <TextInput
+              testID="admin-user-prompt-reason"
+              value={prompt.reason}
+              onChangeText={(v) => setPrompt((p) => ({ ...p, reason: v }))}
+              placeholder="Why are you doing this?"
+              placeholderTextColor={colors.textFaint}
+              multiline
+              style={[styles.promptInput, { minHeight: 70, textAlignVertical: "top" }]}
+              maxLength={240}
+            />
+
+            <View style={styles.promptActions}>
+              <Pressable
+                onPress={closePrompt}
+                style={[styles.actionBtn, styles.actionSecondary, { flex: 1 }]}
+                testID="admin-user-prompt-cancel"
+              >
+                <Text style={styles.actionSecondaryText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                disabled={actionBusy}
+                onPress={
+                  prompt.kind === "suspend"
+                    ? submitSuspend
+                    : submitPointsAdjust
+                }
+                style={[
+                  styles.actionBtn,
+                  styles.actionPrimary,
+                  { flex: 1 },
+                  actionBusy && { opacity: 0.6 },
+                ]}
+                testID="admin-user-prompt-submit"
+              >
+                {actionBusy ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.actionPrimaryText}>Confirm</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </View>
       </Modal>
@@ -705,5 +1036,86 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: "monospace",
     marginTop: 8,
+  },
+
+  // Suspension banner
+  suspendBanner: {
+    marginTop: spacing.sm,
+    padding: 12,
+    borderRadius: radius.md,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  suspendTitle: { color: colors.error, fontWeight: "800", fontSize: 12 },
+  suspendReason: { color: "#7F1D1D", fontSize: 11, marginTop: 2 },
+
+  // Admin actions
+  actionsHead: { marginTop: spacing.md, marginBottom: spacing.xs },
+  actionsHeadText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.textMuted,
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  actionsGrid: {
+    flexDirection: "row",
+    gap: 6,
+    flexWrap: "wrap",
+  },
+  actionBtn: {
+    flexGrow: 1,
+    minWidth: "30%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+  },
+  actionPrimary: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  actionPrimaryText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  actionSecondary: {
+    backgroundColor: "#fff",
+    borderColor: colors.border,
+  },
+  actionSecondaryText: { color: colors.text, fontWeight: "800", fontSize: 12 },
+  actionDanger: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+  },
+  actionDangerText: { color: colors.error, fontWeight: "800", fontSize: 12 },
+
+  // Prompt modal
+  promptLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: "700",
+    marginTop: spacing.sm,
+    marginBottom: 4,
+    letterSpacing: 0.2,
+  },
+  promptInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 10,
+    color: colors.text,
+    fontSize: 13,
+    backgroundColor: "#fff",
+  },
+  promptActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: spacing.md,
   },
 });
