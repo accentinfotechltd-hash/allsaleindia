@@ -1761,6 +1761,34 @@ const hi = {
     join_btn: "जुड़ने के लिए आवेदन करें",
     join_footnote_prefix: "मुफ़्त · कोई न्यूनतम नहीं · निकासी:\n",
   },
+  buyer_chat: {
+    fallback_partner: "चैट",
+    about_prefix: "{{name}} के बारे में",
+    say_hi: "नमस्ते कहें 👋",
+    type_placeholder: "संदेश लिखें…",
+  },
+  buyer_checkout_status: {
+    paid_title: "भुगतान सफल",
+    paid_sub: "आपका ऑर्डर पुष्ट है और भारत से आपके NZ दरवाज़े तक आ रहा है।",
+    view_order_btn: "ऑर्डर देखें",
+    continue_shopping_btn: "खरीदारी जारी रखें",
+    unpaid_title: "भुगतान पूरा नहीं हुआ",
+    unpaid_sub: "हमें भुगतान की पुष्टि नहीं मिली। आपका कार्ट सहेजा गया है — जब तैयार हों पुनः प्रयास करें।",
+    back_to_cart_btn: "कार्ट पर वापस",
+    confirming_title: "भुगतान सत्यापित कर रहे हैं…",
+    confirming_sub: "Stripe के साथ भुगतान सत्यापित करते समय कृपया प्रतीक्षा करें।",
+    attempt_count: "प्रयास {{tries}} / {{max}}",
+  },
+  buyer_country: {
+    hero_title: "Allsale में आपका स्वागत है",
+    hero_sub: "भारत से प्रामाणिक उत्पाद, दुनिया भर डिलीवर। सही कीमत और शिपिंग के लिए अपना देश चुनें।",
+    detected_label: "आप यहाँ हैं",
+    detected_meta: "{{currency}} में कीमतें · शिपिंग {{ship}}",
+    or_other_region: "या किसी अन्य क्षेत्र से खरीदें",
+    choose_region: "अपना क्षेत्र चुनें",
+    app_banner_title: "Allsale ऐप डाउनलोड करें",
+    app_banner_sub: "तेज़ चेकआउट · ऑर्डर ट्रैकिंग · विशेष ऑफ़र",
+  },
 };
 
 export default hi;

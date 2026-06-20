@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pre
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -14,6 +15,7 @@ type Thread = { conversation: Conv; messages: Msg[] };
 
 export default function ChatThreadScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const [thread, setThread] = useState<Thread | null>(null);
@@ -26,8 +28,8 @@ export default function ChatThreadScreen() {
   const load = useCallback(async () => {
     if (!id) return;
     try {
-      const t = await api<Thread>(`/chat/conversations/${id}`);
-      setThread(t);
+      const data = await api<Thread>(`/chat/conversations/${id}`);
+      setThread(data);
     } finally { setLoading(false); }
   }, [id]);
 
@@ -54,8 +56,8 @@ export default function ChatThreadScreen() {
       <View style={styles.header}>
         <Pressable testID="chat-back" onPress={() => router.back()} style={styles.backBtn}><ChevronLeft size={22} color={colors.text} /></Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title} numberOfLines={1}>{partnerName || "Chat"}</Text>
-          {conv.product_name ? <Text style={styles.subtitle} numberOfLines={1}>about {conv.product_name}</Text> : null}
+          <Text style={styles.title} numberOfLines={1}>{partnerName || t("buyer_chat.fallback_partner")}</Text>
+          {conv.product_name ? <Text style={styles.subtitle} numberOfLines={1}>{t("buyer_chat.about_prefix", { name: conv.product_name })}</Text> : null}
         </View>
       </View>
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }} keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}>
@@ -75,10 +77,10 @@ export default function ChatThreadScreen() {
               </View>
             );
           }}
-          ListEmptyComponent={<View style={styles.empty}><MessageCircle size={32} color={colors.textFaint} /><Text style={styles.emptyText}>Say hi 👋</Text></View>}
+          ListEmptyComponent={<View style={styles.empty}><MessageCircle size={32} color={colors.textFaint} /><Text style={styles.emptyText}>{t("buyer_chat.say_hi")}</Text></View>}
         />
         <View style={styles.inputBar}>
-          <TextInput testID="chat-input" value={text} onChangeText={setText} placeholder="Type a message…" placeholderTextColor={colors.textFaint} style={styles.input} multiline maxLength={2000} />
+          <TextInput testID="chat-input" value={text} onChangeText={setText} placeholder={t("buyer_chat.type_placeholder")} placeholderTextColor={colors.textFaint} style={styles.input} multiline maxLength={2000} />
           <Pressable testID="chat-send" onPress={onSend} disabled={sending || !text.trim()} style={[styles.send, (!text.trim() || sending) && { opacity: 0.5 }]}>{sending ? <ActivityIndicator color="#fff" /> : <Send size={18} color="#fff" />}</Pressable>
         </View>
       </KeyboardAvoidingView>

@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -23,6 +24,7 @@ const POLL_MS = 2000;
 export default function CheckoutStatus() {
   const { session_id } = useLocalSearchParams<{ session_id: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const { refresh } = useCart();
   const [status, setStatus] = useState<Status | null>(null);
   const [tries, setTries] = useState(0);
@@ -72,23 +74,21 @@ export default function CheckoutStatus() {
             <View style={[styles.iconCircle, { backgroundColor: colors.successSoft }]}>
               <CheckCircle2 size={44} color={colors.success} strokeWidth={2} />
             </View>
-            <Text style={styles.title} testID="checkout-success-title">Payment successful</Text>
-            <Text style={styles.subtitle}>
-              Your order is confirmed and on its way from India to your NZ doorstep.
-            </Text>
+            <Text style={styles.title} testID="checkout-success-title">{t("buyer_checkout_status.paid_title")}</Text>
+            <Text style={styles.subtitle}>{t("buyer_checkout_status.paid_sub")}</Text>
             <Pressable
               testID="checkout-view-order-btn"
               onPress={() => router.replace(`/order/${status?.order_id}`)}
               style={styles.cta}
             >
-              <Text style={styles.ctaText}>View order</Text>
+              <Text style={styles.ctaText}>{t("buyer_checkout_status.view_order_btn")}</Text>
             </Pressable>
             <Pressable
               testID="checkout-continue-shopping-btn"
               onPress={() => router.replace("/(tabs)/home")}
               style={styles.secondaryBtn}
             >
-              <Text style={styles.secondaryText}>Continue shopping</Text>
+              <Text style={styles.secondaryText}>{t("buyer_checkout_status.continue_shopping_btn")}</Text>
             </Pressable>
           </>
         ) : isUnpaid ? (
@@ -96,16 +96,14 @@ export default function CheckoutStatus() {
             <View style={[styles.iconCircle, { backgroundColor: "#FEE2E2" }]}>
               <XCircle size={44} color={colors.error} strokeWidth={2} />
             </View>
-            <Text style={styles.title}>Payment not completed</Text>
-            <Text style={styles.subtitle}>
-              We didn&apos;t receive a payment confirmation. Your cart is still saved — try again whenever you&apos;re ready.
-            </Text>
+            <Text style={styles.title}>{t("buyer_checkout_status.unpaid_title")}</Text>
+            <Text style={styles.subtitle}>{t("buyer_checkout_status.unpaid_sub")}</Text>
             <Pressable
               testID="checkout-retry-btn"
               onPress={() => router.replace("/(tabs)/cart")}
               style={styles.cta}
             >
-              <Text style={styles.ctaText}>Back to cart</Text>
+              <Text style={styles.ctaText}>{t("buyer_checkout_status.back_to_cart_btn")}</Text>
             </Pressable>
           </>
         ) : (
@@ -113,10 +111,10 @@ export default function CheckoutStatus() {
             <View style={[styles.iconCircle, { backgroundColor: colors.surface }]}>
               <Clock size={44} color={colors.textMuted} strokeWidth={2} />
             </View>
-            <Text style={styles.title}>Confirming payment…</Text>
-            <Text style={styles.subtitle}>Please wait while we verify your payment with Stripe.</Text>
+            <Text style={styles.title}>{t("buyer_checkout_status.confirming_title")}</Text>
+            <Text style={styles.subtitle}>{t("buyer_checkout_status.confirming_sub")}</Text>
             <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
-            <Text style={styles.pollText}>Attempt {tries} of {MAX_POLLS}</Text>
+            <Text style={styles.pollText}>{t("buyer_checkout_status.attempt_count", { tries, max: MAX_POLLS })}</Text>
           </>
         )}
       </View>

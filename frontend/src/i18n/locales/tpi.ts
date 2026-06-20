@@ -1772,6 +1772,34 @@ const tpi = {
     join_btn: "Aplaim long joinim",
     join_footnote_prefix: "Fri long joinim · I no gat minimam · Tekewe long\n",
   },
+  buyer_chat: {
+    fallback_partner: "Chat",
+    about_prefix: "long {{name}}",
+    say_hi: "Tok hello 👋",
+    type_placeholder: "Raitim mesej…",
+  },
+  buyer_checkout_status: {
+    paid_title: "Peim i orait",
+    paid_sub: "Oda bilong yu i kompim na em i kam long India long doa bilong yu long NZ.",
+    view_order_btn: "Lukim oda",
+    continue_shopping_btn: "Wok long pem moa",
+    unpaid_title: "Peim i no pinis",
+    unpaid_sub: "Mipela i no kisim peim konfemesen. Kat bilong yu i stap — traim gen taim yu redi.",
+    back_to_cart_btn: "Bek long kat",
+    confirming_title: "Sekim peim…",
+    confirming_sub: "Plis wet taim mipela sekim peim wantaim Stripe.",
+    attempt_count: "Traim {{tries}} long {{max}}",
+  },
+  buyer_country: {
+    hero_title: "Welkam long Allsale",
+    hero_sub: "Tru samting long India, salim long olgeta hap. Makim kantri bilong yu long kisim stretpela pres na sip.",
+    detected_label: "Mipela painim yu i stap long",
+    detected_meta: "Pres long {{currency}} · Sip {{ship}}",
+    or_other_region: "O pem long narapela hap",
+    choose_region: "Makim hap bilong yu",
+    app_banner_title: "Kisim Allsale ap",
+    app_banner_sub: "Kwiktaim sekaut · Lukim oda · Spesol dil",
+  },
 };
 
 export default tpi;

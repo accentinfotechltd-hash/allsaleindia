@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ChevronRight, Globe2, Smartphone } from "lucide-react-native";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -33,6 +34,7 @@ const BASE_DOMAIN = "allsale.co.nz";
 
 export default function CountryPicker() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { setCountry } = useRegion();
   const [detected, setDetected] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,10 +86,8 @@ export default function CountryPicker() {
           <View style={styles.heroIcon}>
             <Globe2 size={28} color="#fff" />
           </View>
-          <Text style={styles.heroTitle}>Welcome to Allsale</Text>
-          <Text style={styles.heroSub}>
-            Authentic products from India, delivered worldwide. Pick your country to get the right prices and shipping.
-          </Text>
+          <Text style={styles.heroTitle}>{t("buyer_country.hero_title")}</Text>
+          <Text style={styles.heroSub}>{t("buyer_country.hero_sub")}</Text>
         </View>
 
         {loading ? (
@@ -96,7 +96,7 @@ export default function CountryPicker() {
           <>
             {detectedRegion ? (
               <>
-                <Text style={styles.sectionLabel}>We detected you're in</Text>
+                <Text style={styles.sectionLabel}>{t("buyer_country.detected_label")}</Text>
                 <Pressable
                   testID={`country-detected-${detectedRegion.code}`}
                   onPress={() => choose(detectedRegion)}
@@ -105,18 +105,14 @@ export default function CountryPicker() {
                   <Text style={styles.bigFlag}>{detectedRegion.flag}</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.bigName}>{detectedRegion.name}</Text>
-                    <Text style={styles.bigMeta}>
-                      Prices in {detectedRegion.currency} · Shipping {detectedRegion.ship}
-                    </Text>
+                    <Text style={styles.bigMeta}>{t("buyer_country.detected_meta", { currency: detectedRegion.currency, ship: detectedRegion.ship })}</Text>
                   </View>
                   <ChevronRight size={22} color="#fff" />
                 </Pressable>
               </>
             ) : null}
 
-            <Text style={styles.sectionLabel}>
-              {detectedRegion ? "Or shop from another region" : "Choose your region"}
-            </Text>
+            <Text style={styles.sectionLabel}>{detectedRegion ? t("buyer_country.or_other_region") : t("buyer_country.choose_region")}</Text>
             <View style={styles.grid}>
               {others.map((r) => (
                 <Pressable
@@ -135,8 +131,8 @@ export default function CountryPicker() {
             <View style={styles.appBanner}>
               <Smartphone size={20} color={colors.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.appBannerTitle}>Get the Allsale app</Text>
-                <Text style={styles.appBannerSub}>Faster checkout · Order tracking · Exclusive deals</Text>
+                <Text style={styles.appBannerTitle}>{t("buyer_country.app_banner_title")}</Text>
+                <Text style={styles.appBannerSub}>{t("buyer_country.app_banner_sub")}</Text>
               </View>
               <Pressable testID="app-ios" onPress={() => openStore("ios")} style={styles.storeBtn}>
                 <Text style={styles.storeBtnText}>iOS</Text>

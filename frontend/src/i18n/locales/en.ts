@@ -1769,6 +1769,34 @@ const en = {
     join_btn: "Apply to join",
     join_footnote_prefix: "Free to join · No minimums · Withdrawals from\n",
   },
+  buyer_chat: {
+    fallback_partner: "Chat",
+    about_prefix: "about {{name}}",
+    say_hi: "Say hi 👋",
+    type_placeholder: "Type a message…",
+  },
+  buyer_checkout_status: {
+    paid_title: "Payment successful",
+    paid_sub: "Your order is confirmed and on its way from India to your NZ doorstep.",
+    view_order_btn: "View order",
+    continue_shopping_btn: "Continue shopping",
+    unpaid_title: "Payment not completed",
+    unpaid_sub: "We didn't receive a payment confirmation. Your cart is still saved — try again whenever you're ready.",
+    back_to_cart_btn: "Back to cart",
+    confirming_title: "Confirming payment…",
+    confirming_sub: "Please wait while we verify your payment with Stripe.",
+    attempt_count: "Attempt {{tries}} of {{max}}",
+  },
+  buyer_country: {
+    hero_title: "Welcome to Allsale",
+    hero_sub: "Authentic products from India, delivered worldwide. Pick your country to get the right prices and shipping.",
+    detected_label: "We detected you're in",
+    detected_meta: "Prices in {{currency}} · Shipping {{ship}}",
+    or_other_region: "Or shop from another region",
+    choose_region: "Choose your region",
+    app_banner_title: "Get the Allsale app",
+    app_banner_sub: "Faster checkout · Order tracking · Exclusive deals",
+  },
 };
 
 export default en;
