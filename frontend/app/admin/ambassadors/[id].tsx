@@ -272,14 +272,14 @@ export default function AdminAmbassadorDetail() {
 
         {/* KPIs */}
         <View style={styles.kpiGrid}>
-          <Kpi label="Unpaid" value={`${amb.payout_currency} ${amb.unpaid_balance.toFixed(2)}`} accent />
-          <Kpi label="Lifetime" value={`${amb.payout_currency} ${amb.lifetime_commission.toFixed(2)}`} />
-          <Kpi label="Orders" value={String(amb.lifetime_orders)} />
-          <Kpi label="Sellers" value={String(amb.referred_sellers_count)} />
+          <Kpi label={t("admin_ambassador_detail.kpi_unpaid")} value={`${amb.payout_currency} ${amb.unpaid_balance.toFixed(2)}`} accent />
+          <Kpi label={t("admin_ambassador_detail.kpi_lifetime")} value={`${amb.payout_currency} ${amb.lifetime_commission.toFixed(2)}`} />
+          <Kpi label={t("admin_ambassador_detail.kpi_orders")} value={String(amb.lifetime_orders)} />
+          <Kpi label={t("admin_ambassador_detail.kpi_sellers")} value={String(amb.referred_sellers_count)} />
         </View>
 
         {/* Actions */}
-        <Text style={styles.sectionTitle}>Actions</Text>
+        <Text style={styles.sectionTitle}>{t("admin_ambassador_detail.section_actions")}</Text>
         <Pressable
           testID="admin-amb-mark-paid"
           disabled={amb.unpaid_balance <= 0 || busy === "pay"}
@@ -289,10 +289,10 @@ export default function AdminAmbassadorDetail() {
           <Wallet size={16} color="#fff" />
           <Text style={styles.payBtnText}>
             {busy === "pay"
-              ? "Processing…"
+              ? t("admin_ambassador_detail.processing")
               : amb.unpaid_balance > 0
-                ? `Mark ${amb.payout_currency} ${amb.unpaid_balance.toFixed(2)} paid`
-                : "No balance to pay"}
+                ? t("admin_ambassador_detail.mark_paid_btn", { currency: amb.payout_currency, amount: amb.unpaid_balance.toFixed(2) })
+                : t("admin_ambassador_detail.no_balance_btn")}
           </Text>
         </Pressable>
 
@@ -304,7 +304,7 @@ export default function AdminAmbassadorDetail() {
             style={[styles.unsuspendBtn, busy === "unsus" && { opacity: 0.5 }]}
           >
             <Check size={16} color="#fff" />
-            <Text style={styles.payBtnText}>Reactivate ambassador</Text>
+            <Text style={styles.payBtnText}>{t("admin_ambassador_detail.reactivate_btn")}</Text>
           </Pressable>
         ) : (
           <View style={styles.suspendCard}>
@@ -313,7 +313,7 @@ export default function AdminAmbassadorDetail() {
               style={styles.suspendInput}
               value={suspendReason}
               onChangeText={setSuspendReason}
-              placeholder="Reason (min 4 chars)…"
+              placeholder={t("admin_ambassador_detail.suspend_placeholder")}
               placeholderTextColor={colors.textFaint}
             />
             <Pressable
@@ -323,17 +323,19 @@ export default function AdminAmbassadorDetail() {
               style={[styles.suspendBtn, (busy === "sus" || suspendReason.trim().length < 4) && { opacity: 0.4 }]}
             >
               <AlertTriangle size={14} color="#fff" />
-              <Text style={styles.payBtnText}>Suspend</Text>
+              <Text style={styles.payBtnText}>{t("admin_ambassador_detail.suspend_btn")}</Text>
             </Pressable>
           </View>
         )}
 
         {/* Content moderation */}
         <Text style={styles.sectionTitle}>
-          Pending content {pending.length > 0 && `(${pending.length})`}
+          {pending.length > 0
+            ? t("admin_ambassador_detail.section_pending_count", { count: pending.length })
+            : t("admin_ambassador_detail.section_pending_content")}
         </Text>
         {pending.length === 0 ? (
-          <Text style={styles.emptyInline}>No pending submissions.</Text>
+          <Text style={styles.emptyInline}>{t("admin_ambassador_detail.no_pending_submissions")}</Text>
         ) : (
           pending.map((c) => (
             <ContentRow
@@ -347,7 +349,7 @@ export default function AdminAmbassadorDetail() {
 
         {reviewed.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Reviewed ({reviewed.length})</Text>
+            <Text style={styles.sectionTitle}>{t("admin_ambassador_detail.section_reviewed", { count: reviewed.length })}</Text>
             {reviewed.slice(0, 10).map((c) => (
               <ContentRow key={c.id} item={c} busy={false} onReview={() => {}} readOnly />
             ))}
