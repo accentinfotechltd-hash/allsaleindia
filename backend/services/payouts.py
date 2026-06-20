@@ -45,6 +45,25 @@ async def create_payouts_for_order(order_id: str) -> None:
     if not order:
         return
     by_seller: dict[str, dict] = {}
+
+    # Discounts (coupon + loyalty points) are shared with sellers proportionally
+    # to each line's contribution to the pre-coupon subtotal. This matches the
+    # industry-standard accounting used by Amazon, Etsy, eBay and Flipkart and
+    # prevents the platform from absorbing 100% of every coupon discount —
+    # which would turn aggressive promotions into negative-margin sales.
+    gross_pre_discount = sum(
+        float(it.get("price_nzd") or 0) * int(it.get("quantity") or 0)
+        for it in order.get("items", [])
+    )
+    coupon_discount = float(order.get("discount_nzd") or 0.0)
+    points_discount = float(order.get("points_discount_nzd") or 0.0)
+    total_discount = max(0.0, coupon_discount + points_discount)
+    discount_ratio = (total_discount / gross_pre_discount) if gross_pre_discount > 0 else 0.0
+    # Defensive clamp — a coupon ≥ the cart subtotal is impossible (the
+    # voucher engine caps at min_order_nzd) but cap at 100% just in case.
+    if discount_ratio > 1.0:
+        discount_ratio = 1.0
+
     for it in order.get("items", []):
         sid = it.get("seller_id")
         if not sid:
@@ -56,7 +75,11 @@ async def create_payouts_for_order(order_id: str) -> None:
             {"id": it["product_id"]}, {"_id": 0, "category": 1, "tags": 1}
         )
         bps = get_commission_bps_for_product(prod)
-        line_gross = float(it["price_nzd"]) * int(it["quantity"])
+        # Apply the proportional discount share to this line's gross so the
+        # seller's commission base is calculated from the buyer's actual paid
+        # amount, not the pre-coupon list price.
+        line_listed = float(it["price_nzd"]) * int(it["quantity"])
+        line_gross = round(line_listed * (1.0 - discount_ratio), 2)
         line_commission = round(line_gross * bps / 10000.0, 2)
         bucket = by_seller.setdefault(
             sid,

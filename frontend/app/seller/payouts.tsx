@@ -436,7 +436,7 @@ function Header({ onBack }: { onBack: () => void }) {
       <Pressable testID="payouts-back" onPress={onBack} style={styles.backBtn}>
         <ChevronLeft size={22} color={colors.text} />
       </Pressable>
-      <Text style={styles.title}>{t("payouts_screen.title")} & {t("payouts.tier_starter")}</Text>
+      <Text style={styles.title}>{t("payouts_screen.title")}</Text>
       <View style={{ width: 40 }} />
     </View>
   );

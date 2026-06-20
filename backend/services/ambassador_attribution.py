@@ -75,9 +75,16 @@ async def credit_pending_for_order(order_id: str) -> None:
     current_tier, _ = _resolve_tier(orders_30d)
     rate_pct = float(current_tier["rate_pct"])
 
-    # --- Commission base = order subtotal in NZD (canonical home currency).
-    # The ambassador's payout currency may differ — we store both for clarity.
-    subtotal_nzd = float(order.get("subtotal_nzd") or 0.0)
+    # --- Commission base = order subtotal AFTER coupon + loyalty discounts.
+    # Ambassador commission is computed from the buyer's ACTUAL paid amount
+    # rather than the pre-coupon list price — this keeps the give-away cost
+    # shared across the value chain (seller + platform + ambassador) and
+    # prevents stacked discounts from pushing the platform into negative-
+    # margin territory.
+    subtotal_listed = float(order.get("subtotal_nzd") or 0.0)
+    coupon_discount = float(order.get("discount_nzd") or 0.0)
+    points_discount = float(order.get("points_discount_nzd") or 0.0)
+    subtotal_nzd = max(0.0, subtotal_listed - coupon_discount - points_discount)
     if subtotal_nzd <= 0:
         return
 
