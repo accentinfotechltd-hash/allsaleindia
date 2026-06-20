@@ -425,3 +425,32 @@ Web agent should mirror the same flow at `/seller/import`. Backend endpoints are
 
 ### Env
 - `EMERGENT_LLM_KEY` added to `backend/.env` (required for AI enrichment; everything else still works without it).
+
+
+## AI Shopping Assistant (Claude Sonnet 4.5) — June 20, 2026
+Chat-with-the-store experience for buyers. Floating bubble on the home tab opens a full chat screen powered by Claude Sonnet 4.5 via the Emergent LLM Key.
+
+### Endpoints
+- `POST /api/assistant/chat` — body `{message, session_id?}` → `{session_id, reply, products[]}`. Auth optional (anonymous works, signed-in users get personalized context in future).
+- `GET  /api/assistant/sessions/{session_id}` — replay full chat history with hydrated product cards. Privacy: if `user_id` is set on the session, only the owner can view.
+
+### Strategy
+Single Claude call per turn, **grounded** by a pre-fetch over `db.products` using keyword + price filters extracted from the message. Top 6 catalog matches are injected into the system prompt under `CATALOG_MATCHES`. Reply + same 6 products returned to the client so the UI can render product cards inline. Sub-2s typical end-to-end latency.
+
+### Storage
+- `assistant_sessions`: `{id, user_id?, messages: [{role, content, product_ids[]}], created_at, updated_at}`.
+
+### Mobile UI
+- `src/components/AssistantFab.tsx` — floating ✨ "Ask" button placed bottom-right.
+- `app/assistant.tsx` — full chat screen with empty-state hero, 4 starter chips, scrollable message list, horizontal product card carousel inside assistant bubbles, multiline input + Send.
+- Session ID persisted to AsyncStorage so the chat survives app restarts. "Reset" button in header starts fresh.
+- Integrated into `app/(tabs)/home.tsx`.
+
+### Web parity
+Same endpoints work on web — agent should mirror the UX (FAB on landing + PDP, full chat at `/assistant`).
+
+### Tests
+- `backend/tests/test_assistant.py` — 9 cases (keyword extract, price filter, system prompt rendering, validation, 404, live E2E roundtrip, replay). All pass.
+
+### Env
+- Requires `EMERGENT_LLM_KEY` (already added during catalog importer work).

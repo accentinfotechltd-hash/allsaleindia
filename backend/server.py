@@ -30,6 +30,7 @@ from routers import (
     admin_commission,
     allsale_pro,
     ambassadors,
+    assistant,
     auth,
     auth_pwd_reset,
     auth_email_verify,
@@ -112,6 +113,7 @@ api.include_router(orders.router)
 api.include_router(invoices.router)
 api.include_router(site.router)
 api.include_router(ambassadors.router)
+api.include_router(assistant.router)
 api.include_router(checkout.router)
 api.include_router(returns.router)
 api.include_router(reviews.router)
