@@ -6,11 +6,17 @@ the RS256 identity token Apple hands the device, using their public JWKS.
 MongoDB collection used: ``apple_jwks_cache`` is **not** used; keys are kept
 in a module-level dict (sufficient for a single backend instance; if you
 scale horizontally, every replica fetches its own copy — still tiny).
+
+Configuration:
+  APPLE_BUNDLE_ID         — comma-separated list of allowed `aud` values
+                            (defaults to "com.allsale.shop,com.allsale.shop.signin").
+                            The first entry is treated as the canonical
+                            native-app audience for back-compat.
 """
 from __future__ import annotations
 
-import json
 import logging
+import os
 import time
 from typing import Any, Dict, Optional
 
@@ -23,15 +29,26 @@ logger = logging.getLogger("allsale.apple_auth")
 
 APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 APPLE_ISSUER = "https://appleid.apple.com"
-# Allowed audiences (Apple `aud` claim).  Add new ones here when we register
-# additional Service IDs (e.g. a separate Service ID per regional domain).
-#   • com.allsale.shop          — iOS native flow (App ID)
-#   • com.allsale.shop.signin   — web OIDC popup flow (Service ID)
-APPLE_AUDIENCE = "com.allsale.shop"  # kept for back-compat / legacy imports
-ALLOWED_APPLE_AUDIENCES: tuple[str, ...] = (
-    "com.allsale.shop",
-    "com.allsale.shop.signin",
-)
+
+
+def _load_allowed_audiences() -> tuple[str, ...]:
+    """Resolve allowed Apple `aud` values from env, with safe defaults.
+
+    Supports both the iOS native flow (App ID) and an optional web OIDC popup
+    flow (Service ID). Trim and dedupe entries; reject empty strings.
+    """
+    raw = os.getenv("APPLE_BUNDLE_ID") or "com.allsale.shop,com.allsale.shop.signin"
+    seen: list[str] = []
+    for part in raw.split(","):
+        v = part.strip()
+        if v and v not in seen:
+            seen.append(v)
+    return tuple(seen) or ("com.allsale.shop",)
+
+
+ALLOWED_APPLE_AUDIENCES: tuple[str, ...] = _load_allowed_audiences()
+# Kept for legacy imports — first entry is the canonical native-app audience.
+APPLE_AUDIENCE = ALLOWED_APPLE_AUDIENCES[0]
 JWKS_CACHE_SECONDS = 3600  # 1 hour
 
 _keys_by_kid: Dict[str, Any] = {}

@@ -169,13 +169,19 @@ async def apple_session(body: AppleSessionRequest, request: Request):
             # 3) brand-new user
             uid = f"user_{uuid.uuid4().hex[:12]}"
             country = _normalize_country(body.country, request)
+            # Apple usually returns `email` in the identity-token claim on the
+            # FIRST authorisation; on subsequent re-auths it may be omitted.
+            # When omitted, synthesise a stable opaque relay-style email so we
+            # never insert a user document with a NULL email (UserPublic
+            # validation requires a populated EmailStr).
+            safe_email = (apple_email or f"{apple_sub}@privaterelay.appleid.com").lower()
             full_name = (body.full_name or "").strip() or (
-                apple_email.split("@")[0] if apple_email else "Apple user"
+                safe_email.split("@")[0] if safe_email else "Apple user"
             )
             await db.users.insert_one(
                 {
                     "id": uid,
-                    "email": apple_email,
+                    "email": safe_email,
                     "apple_email": apple_email,
                     "apple_sub": apple_sub,
                     "full_name": full_name,
