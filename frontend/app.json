@@ -4,7 +4,7 @@
     "slug": "allsale-shop",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/allsale-logo.png",
+    "icon": "./assets/images/allsale-icon-store.png",
     "scheme": "allsale",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
