@@ -21,7 +21,7 @@ from models import (
     ChatThread,
     UnreadCount,
 )
-from utils import now_utc
+from utils import from_doc, now_utc
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -254,7 +254,7 @@ async def get_thread(
 
     messages: list[ChatMessage] = []
     async for m in db.chat_messages.find(q, {"_id": 0}).sort("created_at", 1):
-        messages.append(ChatMessage(**{k: m.get(k) for k in ChatMessage.model_fields.keys()}))
+        messages.append(from_doc(m, ChatMessage))
 
     # Mark current side's unread as 0 (the user opened the thread)
     self_field = _self_unread_field(role)
@@ -320,7 +320,7 @@ async def send_message(
         conv=conv, sender_id=current["id"], sender_role=role,
         sender_name=sender_name, body=body.body.strip(),
     )
-    return ChatMessage(**{k: msg.get(k) for k in ChatMessage.model_fields.keys()})
+    return from_doc(msg, ChatMessage)
 
 
 # ---------------------------------------------------------------------------

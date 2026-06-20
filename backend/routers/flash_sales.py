@@ -18,12 +18,15 @@ from services.flash_sales import (
     hydrate_with_products,
     list_currently_active,
 )
+from utils import from_doc
 
 router = APIRouter(tags=["flash-sales"])
 
 
 def _public(doc: dict) -> FlashSale:
-    return FlashSale(**{k: doc.get(k) for k in FlashSale.model_fields.keys()})
+    """Build the public FlashSale model, defaulting missing fields rather
+    than crashing if the underlying document predates a schema field."""
+    return from_doc(doc, FlashSale)
 
 
 # ---------------------------------------------------------------------------

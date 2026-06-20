@@ -14,11 +14,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { checkProhibited, NZ_FAQS, ProhibitedResult } from "@/src/lib/nz";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function ProhibitedChecker() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [text, setText] = useState("");
   const [result, setResult] = useState<ProhibitedResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,16 +40,14 @@ export default function ProhibitedChecker() {
         <Pressable testID="prohibited-back-btn" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Allowed in NZ?</Text>
+        <Text style={styles.title}>{t("buyer_prohibited.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.heroTitle}>Check if NZ MPI lets it in</Text>
-          <Text style={styles.heroSub}>
-            Type the product you want to ship from India. We&apos;ll tell you if it&apos;s allowed under NZ biosecurity rules.
-          </Text>
+          <Text style={styles.heroTitle}>{t("buyer_prohibited.hero_title")}</Text>
+          <Text style={styles.heroSub}>{t("buyer_prohibited.hero_sub")}</Text>
 
           <View style={styles.inputRow}>
             <Search size={18} color={colors.textMuted} />
@@ -55,7 +55,7 @@ export default function ProhibitedChecker() {
               testID="prohibited-input"
               value={text}
               onChangeText={setText}
-              placeholder="e.g. homemade laddu, sealed pickle…"
+              placeholder={t("buyer_prohibited.placeholder")}
               placeholderTextColor={colors.textFaint}
               style={styles.input}
               autoCorrect={false}
@@ -72,7 +72,7 @@ export default function ProhibitedChecker() {
               (busy || !text.trim()) && { opacity: 0.5 },
             ]}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Check this item</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("buyer_prohibited.check_btn")}</Text>}
           </Pressable>
 
           {result ? (
@@ -80,7 +80,7 @@ export default function ProhibitedChecker() {
               <View style={[styles.resultCard, { backgroundColor: colors.successSoft }]} testID="prohibited-result-allowed">
                 <CheckCircle2 size={22} color={colors.success} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.resultTitle, { color: colors.success }]}>Allowed</Text>
+                  <Text style={[styles.resultTitle, { color: colors.success }]}>{t("buyer_prohibited.allowed")}</Text>
                   <Text style={styles.resultBody}>{result.advice}</Text>
                 </View>
               </View>
@@ -88,11 +88,11 @@ export default function ProhibitedChecker() {
               <View style={[styles.resultCard, { backgroundColor: "#FEE2E2" }]} testID="prohibited-result-banned">
                 <AlertTriangle size={22} color={colors.error} />
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.resultTitle, { color: colors.error }]}>Banned by NZ MPI</Text>
+                  <Text style={[styles.resultTitle, { color: colors.error }]}>{t("buyer_prohibited.banned")}</Text>
                   <Text style={styles.resultBody}>{result.reason}</Text>
                   <Text style={[styles.resultBody, { marginTop: 4 }]}>{result.advice}</Text>
                   {result.matched_term ? (
-                    <Text style={styles.resultMatched}>Matched: “{result.matched_term}”</Text>
+                    <Text style={styles.resultMatched}>{t("buyer_prohibited.matched_prefix", { term: result.matched_term })}</Text>
                   ) : null}
                 </View>
               </View>
@@ -102,14 +102,12 @@ export default function ProhibitedChecker() {
           <View style={styles.commonBanned}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
               <ShieldCheck size={14} color={colors.text} />
-              <Text style={styles.commonTitle}>COMMON NZ MPI BANS</Text>
+              <Text style={styles.commonTitle}>{t("buyer_prohibited.common_title")}</Text>
             </View>
-            <Text style={styles.commonBody}>
-              Homemade food · Dairy (ghee, milk powder, cheese, butter) · Meat (beef, chicken, mutton) · Fresh fruit & vegetables · Seeds · Honey · Live plants · Soil
-            </Text>
+            <Text style={styles.commonBody}>{t("buyer_prohibited.common_body")}</Text>
           </View>
 
-          <Text style={styles.faqTitle}>FAQ</Text>
+          <Text style={styles.faqTitle}>{t("buyer_prohibited.faq_title")}</Text>
           {NZ_FAQS.map((f, i) => (
             <View key={i} style={styles.faqRow}>
               <Text style={styles.faqQ}>{f.q}</Text>

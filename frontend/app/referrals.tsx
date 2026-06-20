@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -37,6 +38,7 @@ type Me = {
 };
 
 export default function ReferralsScreen() {
+  const { t } = useTranslation();
   const toast = useToast();
   const router = useRouter();
   const [data, setData] = useState<Me | null>(null);
@@ -64,9 +66,9 @@ export default function ReferralsScreen() {
         // @ts-ignore
         await navigator.clipboard.writeText(data.code);
       }
-      toast.show({ title: "Code copied!", body: `${data.code} is ready to paste.`, kind: "success" });
+      toast.show({ title: t("buyer_referrals_simple.code_copied_title"), body: t("buyer_referrals_simple.code_copied_body", { code: data.code }), kind: "success" });
     } catch {
-      toast.show({ title: "Your code", body: data.code, kind: "success" });
+      toast.show({ title: t("buyer_referrals_simple.your_code_title"), body: data.code, kind: "success" });
     }
   };
 
@@ -75,7 +77,7 @@ export default function ReferralsScreen() {
     try {
       await Share.share({ message: data.share_message });
     } catch (e: any) {
-      toast.show({ title: "Couldn't share", body: e?.message || "Try again.", kind: "error" });
+      toast.show({ title: t("buyer_referrals_simple.couldnt_share"), body: e?.message || t("buyer_referrals_simple.try_again"), kind: "error" });
     }
   };
 
@@ -96,7 +98,7 @@ export default function ReferralsScreen() {
         <Pressable testID="ref-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Invite friends</Text>
+        <Text style={styles.title}>{t("buyer_referrals_simple.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -105,24 +107,21 @@ export default function ReferralsScreen() {
           <View style={styles.heroIcon}>
             <Gift size={28} color="#fff" />
           </View>
-          <Text style={styles.heroTitle}>Give pts. Get pts.</Text>
-          <Text style={styles.heroSub}>
-            Share your code with friends. They get +{data.referee_reward_pts} pts.
-            You get +{data.referrer_reward_pts} pts when their first order ships.
-          </Text>
+          <Text style={styles.heroTitle}>{t("buyer_referrals_simple.hero_title")}</Text>
+          <Text style={styles.heroSub}>{t("buyer_referrals_simple.hero_sub", { rewardee: data.referee_reward_pts, referrer: data.referrer_reward_pts })}</Text>
         </View>
 
         <View style={styles.codeCard}>
-          <Text style={styles.codeLabel}>Your code</Text>
+          <Text style={styles.codeLabel}>{t("buyer_referrals_simple.your_code_label")}</Text>
           <Text style={styles.codeValue} testID="ref-code">{data.code}</Text>
           <View style={styles.actionsRow}>
             <Pressable testID="ref-copy" onPress={onCopy} style={styles.copyBtn}>
               <Copy size={14} color={colors.primary} />
-              <Text style={styles.copyText}>Copy code</Text>
+              <Text style={styles.copyText}>{t("buyer_referrals_simple.copy_btn")}</Text>
             </Pressable>
             <Pressable testID="ref-share" onPress={onShare} style={styles.shareBtn}>
               <Share2 size={14} color="#fff" />
-              <Text style={styles.shareText}>Share invite</Text>
+              <Text style={styles.shareText}>{t("buyer_referrals_simple.share_btn")}</Text>
             </Pressable>
           </View>
         </View>
@@ -130,31 +129,29 @@ export default function ReferralsScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statBig}>{data.total_referred}</Text>
-            <Text style={styles.statLabel}>Invited</Text>
+            <Text style={styles.statLabel}>{t("buyer_referrals_simple.stat_invited")}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={[styles.statBig, { color: "#10B981" }]}>{data.total_rewarded}</Text>
-            <Text style={styles.statLabel}>Rewarded</Text>
+            <Text style={styles.statLabel}>{t("buyer_referrals_simple.stat_rewarded")}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={[styles.statBig, { color: "#7C3AED" }]}>+{data.pts_earned}</Text>
-            <Text style={styles.statLabel}>Points earned</Text>
+            <Text style={styles.statLabel}>{t("buyer_referrals_simple.stat_points")}</Text>
           </View>
         </View>
 
-        <Text style={styles.histTitle}>History</Text>
+        <Text style={styles.histTitle}>{t("buyer_referrals_simple.history")}</Text>
         {data.history.length === 0 ? (
           <View style={styles.empty}>
             <UserPlus size={28} color={colors.textFaint} />
-            <Text style={styles.emptyText}>
-              No invites yet. Share your code to start earning! ✨
-            </Text>
+            <Text style={styles.emptyText}>{t("buyer_referrals_simple.empty")}</Text>
           </View>
         ) : (
           data.history.map((h) => (
             <View key={h.id} style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.rowName}>{h.referee_name || "A friend"}</Text>
+                <Text style={styles.rowName}>{h.referee_name || t("buyer_referrals_simple.a_friend")}</Text>
                 <Text style={styles.rowDate}>
                   {new Date(h.created_at).toLocaleDateString()}
                 </Text>
@@ -166,7 +163,7 @@ export default function ReferralsScreen() {
                 ]}
               >
                 <Text style={styles.statusText}>
-                  {h.status === "rewarded" ? `+${h.pts_referrer} pts` : h.status === "expired" ? "Expired" : "Pending"}
+                  {h.status === "rewarded" ? t("buyer_referrals_simple.status_rewarded", { pts: h.pts_referrer }) : h.status === "expired" ? t("buyer_referrals_simple.status_expired") : t("buyer_referrals_simple.status_pending")}
                 </Text>
               </View>
             </View>

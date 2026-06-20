@@ -16,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { setToken } from "@/src/lib/api";
 import {
   COUNTRY_LABELS,
@@ -31,6 +32,7 @@ export default function AmbassadorJoin() {
   const router = useRouter();
   const toast = useToast();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [config, setConfig] = useState<ProgramConfig | null>(null);
 
   // Pre-fill from logged-in user if available.
@@ -57,11 +59,11 @@ export default function AmbassadorJoin() {
 
   const onSubmit = async () => {
     if (name.trim().length < 2) {
-      toast.show({ title: "Name is required", kind: "error" });
+      toast.show({ title: t("ambassadors_join.err_name"), kind: "error" });
       return;
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      toast.show({ title: "Enter a valid email", kind: "error" });
+      toast.show({ title: t("ambassadors_join.err_email"), kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -76,16 +78,16 @@ export default function AmbassadorJoin() {
       // Persist the token so /ambassadors/dashboard's GET /me succeeds.
       await setToken(res.access_token);
       toast.show({
-        title: "Welcome aboard! 🎉",
+        title: t("ambassadors_join.welcome_title"),
         body: res.needs_password_setup
-          ? "Set a password from Settings to log back in on another device."
-          : "You're now an Allsale Ambassador.",
+          ? t("ambassadors_join.welcome_set_password")
+          : t("ambassadors_join.welcome_done"),
         kind: "success",
       });
       router.replace("/ambassadors/dashboard");
     } catch (e: any) {
-      const msg = e?.message || "Couldn't enrol. Please try again.";
-      toast.show({ title: "Sign-up failed", body: msg, kind: "error" });
+      const msg = e?.message || t("ambassadors_join.fail_default");
+      toast.show({ title: t("ambassadors_join.fail_title"), body: msg, kind: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -97,7 +99,7 @@ export default function AmbassadorJoin() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Apply to join</Text>
+        <Text style={styles.headerTitle}>{t("ambassadors_join.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -106,37 +108,35 @@ export default function AmbassadorJoin() {
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <Text style={styles.lead}>
-            Tell us a little about you. We&apos;ll generate your code instantly.
-          </Text>
+          <Text style={styles.lead}>{t("ambassadors_join.lead")}</Text>
 
           {/* Name */}
-          <Text style={styles.label}>Your name</Text>
+          <Text style={styles.label}>{t("ambassadors_join.label_name")}</Text>
           <TextInput
             testID="amb-name"
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="Sarah Jenkins"
+            placeholder={t("ambassadors_join.placeholder_name")}
             autoCapitalize="words"
             placeholderTextColor={colors.textFaint}
           />
 
           {/* Email */}
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t("ambassadors_join.label_email")}</Text>
           <TextInput
             testID="amb-email"
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            placeholder="sarah@example.com"
+            placeholder={t("ambassadors_join.placeholder_email")}
             autoCapitalize="none"
             keyboardType="email-address"
             placeholderTextColor={colors.textFaint}
           />
 
           {/* Country chips */}
-          <Text style={styles.label}>Country</Text>
+          <Text style={styles.label}>{t("ambassadors_join.label_country")}</Text>
           <View style={styles.countryWrap}>
             {eligibleCountries.map((c) => (
               <Pressable
@@ -159,28 +159,29 @@ export default function AmbassadorJoin() {
 
           {isIndia && (
             <View style={styles.indiaBanner}>
-              <Text style={styles.indiaBannerTitle}>🇮🇳  Dual code for India</Text>
+              <Text style={styles.indiaBannerTitle}>
+                {t("ambassadors_join.india_banner_title")}
+              </Text>
               <Text style={styles.indiaBannerText}>
-                You&apos;ll get a customer code (₹5% off + 5% commission) AND a seller-recruit code
-                (₹5K bounty + 10% rev-share). Drive sales abroad and sellers at home.
+                {t("ambassadors_join.india_banner_text")}
               </Text>
             </View>
           )}
 
           {/* Social handle */}
-          <Text style={styles.label}>Social handle (optional)</Text>
+          <Text style={styles.label}>{t("ambassadors_join.label_social")}</Text>
           <TextInput
             testID="amb-handle"
             style={styles.input}
             value={socialHandle}
             onChangeText={setSocialHandle}
-            placeholder="@sarahjenkins"
+            placeholder={t("ambassadors_join.placeholder_social")}
             autoCapitalize="none"
             placeholderTextColor={colors.textFaint}
           />
 
           {/* Primary platform */}
-          <Text style={styles.label}>Primary platform</Text>
+          <Text style={styles.label}>{t("ambassadors_join.label_platform")}</Text>
           <View style={styles.platformWrap}>
             {(["instagram", "tiktok", "youtube", "facebook", "other"] as Platform_[]).map(
               (p) => (
@@ -196,7 +197,7 @@ export default function AmbassadorJoin() {
                       platform === p && styles.platformChipTextActive,
                     ]}
                   >
-                    {p[0].toUpperCase() + p.slice(1)}
+                    {t(`ambassadors_join.platform_${p}`)}
                   </Text>
                 </Pressable>
               )
@@ -212,13 +213,10 @@ export default function AmbassadorJoin() {
             {submitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.submitText}>Join now</Text>
+              <Text style={styles.submitText}>{t("ambassadors_join.submit_btn")}</Text>
             )}
           </Pressable>
-          <Text style={styles.disclaimer}>
-            By joining you agree to the Ambassador Programme T&amp;Cs.
-            Codes are unique and stable — once issued they don&apos;t change.
-          </Text>
+          <Text style={styles.disclaimer}>{t("ambassadors_join.disclaimer")}</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

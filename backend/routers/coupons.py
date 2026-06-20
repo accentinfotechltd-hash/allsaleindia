@@ -20,7 +20,7 @@ from models import (
 from services.cart import hydrate_cart
 from services.coupons import find_coupon, validate_for_cart
 from services.welcome_coupon import get_welcome_coupon_for_user
-from utils import now_utc
+from utils import from_doc, now_utc
 
 router = APIRouter(tags=["coupons"])
 
@@ -32,19 +32,8 @@ def _norm_code(code: str) -> str:
     return (code or "").strip().upper().replace(" ", "")
 
 
-def _from_doc(doc: dict, model_cls):
-    """Build a Pydantic model from a Mongo doc, dropping None values so
-    field defaults (e.g. ``first_order_only: bool = False``) kick in
-    instead of failing validation when older docs miss the field.
-    """
-    payload = {
-        k: doc.get(k) for k in model_cls.model_fields.keys() if doc.get(k) is not None
-    }
-    return model_cls(**payload)
-
-
 def _coupon_public(doc: dict) -> Coupon:
-    return _from_doc(doc, Coupon)
+    return from_doc(doc, Coupon)
 
 
 # ---------------------------------------------------------------------------
@@ -104,7 +93,7 @@ async def list_active_coupons(current=Depends(get_current_user)):
         if isinstance(limit, int) and limit > 0 and c.get("used_count", 0) >= limit:
             continue
         docs.append(c)
-    return [_from_doc(d, CouponPublic) for d in docs]
+    return [from_doc(d, CouponPublic) for d in docs]
 
 
 @router.get("/coupons/welcome", response_model=Optional[CouponPublic])
@@ -121,7 +110,7 @@ async def get_my_welcome_coupon(current=Depends(get_current_user)):
         cc = (current.get("country") or "").upper()
         if cc not in {c.upper() for c in countries}:
             return None
-    return _from_doc(coupon, CouponPublic)
+    return from_doc(coupon, CouponPublic)
 
 
 # ---------------------------------------------------------------------------

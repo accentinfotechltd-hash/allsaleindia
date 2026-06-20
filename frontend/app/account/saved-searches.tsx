@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -29,6 +30,7 @@ type SavedSearch = {
 
 export default function SavedSearchesScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
   const confirm = useConfirm();
   const [items, setItems] = useState<SavedSearch[]>([]);
@@ -71,18 +73,18 @@ export default function SavedSearchesScreen() {
 
   const onDelete = async (s: SavedSearch) => {
     const ok = await confirm({
-      title: `Delete "${s.name}"?`,
-      message: "You can save it again any time.",
-      confirmLabel: "Delete",
+      title: t("buyer_saved_searches.delete_title", { name: s.name }),
+      message: t("buyer_saved_searches.delete_msg"),
+      confirmLabel: t("buyer_saved_searches.delete_btn"),
       destructive: true,
     });
     if (!ok) return;
     try {
       await api(`/me/saved-searches/${s.id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((x) => x.id !== s.id));
-      show({ title: "Removed", kind: "success" });
+      show({ title: t("buyer_saved_searches.removed_toast"), kind: "success" });
     } catch (e: any) {
-      show({ title: e?.message || "Delete failed", kind: "error" });
+      show({ title: e?.message || t("buyer_saved_searches.delete_failed"), kind: "error" });
     }
   };
 
@@ -97,7 +99,7 @@ export default function SavedSearchesScreen() {
         prev.map((x) => (x.id === s.id ? { ...x, notify: next } : x)),
       );
     } catch (e: any) {
-      show({ title: e?.message || "Update failed", kind: "error" });
+      show({ title: e?.message || t("buyer_saved_searches.update_failed"), kind: "error" });
     }
   };
 
@@ -112,7 +114,7 @@ export default function SavedSearchesScreen() {
         >
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Saved searches</Text>
+        <Text style={styles.title}>{t("buyer_saved_searches.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -123,11 +125,8 @@ export default function SavedSearchesScreen() {
       ) : items.length === 0 ? (
         <View style={styles.center}>
           <Search size={36} color={colors.textMuted} />
-          <Text style={styles.emptyTitle}>No saved searches yet</Text>
-          <Text style={styles.emptyBody}>
-            Apply filters on any category page and tap "Save this search" to
-            re-launch it in one tap.
-          </Text>
+          <Text style={styles.emptyTitle}>{t("buyer_saved_searches.empty_title")}</Text>
+          <Text style={styles.emptyBody}>{t("buyer_saved_searches.empty_body")}</Text>
         </View>
       ) : (
         <FlatList

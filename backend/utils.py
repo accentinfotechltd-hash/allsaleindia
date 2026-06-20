@@ -186,6 +186,21 @@ def compute_cart_totals(items_with_products: List[dict]) -> CartView:
     )
 
 
+def from_doc(doc: dict, model_cls):
+    """Build a Pydantic model from a Mongo doc, dropping ``None`` values so
+    that field defaults (e.g. ``first_order_only: bool = False``) kick in
+    instead of failing validation when older docs are missing the field.
+
+    Centralised here so every router uses the same defensive constructor.
+    """
+    payload = {
+        k: doc.get(k)
+        for k in model_cls.model_fields.keys()
+        if doc.get(k) is not None
+    }
+    return model_cls(**payload)
+
+
 def clean_string_list(values: Optional[List[str]], limit: int) -> List[str]:
     """Dedupe (case-insensitive, preserve original order) + trim empties."""
     seen: set[str] = set()

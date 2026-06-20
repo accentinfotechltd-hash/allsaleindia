@@ -32,7 +32,7 @@ from models import (
     ReviewsPage,
 )
 from services.notifications import create_notification
-from utils import now_utc
+from utils import from_doc, now_utc
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -46,8 +46,12 @@ MAX_PHOTOS = 6
 # helpers
 # ---------------------------------------------------------------------------
 def _review_public(doc: dict) -> Review:
-    """Strip private fields (`_id`) and project the public Review shape."""
-    return Review(**{k: doc.get(k) for k in Review.model_fields.keys()})
+    """Strip private fields (`_id`) and project the public Review shape.
+
+    Uses ``from_doc`` so missing/``None`` fields fall back to model defaults
+    (e.g. ``helpful_count: int = 0``) rather than raising validation errors.
+    """
+    return from_doc(doc, Review)
 
 
 async def _recompute_product_rating(product_id: str) -> None:
