@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -62,16 +63,16 @@ function iconFor(type: string) {
   }
 }
 
-function timeAgo(iso: string): string {
+function timeAgo(iso: string, t: (k: string, opts?: Record<string, unknown>) => string): string {
   try {
     const diff = Date.now() - new Date(iso).getTime();
     const m = Math.floor(diff / 60000);
-    if (m < 1) return "just now";
-    if (m < 60) return `${m}m ago`;
+    if (m < 1) return t("buyer_notifications.just_now");
+    if (m < 60) return t("buyer_notifications.minutes_ago", { n: m });
     const h = Math.floor(m / 60);
-    if (h < 24) return `${h}h ago`;
+    if (h < 24) return t("buyer_notifications.hours_ago", { n: h });
     const d = Math.floor(h / 24);
-    return `${d}d ago`;
+    return t("buyer_notifications.days_ago", { n: d });
   } catch {
     return "";
   }
@@ -79,6 +80,7 @@ function timeAgo(iso: string): string {
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -134,7 +136,7 @@ export default function NotificationsScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Notifications</Text>
+        <Text style={styles.title}>{t("buyer_notifications.title")}</Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
           <Pressable
             testID="notif-prefs-link"
@@ -153,7 +155,7 @@ export default function NotificationsScreen() {
             <Text
               style={[styles.markRead, unread === 0 && { color: colors.textFaint }]}
             >
-              Mark read
+              {t("buyer_notifications.mark_read")}
             </Text>
           </Pressable>
         </View>
@@ -166,9 +168,9 @@ export default function NotificationsScreen() {
       ) : items.length === 0 ? (
         <View style={styles.center}>
           <Bell size={36} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>You&apos;re all caught up</Text>
+          <Text style={styles.emptyTitle}>{t("buyer_notifications.empty_title")}</Text>
           <Text style={styles.emptySub}>
-            Order updates, cancellations and delivery alerts will appear here.
+            {t("buyer_notifications.empty_body")}
           </Text>
         </View>
       ) : (
@@ -195,7 +197,7 @@ export default function NotificationsScreen() {
                 <Text style={styles.cardBody} numberOfLines={2}>
                   {item.body}
                 </Text>
-                <Text style={styles.cardTime}>{timeAgo(item.created_at)}</Text>
+                <Text style={styles.cardTime}>{timeAgo(item.created_at, t)}</Text>
               </View>
               {!item.read ? <View style={styles.dot} /> : null}
             </Pressable>

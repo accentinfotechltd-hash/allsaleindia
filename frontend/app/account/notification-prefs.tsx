@@ -31,6 +31,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -48,6 +49,7 @@ type GetResponse = {
 
 export default function NotificationPrefsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -89,13 +91,13 @@ export default function NotificationPrefsScreen() {
       } catch (e) {
         // Roll back on failure
         setCategories(prev);
-        const msg = e instanceof Error ? e.message : "Update failed";
+        const msg = e instanceof Error ? e.message : t("buyer_notification_prefs.update_failed");
         show({ title: msg, kind: "error" });
       } finally {
         setUpdatingKey(null);
       }
     },
-    [categories, show]
+    [categories, show, t]
   );
 
   const mutedCount = categories.filter((c) => !c.enabled).length;
@@ -111,7 +113,7 @@ export default function NotificationPrefsScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Notifications</Text>
+        <Text style={styles.title}>{t("buyer_notification_prefs.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -135,19 +137,18 @@ export default function NotificationPrefsScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.heroTitle}>
                 {mutedCount === 0
-                  ? "All categories on"
-                  : `${mutedCount} ${mutedCount === 1 ? "category" : "categories"} muted`}
+                  ? t("buyer_notification_prefs.all_on")
+                  : t(mutedCount === 1 ? "buyer_notification_prefs.one_muted" : "buyer_notification_prefs.many_muted", { n: mutedCount })}
               </Text>
               <Text style={styles.heroSub}>
-                Choose what shows up in your bell. Existing notifications stay
-                visible — these toggles control future ones.
+                {t("buyer_notification_prefs.hero_sub")}
               </Text>
             </View>
           </View>
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionLabel}>
-              In-app · {role === "seller" ? "Seller" : "Buyer"}
+              {t(role === "seller" ? "buyer_notification_prefs.section_inapp_seller" : "buyer_notification_prefs.section_inapp_buyer")}
             </Text>
           </View>
 
@@ -183,8 +184,7 @@ export default function NotificationPrefsScreen() {
           <View style={styles.infoCard}>
             <Info size={14} color={colors.textMuted} />
             <Text style={styles.infoText}>
-              Critical security alerts and order issues will still reach you
-              by email, even if muted here.
+              {t("buyer_notification_prefs.info_critical")}
             </Text>
           </View>
         </ScrollView>

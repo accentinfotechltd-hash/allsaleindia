@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { useCart } from "@/src/contexts/CartContext";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { api } from "@/src/lib/api";
@@ -37,18 +38,19 @@ type CompareProduct = {
   seller_city?: string | null;
 };
 
-const ROWS: { key: keyof CompareProduct | "_stock"; label: string }[] = [
-  { key: "category", label: "Category" },
-  { key: "price_nzd", label: "Price" },
-  { key: "rating", label: "Rating" },
-  { key: "reviews_count", label: "Reviews" },
-  { key: "_stock", label: "Stock" },
-  { key: "seller_name", label: "Seller" },
-  { key: "seller_city", label: "Ships from" },
+const ROWS: { key: keyof CompareProduct | "_stock"; labelKey: string }[] = [
+  { key: "category", labelKey: "buyer_compare.row_category" },
+  { key: "price_nzd", labelKey: "buyer_compare.row_price" },
+  { key: "rating", labelKey: "buyer_compare.row_rating" },
+  { key: "reviews_count", labelKey: "buyer_compare.row_reviews" },
+  { key: "_stock", labelKey: "buyer_compare.row_stock" },
+  { key: "seller_name", labelKey: "buyer_compare.row_seller" },
+  { key: "seller_city", labelKey: "buyer_compare.row_ships_from" },
 ];
 
 export default function CompareScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { add } = useCart();
   const { info, formatPrice } = useRegion();
   const { show } = useToast();
@@ -94,7 +96,7 @@ export default function CompareScreen() {
     }
     if (row.key === "_stock") {
       const ok = (p.stock_count ?? 0) > 0 && p.in_stock !== false;
-      return ok ? "In stock" : "Out of stock";
+      return ok ? t("buyer_compare.in_stock") : t("buyer_compare.out_of_stock");
     }
     const val = (p as any)[row.key];
     if (val == null || val === "") return "—";
@@ -113,7 +115,7 @@ export default function CompareScreen() {
         >
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Compare ({items.length})</Text>
+        <Text style={styles.title}>{t("buyer_compare.title", { count: items.length })}</Text>
         {items.length > 0 ? (
           <Pressable
             onPress={onClearAll}
@@ -134,16 +136,15 @@ export default function CompareScreen() {
         </View>
       ) : items.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Nothing to compare yet</Text>
+          <Text style={styles.emptyTitle}>{t("buyer_compare.empty_title")}</Text>
           <Text style={styles.emptyBody}>
-            Tap "Add to compare" on any product to start a side-by-side
-            comparison (up to 4 items).
+            {t("buyer_compare.empty_body")}
           </Text>
           <Pressable
             onPress={() => router.push("/(tabs)/home")}
             style={styles.cta}
           >
-            <Text style={styles.ctaText}>Browse products</Text>
+            <Text style={styles.ctaText}>{t("buyer_compare.browse_btn")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -171,7 +172,7 @@ export default function CompareScreen() {
 
               {ROWS.map((row) => (
                 <View key={row.key} style={styles.row}>
-                  <Text style={styles.rowLabel}>{row.label}</Text>
+                  <Text style={styles.rowLabel}>{t(row.labelKey)}</Text>
                   <Text style={styles.rowValue} numberOfLines={2}>
                     {renderCell(p, row)}
                   </Text>
@@ -182,9 +183,9 @@ export default function CompareScreen() {
                 onPress={async () => {
                   try {
                     await add(p.id, 1);
-                    show({ title: "Added to cart", kind: "success" });
+                    show({ title: t("buyer_compare.added_to_cart"), kind: "success" });
                   } catch (e: any) {
-                    show({ title: e?.message || "Couldn't add", kind: "error" });
+                    show({ title: e?.message || t("buyer_compare.couldnt_add"), kind: "error" });
                   }
                 }}
                 style={styles.addBtn}
@@ -192,7 +193,7 @@ export default function CompareScreen() {
                 disabled={(p.stock_count ?? 0) <= 0}
               >
                 <ShoppingCart size={14} color="#fff" />
-                <Text style={styles.addBtnText}>Add to cart</Text>
+                <Text style={styles.addBtnText}>{t("buyer_compare.add_to_cart")}</Text>
               </Pressable>
             </View>
           ))}
