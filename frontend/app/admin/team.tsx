@@ -6,7 +6,6 @@ import {
   RefreshCw,
   ShieldCheck,
   Trash2,
-  UserCog,
   X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
@@ -34,6 +33,7 @@ import {
   getAdminSecret,
 } from "@/src/lib/adminApi";
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type TeamMember = {
@@ -54,6 +54,7 @@ type RoleDef = {
 
 export default function AdminTeam() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
   const confirm = useConfirm();
 
@@ -100,20 +101,20 @@ export default function AdminTeam() {
       setRoles(rolesResp.roles || []);
     } catch (e: any) {
       if (e instanceof AdminUnauthorized) {
-        show({ title: "Login required", kind: "error" });
+        show({ title: t("admin_team.login_required"), kind: "error" });
         router.replace("/admin");
         return;
       }
       if (e instanceof AdminForbidden) {
-        show({ title: "Owner access required", kind: "error" });
+        show({ title: t("admin_team.owner_access_required"), kind: "error" });
         router.replace("/admin");
         return;
       }
-      show({ title: e?.message || "Failed to load", kind: "error" });
+      show({ title: e?.message || t("admin_team.failed_to_load"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [router, show]);
+  }, [router, show, t]);
 
   useEffect(() => {
     load();
@@ -124,7 +125,7 @@ export default function AdminTeam() {
     const email = newEmail.trim().toLowerCase();
     const full_name = newName.trim();
     if (!email || !full_name) {
-      show({ title: "Email + name required", kind: "error" });
+      show({ title: t("admin_team.email_name_required"), kind: "error" });
       return;
     }
     setCreating(true);
@@ -141,7 +142,7 @@ export default function AdminTeam() {
       setCreateOpen(false);
       await load();
     } catch (e: any) {
-      show({ title: e?.message || "Create failed", kind: "error" });
+      show({ title: e?.message || t("admin_team.create_failed"), kind: "error" });
     } finally {
       setCreating(false);
     }
@@ -156,7 +157,7 @@ export default function AdminTeam() {
       });
       await load();
     } catch (e: any) {
-      show({ title: e?.message || "Update failed", kind: "error" });
+      show({ title: e?.message || t("admin_team.update_failed"), kind: "error" });
     }
   };
 
@@ -168,10 +169,10 @@ export default function AdminTeam() {
         method: "PATCH",
         body: { role },
       });
-      show({ title: `Role updated to ${role}`, kind: "success" });
+      show({ title: t("admin_team.role_updated_to", { role }), kind: "success" });
       await load();
     } catch (e: any) {
-      show({ title: e?.message || "Update failed", kind: "error" });
+      show({ title: e?.message || t("admin_team.update_failed"), kind: "error" });
     }
   };
 
@@ -188,7 +189,7 @@ export default function AdminTeam() {
       );
       setResetPassword(resp.new_password);
     } catch (e: any) {
-      show({ title: e?.message || "Reset failed", kind: "error" });
+      show({ title: e?.message || t("admin_team.reset_failed"), kind: "error" });
       setResetForId(null);
     } finally {
       setResetBusy(false);
@@ -198,18 +199,18 @@ export default function AdminTeam() {
   // ------------------ DELETE ------------------
   const onDelete = async (m: TeamMember) => {
     const ok = await confirm({
-      title: `Remove ${m.email}?`,
-      message: "This permanently deletes the admin account.",
-      confirmLabel: "Delete",
+      title: t("admin_team.confirm_remove_title", { email: m.email }),
+      message: t("admin_team.confirm_remove_msg"),
+      confirmLabel: t("admin_team.confirm_remove_btn"),
       destructive: true,
     });
     if (!ok) return;
     try {
       await adminApi(`/admin/team/${m.id}`, { method: "DELETE" });
-      show({ title: "Admin deleted", kind: "success" });
+      show({ title: t("admin_team.admin_deleted"), kind: "success" });
       await load();
     } catch (e: any) {
-      show({ title: e?.message || "Delete failed", kind: "error" });
+      show({ title: e?.message || t("admin_team.delete_failed"), kind: "error" });
     }
   };
 
@@ -217,7 +218,7 @@ export default function AdminTeam() {
   if (loading && !members.length) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header title="Team" onBack={() => router.back()} />
+        <Header title={t("admin_team.title")} onBack={() => router.back()} />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -229,16 +230,15 @@ export default function AdminTeam() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header title="Team & Sub-admins" onBack={() => router.back()} onRefresh={load} />
+      <Header title={t("admin_team.title_full")} onBack={() => router.back()} onRefresh={load} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.intro}>
           <ShieldCheck size={28} color={colors.primary} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.introTitle}>Owner-only area</Text>
+            <Text style={styles.introTitle}>{t("admin_team.intro_title")}</Text>
             <Text style={styles.introBody}>
-              Invite team members and scope their access by role.
-              Sub-admins log in with email + password at the admin screen.
+              {t("admin_team.intro_body")}
             </Text>
           </View>
         </View>
@@ -249,10 +249,10 @@ export default function AdminTeam() {
           onPress={() => setCreateOpen(true)}
         >
           <Plus size={18} color="#fff" />
-          <Text style={styles.inviteBtnText}>Invite a new admin</Text>
+          <Text style={styles.inviteBtnText}>{t("admin_team.invite_btn")}</Text>
         </Pressable>
 
-        <Text style={styles.sectionLabel}>Team ({members.length})</Text>
+        <Text style={styles.sectionLabel}>{t("admin_team.team_count", { count: members.length })}</Text>
 
         {members.map((m) => (
           <MemberCard
@@ -264,10 +264,11 @@ export default function AdminTeam() {
             onChangeRole={(r) => onChangeRole(m, r)}
             onResetPassword={() => onResetPassword(m)}
             onDelete={() => onDelete(m)}
+            t={t}
           />
         ))}
 
-        <Text style={styles.sectionLabel}>Roles</Text>
+        <Text style={styles.sectionLabel}>{t("admin_team.roles_section")}</Text>
         {roles.map((r) => (
           <View key={r.value} style={styles.roleCard}>
             <Text style={styles.roleLabelBig}>{r.label}</Text>
@@ -281,14 +282,14 @@ export default function AdminTeam() {
         <View style={styles.modalScrim}>
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>Invite admin</Text>
+              <Text style={styles.modalTitle}>{t("admin_team.modal_invite_title")}</Text>
               <Pressable onPress={() => setCreateOpen(false)} style={styles.modalClose}>
                 <X size={20} color={colors.textMuted} />
               </Pressable>
             </View>
             <TextInput
               testID="team-new-email"
-              placeholder="Email"
+              placeholder={t("admin_team.placeholder_email")}
               placeholderTextColor={colors.textFaint}
               autoCapitalize="none"
               keyboardType="email-address"
@@ -298,13 +299,13 @@ export default function AdminTeam() {
             />
             <TextInput
               testID="team-new-name"
-              placeholder="Full name"
+              placeholder={t("admin_team.placeholder_full_name")}
               placeholderTextColor={colors.textFaint}
               value={newName}
               onChangeText={setNewName}
               style={styles.modalInput}
             />
-            <Text style={styles.modalLabel}>Role</Text>
+            <Text style={styles.modalLabel}>{t("admin_team.label_role")}</Text>
             <View style={styles.rolePicker}>
               {roles.map((r) => (
                 <Pressable
@@ -330,7 +331,7 @@ export default function AdminTeam() {
               {creating ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.modalSubmitText}>Create admin</Text>
+                <Text style={styles.modalSubmitText}>{t("admin_team.create_admin_btn")}</Text>
               )}
             </Pressable>
           </View>
@@ -342,18 +343,17 @@ export default function AdminTeam() {
         <View style={styles.modalScrim}>
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>🎉 Admin created</Text>
+              <Text style={styles.modalTitle}>{t("admin_team.created_title")}</Text>
             </View>
-            <Text style={styles.passwordCalloutLabel}>Initial password — copy NOW (shown once)</Text>
+            <Text style={styles.passwordCalloutLabel}>{t("admin_team.initial_password_label")}</Text>
             <View style={styles.passwordCallout}>
               <Text style={styles.passwordValue} selectable>
                 {createdPassword}
               </Text>
             </View>
             <Text style={styles.passwordBody}>
-              Email: <Text style={{ fontWeight: "700" }}>{createdEmail}</Text>
-              {"\n\n"}Share this password with the new admin over a secure
-              channel.  They should change it on first login.
+              {t("admin_team.email_prefix")}<Text style={{ fontWeight: "700" }}>{createdEmail}</Text>
+              {"\n\n"}{t("admin_team.share_password_body")}
             </Text>
             <Pressable
               onPress={() => {
@@ -362,7 +362,7 @@ export default function AdminTeam() {
               }}
               style={styles.modalSubmit}
             >
-              <Text style={styles.modalSubmitText}>Got it</Text>
+              <Text style={styles.modalSubmitText}>{t("admin_team.got_it")}</Text>
             </Pressable>
           </View>
         </View>
@@ -373,22 +373,21 @@ export default function AdminTeam() {
         <View style={styles.modalScrim}>
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>🔑 Password reset</Text>
+              <Text style={styles.modalTitle}>{t("admin_team.reset_title")}</Text>
             </View>
             {resetBusy ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: 16 }} />
             ) : (
               <>
-                <Text style={styles.passwordCalloutLabel}>New password — copy NOW (shown once)</Text>
+                <Text style={styles.passwordCalloutLabel}>{t("admin_team.new_password_label")}</Text>
                 <View style={styles.passwordCallout}>
                   <Text style={styles.passwordValue} selectable>
                     {resetPassword}
                   </Text>
                 </View>
                 <Text style={styles.passwordBody}>
-                  For: <Text style={{ fontWeight: "700" }}>{resetEmail}</Text>
-                  {"\n\n"}Share via a secure channel.  The admin should rotate
-                  it after logging in.
+                  {t("admin_team.for_prefix")}<Text style={{ fontWeight: "700" }}>{resetEmail}</Text>
+                  {"\n\n"}{t("admin_team.share_reset_body")}
                 </Text>
                 <Pressable
                   onPress={() => {
@@ -398,7 +397,7 @@ export default function AdminTeam() {
                   }}
                   style={styles.modalSubmit}
                 >
-                  <Text style={styles.modalSubmitText}>Got it</Text>
+                  <Text style={styles.modalSubmitText}>{t("admin_team.got_it")}</Text>
                 </Pressable>
               </>
             )}
@@ -443,6 +442,7 @@ function MemberCard({
   onChangeRole,
   onResetPassword,
   onDelete,
+  t,
 }: {
   member: TeamMember;
   isMe: boolean;
@@ -451,24 +451,25 @@ function MemberCard({
   onChangeRole: (role: RoleDef["value"]) => void;
   onResetPassword: () => void;
   onDelete: () => void;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
   return (
     <View style={styles.memberCard}>
       <View style={styles.memberHead}>
         <View style={{ flex: 1 }}>
           <Text style={styles.memberName}>
-            {member.full_name || member.email} {isMe ? "(you)" : ""}
+            {member.full_name || member.email} {isMe ? t("admin_team.you_suffix") : ""}
           </Text>
           <Text style={styles.memberEmail}>{member.email}</Text>
         </View>
         <View style={[styles.statusChip, member.is_active ? styles.chipOn : styles.chipOff]}>
           <Text style={styles.statusChipText}>
-            {member.is_active ? "ACTIVE" : "DISABLED"}
+            {member.is_active ? t("admin_team.status_active") : t("admin_team.status_disabled")}
           </Text>
         </View>
       </View>
 
-      <Text style={styles.memberLabel}>Role</Text>
+      <Text style={styles.memberLabel}>{t("admin_team.label_role")}</Text>
       <View style={styles.rolePicker}>
         {roles.map((r) => (
           <Pressable
@@ -490,7 +491,7 @@ function MemberCard({
 
       <View style={styles.actionsRow}>
         <View style={styles.toggleRow}>
-          <Text style={styles.memberLabel}>Active</Text>
+          <Text style={styles.memberLabel}>{t("admin_team.label_active")}</Text>
           <Switch
             value={member.is_active}
             onValueChange={onToggleActive}
@@ -500,12 +501,12 @@ function MemberCard({
         </View>
         <Pressable onPress={onResetPassword} style={styles.smallBtn}>
           <KeyRound size={14} color={colors.text} />
-          <Text style={styles.smallBtnText}>Reset password</Text>
+          <Text style={styles.smallBtnText}>{t("admin_team.reset_password_btn")}</Text>
         </Pressable>
         {!isMe && (
           <Pressable onPress={onDelete} style={[styles.smallBtn, styles.smallBtnDanger]}>
             <Trash2 size={14} color="#DC2626" />
-            <Text style={[styles.smallBtnText, { color: "#DC2626" }]}>Remove</Text>
+            <Text style={[styles.smallBtnText, { color: "#DC2626" }]}>{t("admin_team.remove_btn")}</Text>
           </Pressable>
         )}
       </View>

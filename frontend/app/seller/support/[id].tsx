@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -44,16 +45,9 @@ type Ticket = {
 
 type Detail = { ticket: Ticket; messages: Msg[] };
 
-const STATUS_LABEL: Record<string, string> = {
-  open: "Open",
-  in_progress: "In progress",
-  awaiting_reply: "Reply waiting",
-  resolved: "Resolved",
-  closed: "Closed",
-};
-
 export default function TicketDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +68,7 @@ export default function TicketDetailScreen() {
       setDetail(d);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 50);
     } catch (e: any) {
-      toast.show({ title: "Could not load ticket", body: e?.message || "Please try again.", kind: "success" });
+      toast.show({ title: t("seller_support_detail.couldnt_load"), body: e?.message || t("seller_support_detail.please_try_again"), kind: "error" });
     } finally {
       setLoading(false);
     }
@@ -109,7 +103,7 @@ export default function TicketDetailScreen() {
       setReply("");
       await load();
     } catch (e: any) {
-      toast.show({ title: "Could not send", body: e?.message || "Try again.", kind: "success" });
+      toast.show({ title: t("seller_support_detail.couldnt_send"), body: e?.message || t("seller_support_detail.try_again"), kind: "error" });
     } finally {
       setSending(false);
     }
@@ -126,7 +120,7 @@ export default function TicketDetailScreen() {
       setRatingOpen(false);
       await load();
     } catch (e: any) {
-      toast.show({ title: "Could not submit rating", body: e?.message || "Try again.", kind: "success" });
+      toast.show({ title: t("seller_support_detail.couldnt_submit_rating"), body: e?.message || t("seller_support_detail.try_again"), kind: "error" });
     } finally {
       setRatingSaving(false);
     }
@@ -138,25 +132,25 @@ export default function TicketDetailScreen() {
   const closeTicket = useCallback(async () => {
     if (!id) return;
     const ok = await confirm({
-      title: "Close this ticket?",
-      message: "You won't be able to add more replies.",
+      title: t("seller_support_detail.close_title"),
+      message: t("seller_support_detail.close_msg"),
       destructive: true,
-      confirmLabel: "Close ticket",
+      confirmLabel: t("seller_support_detail.close_confirm"),
     });
     if (!ok) return;
     try {
       await api(`/support/tickets/${id}/close`, { method: "POST" });
-      toast.show({ kind: "success", title: "Ticket closed" });
+      toast.show({ kind: "success", title: t("seller_support_detail.ticket_closed_toast") });
       await load();
     } catch (e: any) {
-      toast.show({ kind: "error", title: "Could not close", body: e?.message || "Try again." });
+      toast.show({ kind: "error", title: t("seller_support_detail.couldnt_close"), body: e?.message || t("seller_support_detail.try_again") });
     }
-  }, [id, load, confirm, toast]);
+  }, [id, load, confirm, toast, t]);
 
   if (loading || !detail) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <TopBar onBack={() => router.back()} title="Loading…" />
+        <TopBar onBack={() => router.back()} title={t("seller_support_detail.title_loading")} />
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -164,19 +158,25 @@ export default function TicketDetailScreen() {
     );
   }
 
-  const t = detail.ticket;
-  const canReply = t.status !== "closed";
-  const isResolved = t.status === "resolved" || t.status === "closed";
+  const ticket = detail.ticket;
+  const canReply = ticket.status !== "closed";
+  const isResolved = ticket.status === "resolved" || ticket.status === "closed";
+
+  const statusLabel = (status: string): string => {
+    const key = `seller_support_detail.status_${status}`;
+    const translated = t(key);
+    return translated && translated !== key ? translated : status;
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <TopBar
         onBack={() => router.back()}
-        title={`#${t.id.replace("tkt_", "").slice(0, 8).toUpperCase()}`}
+        title={`#${ticket.id.replace("tkt_", "").slice(0, 8).toUpperCase()}`}
         right={
           canReply ? (
             <Pressable testID="ticket-close-btn" onPress={closeTicket} hitSlop={12}>
-              <Text style={styles.closeLink}>Close</Text>
+              <Text style={styles.closeLink}>{t("seller_support_detail.close_btn")}</Text>
             </Pressable>
           ) : null
         }
@@ -191,33 +191,33 @@ export default function TicketDetailScreen() {
           {/* Header card */}
           <View style={styles.headerCard}>
             <View style={styles.headerTopRow}>
-              <View style={[styles.statusPill, statusStyle(t.status)]}>
-                <Text style={[styles.statusText, { color: statusStyle(t.status).color }]}>
-                  {STATUS_LABEL[t.status] || t.status}
+              <View style={[styles.statusPill, statusStyle(ticket.status)]}>
+                <Text style={[styles.statusText, { color: statusStyle(ticket.status).color }]}>
+                  {statusLabel(ticket.status)}
                 </Text>
               </View>
               <View style={styles.priorityBadge}>
-                <Text style={styles.priorityText}>{t.priority.toUpperCase()}</Text>
+                <Text style={styles.priorityText}>{ticket.priority.toUpperCase()}</Text>
               </View>
-              {t.csat_rating ? (
+              {ticket.csat_rating ? (
                 <View style={styles.csatPill}>
                   <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                  <Text style={styles.csatText}>{t.csat_rating}/5</Text>
+                  <Text style={styles.csatText}>{ticket.csat_rating}/5</Text>
                 </View>
               ) : null}
             </View>
-            <Text style={styles.subject}>{t.subject}</Text>
+            <Text style={styles.subject}>{ticket.subject}</Text>
             <Text style={styles.metaText}>
-              {t.category} · raised {new Date(t.created_at).toLocaleString()}
+              {ticket.category} · {t("seller_support_detail.raised_label")} {new Date(ticket.created_at).toLocaleString()}
             </Text>
           </View>
 
           {/* Message thread */}
           {detail.messages.map((m) => (
-            <MessageBubble key={m.id} msg={m} />
+            <MessageBubble key={m.id} msg={m} t={t} />
           ))}
 
-          {isResolved && !t.csat_rating ? (
+          {isResolved && !ticket.csat_rating ? (
             <Pressable
               testID="rate-resolved-btn"
               onPress={() => setRatingOpen(true)}
@@ -225,9 +225,9 @@ export default function TicketDetailScreen() {
             >
               <Star size={18} color={colors.primary} fill={colors.primary} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.ratePromptTitle}>Rate our support</Text>
+                <Text style={styles.ratePromptTitle}>{t("seller_support_detail.rate_prompt_title")}</Text>
                 <Text style={styles.ratePromptBody}>
-                  Tap to leave a 1–5 star rating for this ticket.
+                  {t("seller_support_detail.rate_prompt_body")}
                 </Text>
               </View>
             </Pressable>
@@ -242,7 +242,7 @@ export default function TicketDetailScreen() {
                 testID="ticket-reply-input"
                 value={reply}
                 onChangeText={setReply}
-                placeholder="Type a reply…"
+                placeholder={t("seller_support_detail.reply_placeholder")}
                 placeholderTextColor={colors.textFaint}
                 multiline
                 maxLength={4000}
@@ -269,7 +269,7 @@ export default function TicketDetailScreen() {
         ) : (
           <SafeAreaView edges={["bottom"]} style={styles.closedBar}>
             <Lock size={14} color={colors.textMuted} />
-            <Text style={styles.closedText}>This ticket is closed.</Text>
+            <Text style={styles.closedText}>{t("seller_support_detail.closed_text")}</Text>
           </SafeAreaView>
         )}
       </KeyboardAvoidingView>
@@ -285,9 +285,9 @@ export default function TicketDetailScreen() {
             >
               <XIcon size={18} color={colors.textMuted} />
             </Pressable>
-            <Text style={styles.modalTitle}>How did we do?</Text>
+            <Text style={styles.modalTitle}>{t("seller_support_detail.rate_modal_title")}</Text>
             <Text style={styles.modalBody}>
-              Your rating helps our support team improve. Tap the stars below.
+              {t("seller_support_detail.rate_modal_body")}
             </Text>
             <View style={styles.starRow}>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -309,7 +309,7 @@ export default function TicketDetailScreen() {
               testID="csat-comment"
               value={ratingComment}
               onChangeText={setRatingComment}
-              placeholder="Optional comment…"
+              placeholder={t("seller_support_detail.rate_comment_placeholder")}
               placeholderTextColor={colors.textFaint}
               multiline
               maxLength={600}
@@ -328,7 +328,7 @@ export default function TicketDetailScreen() {
               {ratingSaving ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.csatSubmitText}>Submit rating</Text>
+                <Text style={styles.csatSubmitText}>{t("seller_support_detail.submit_rating_btn")}</Text>
               )}
             </Pressable>
           </View>
@@ -338,13 +338,13 @@ export default function TicketDetailScreen() {
   );
 }
 
-function MessageBubble({ msg }: { msg: Msg }) {
+function MessageBubble({ msg, t }: { msg: Msg; t: (k: string, opts?: Record<string, unknown>) => string }) {
   const isAdmin = msg.sender_role === "admin";
   return (
     <View style={[styles.bubble, isAdmin ? styles.bubbleAdmin : styles.bubbleSelf]}>
       <View style={styles.bubbleHeader}>
         <Text style={[styles.bubbleSender, isAdmin && { color: colors.primaryDark }]}>
-          {isAdmin ? "Allsale support" : "You"}
+          {isAdmin ? t("seller_support_detail.author_support") : t("seller_support_detail.author_you")}
           {msg.sender_name && isAdmin ? ` · ${msg.sender_name}` : ""}
         </Text>
         <Text style={styles.bubbleTime}>{new Date(msg.created_at).toLocaleString()}</Text>

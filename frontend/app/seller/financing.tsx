@@ -30,6 +30,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -65,15 +66,24 @@ type Application = {
   created_at: string;
 };
 
-const STATUS_LABEL: Record<string, { bg: string; fg: string; label: string }> = {
-  interest: { bg: "#FEF3C7", fg: "#92400E", label: "Interest noted" },
-  submitted_to_partner: { bg: "#DBEAFE", fg: "#1E3A8A", label: "With partner" },
-  approved: { bg: "#D1FAE5", fg: "#065F46", label: "Approved" },
-  rejected: { bg: "#FEE2E2", fg: "#991B1B", label: "Not approved" },
-  withdrawn: { bg: "#E5E7EB", fg: "#374151", label: "Withdrawn" },
+const STATUS_STYLE: Record<string, { bg: string; fg: string }> = {
+  interest: { bg: "#FEF3C7", fg: "#92400E" },
+  submitted_to_partner: { bg: "#DBEAFE", fg: "#1E3A8A" },
+  approved: { bg: "#D1FAE5", fg: "#065F46" },
+  rejected: { bg: "#FEE2E2", fg: "#991B1B" },
+  withdrawn: { bg: "#E5E7EB", fg: "#374151" },
+};
+
+const STATUS_LABEL_KEY: Record<string, string> = {
+  interest: "seller_financing.status_interest",
+  submitted_to_partner: "seller_financing.status_submitted",
+  approved: "seller_financing.status_approved",
+  rejected: "seller_financing.status_rejected",
+  withdrawn: "seller_financing.status_withdrawn",
 };
 
 export default function FinancingScreen() {
+  const { t } = useTranslation();
   const toast = useToast();
   const router = useRouter();
   const [data, setData] = useState<PartnersResp | null>(null);
@@ -109,7 +119,7 @@ export default function FinancingScreen() {
 
   const openApply = (p: Partner) => {
     if (!data?.eligibility.eligible) {
-      toast.show({ title: "Not eligible yet", body: data?.eligibility.reason || "Reach Verified tier first.", kind: "success" });
+      toast.show({ title: t("seller_financing.not_eligible_toast"), body: data?.eligibility.reason || t("seller_financing.not_eligible_fallback"), kind: "success" });
       return;
     }
     setSelected(p);
@@ -123,7 +133,7 @@ export default function FinancingScreen() {
     if (!selected) return;
     const amount = parseFloat(advance);
     if (!amount || amount < 100) {
-      toast.show({ title: "Enter advance amount", body: "Please enter at least NZD 100.", kind: "success" });
+      toast.show({ title: t("seller_financing.enter_advance_title"), body: t("seller_financing.enter_advance_body"), kind: "success" });
       return;
     }
     setSubmitting(true);
@@ -141,21 +151,21 @@ export default function FinancingScreen() {
       setSelected(null);
       await load();
       toast.show({
-        title: "Interest noted",
-        body: `${selected.name} will be in touch within ${selected.turnaround_hours}h. We've also notified Allsale support.`,
+        title: t("seller_financing.interest_noted_title"),
+        body: t("seller_financing.interest_noted_body", { name: selected.name, hours: selected.turnaround_hours }),
         kind: "success",
       });
     } catch (e: any) {
-      toast.show({ title: "Could not apply", body: e?.message || "Please try again.", kind: "error" });
+      toast.show({ title: t("seller_financing.could_not_apply"), body: e?.message || t("seller_financing.please_try_again"), kind: "error" });
     } finally {
       setSubmitting(false);
     }
-  }, [selected, advance, monthly, ageMonths, notes, load]);
+  }, [selected, advance, monthly, ageMonths, notes, load, t, toast]);
 
   if (loading || !data) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => router.back()} title={t("seller_financing.title")} />
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -165,17 +175,16 @@ export default function FinancingScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header onBack={() => router.back()} />
+      <Header onBack={() => router.back()} title={t("seller_financing.title")} />
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Hero */}
         <View style={styles.hero}>
           <View style={styles.heroIcon}>
             <HandCoins size={22} color="#fff" />
           </View>
-          <Text style={styles.heroTitle}>Get advance on your invoices</Text>
+          <Text style={styles.heroTitle}>{t("seller_financing.hero_title")}</Text>
           <Text style={styles.heroBody}>
-            Don&apos;t wait T+5/10 days for your payout. Our NBFC partners can advance you
-            70–90% of confirmed orders within 24h. You pay 1–2% fee — they wait, you sell more.
+            {t("seller_financing.hero_body")}
           </Text>
         </View>
 
@@ -194,8 +203,8 @@ export default function FinancingScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.eligibilityTitle}>
               {data.eligibility.eligible
-                ? `Eligible — you're a ${data.tier_label}`
-                : `Not eligible yet — currently ${data.tier_label}`}
+                ? t("seller_financing.eligible_title", { tier: data.tier_label })
+                : t("seller_financing.not_eligible_title", { tier: data.tier_label })}
             </Text>
             <Text style={styles.eligibilityBody}>{data.eligibility.reason}</Text>
           </View>
@@ -204,13 +213,11 @@ export default function FinancingScreen() {
         {/* Existing applications */}
         {apps.length > 0 ? (
           <>
-            <Text style={styles.sectionTitle}>Your applications</Text>
+            <Text style={styles.sectionTitle}>{t("seller_financing.your_applications")}</Text>
             {apps.map((a) => {
-              const s = STATUS_LABEL[a.status] || {
-                bg: colors.surface,
-                fg: colors.text,
-                label: a.status,
-              };
+              const s = STATUS_STYLE[a.status] || { bg: colors.surface, fg: colors.text };
+              const labelKey = STATUS_LABEL_KEY[a.status];
+              const label = labelKey ? t(labelKey) : a.status;
               return (
                 <View key={a.id} style={styles.appRow}>
                   <View style={{ flex: 1 }}>
@@ -221,7 +228,7 @@ export default function FinancingScreen() {
                     </Text>
                   </View>
                   <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
-                    <Text style={[styles.statusText, { color: s.fg }]}>{s.label}</Text>
+                    <Text style={[styles.statusText, { color: s.fg }]}>{label}</Text>
                   </View>
                 </View>
               );
@@ -230,7 +237,7 @@ export default function FinancingScreen() {
         ) : null}
 
         {/* Partners */}
-        <Text style={styles.sectionTitle}>Choose a partner</Text>
+        <Text style={styles.sectionTitle}>{t("seller_financing.choose_partner")}</Text>
         {data.partners.map((p) => (
           <View key={p.id} style={styles.partnerCard}>
             <View style={styles.partnerHeader}>
@@ -246,26 +253,26 @@ export default function FinancingScreen() {
             <View style={styles.factsRow}>
               <Fact
                 icon={<HandCoins size={14} color={colors.primary} />}
-                label="Advance"
+                label={t("seller_financing.fact_advance")}
                 value={`${p.advance_pct_min}–${p.advance_pct_max}%`}
               />
               <Fact
                 icon={<Sparkles size={14} color={colors.primary} />}
-                label="Fee"
+                label={t("seller_financing.fact_fee")}
                 value={`${p.fee_pct_min}–${p.fee_pct_max}%`}
               />
               <Fact
                 icon={<Clock size={14} color={colors.primary} />}
-                label="Speed"
-                value={`${p.turnaround_hours}h`}
+                label={t("seller_financing.fact_speed")}
+                value={t("seller_financing.fact_hours", { hours: p.turnaround_hours })}
               />
             </View>
 
             <View style={styles.reqsBox}>
-              <Text style={styles.reqsHeader}>Eligibility</Text>
-              <Req text={`₹${(p.min_monthly_invoices_inr / 1000).toFixed(0)}k+ monthly invoices`} />
-              <Req text={`${p.min_business_age_months}+ months in business`} />
-              <Req text="GST-registered Indian business" />
+              <Text style={styles.reqsHeader}>{t("seller_financing.eligibility_header")}</Text>
+              <Req text={t("seller_financing.elig_invoices", { amount: (p.min_monthly_invoices_inr / 1000).toFixed(0) })} />
+              <Req text={t("seller_financing.elig_months", { months: p.min_business_age_months })} />
+              <Req text={t("seller_financing.elig_gst")} />
             </View>
 
             <View style={styles.bestForRow}>
@@ -286,7 +293,7 @@ export default function FinancingScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.applyBtnText}>Express interest</Text>
+                <Text style={styles.applyBtnText}>{t("seller_financing.express_interest")}</Text>
               </Pressable>
               <Pressable
                 testID={`learn-${p.id}`}
@@ -294,7 +301,7 @@ export default function FinancingScreen() {
                 style={styles.linkBtn}
               >
                 <ExternalLink size={14} color={colors.primary} />
-                <Text style={styles.linkBtnText}>Visit website</Text>
+                <Text style={styles.linkBtnText}>{t("seller_financing.visit_website")}</Text>
               </Pressable>
             </View>
           </View>
@@ -332,13 +339,12 @@ export default function FinancingScreen() {
               <View style={styles.modalIcon}>
                 <Building2 size={22} color={colors.primary} />
               </View>
-              <Text style={styles.modalTitle}>Apply to {selected?.name}</Text>
+              <Text style={styles.modalTitle}>{t("seller_financing.apply_to", { name: selected?.name ?? "" })}</Text>
               <Text style={styles.modalSub}>
-                We&apos;ll forward your details to the partner. They&apos;ll contact you within{" "}
-                {selected?.turnaround_hours}h to run their KYC.
+                {t("seller_financing.apply_sub", { hours: selected?.turnaround_hours ?? 0 })}
               </Text>
 
-              <Label>Desired advance (NZD) *</Label>
+              <Label>{t("seller_financing.label_desired_advance")}</Label>
               <TextInput
                 testID="advance-input"
                 value={advance}
@@ -349,7 +355,7 @@ export default function FinancingScreen() {
                 style={styles.input}
               />
 
-              <Label>Monthly invoices (INR)</Label>
+              <Label>{t("seller_financing.label_monthly_invoices")}</Label>
               <TextInput
                 testID="monthly-input"
                 value={monthly}
@@ -360,7 +366,7 @@ export default function FinancingScreen() {
                 style={styles.input}
               />
 
-              <Label>Business age (months)</Label>
+              <Label>{t("seller_financing.label_business_age")}</Label>
               <TextInput
                 testID="age-input"
                 value={ageMonths}
@@ -371,12 +377,12 @@ export default function FinancingScreen() {
                 style={styles.input}
               />
 
-              <Label>Notes (optional)</Label>
+              <Label>{t("seller_financing.label_notes")}</Label>
               <TextInput
                 testID="notes-input"
                 value={notes}
-                onChangeText={(t) => setNotes(t.slice(0, 600))}
-                placeholder="Anything the partner should know…"
+                onChangeText={(txt) => setNotes(txt.slice(0, 600))}
+                placeholder={t("seller_financing.placeholder_notes")}
                 placeholderTextColor={colors.textFaint}
                 multiline
                 style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
@@ -397,7 +403,7 @@ export default function FinancingScreen() {
                 ) : (
                   <>
                     <ShieldCheck size={16} color="#fff" />
-                    <Text style={styles.submitText}>Submit interest</Text>
+                    <Text style={styles.submitText}>{t("seller_financing.submit_interest")}</Text>
                   </>
                 )}
               </Pressable>
@@ -409,13 +415,13 @@ export default function FinancingScreen() {
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <View style={styles.topBar}>
       <Pressable testID="financing-back" onPress={onBack} style={styles.backBtn}>
         <ChevronLeft size={22} color={colors.text} />
       </Pressable>
-      <Text style={styles.title}>Cash advance</Text>
+      <Text style={styles.title}>{title}</Text>
       <View style={{ width: 40 }} />
     </View>
   );
