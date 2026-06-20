@@ -219,6 +219,32 @@ export default function Home() {
               ))}
             </ScrollView>
 
+            {/* Quick destinations — Today's Deals + Best Sellers */}
+            <View style={styles.quickDest}>
+              <Pressable
+                testID="home-quick-deals"
+                onPress={() => router.push("/deals")}
+                style={[styles.quickCard, styles.quickCardDeals]}
+              >
+                <Text style={styles.quickEmoji}>🔥</Text>
+                <View>
+                  <Text style={styles.quickTitle}>Today&apos;s Deals</Text>
+                  <Text style={styles.quickSub}>Flash sales & coupons</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                testID="home-quick-bestsellers"
+                onPress={() => router.push("/best-sellers")}
+                style={[styles.quickCard, styles.quickCardBest]}
+              >
+                <Text style={styles.quickEmoji}>🏆</Text>
+                <View>
+                  <Text style={styles.quickTitle}>Best Sellers</Text>
+                  <Text style={styles.quickSub}>Top picks this month</Text>
+                </View>
+              </Pressable>
+            </View>
+
             {/* Flash sales / Deal of the Day */}
             <FlashSalesCarousel />
 
@@ -369,6 +395,26 @@ const styles = StyleSheet.create({
   bannerOverlay: { position: "absolute", left: 16, bottom: 14 },
   bannerTag: { color: colors.primary, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
   bannerTitle: { color: "#fff", fontSize: 20, fontWeight: "800", letterSpacing: -0.6, marginTop: 4, lineHeight: 22 },
+  quickDest: {
+    flexDirection: "row",
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: 10,
+  },
+  quickCard: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+  },
+  quickCardDeals: { backgroundColor: "#FFF7ED", borderColor: "#FED7AA" },
+  quickCardBest: { backgroundColor: "#FEF3C7", borderColor: "#FDE68A" },
+  quickEmoji: { fontSize: 24 },
+  quickTitle: { fontWeight: "800", color: colors.text, fontSize: 13 },
+  quickSub: { fontSize: 10, color: colors.textMuted, fontWeight: "700", marginTop: 1 },
   chipsRow: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,

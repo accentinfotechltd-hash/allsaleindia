@@ -6,6 +6,12 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 20, 2026 — Best Sellers leaderboard**:
+> - NEW: `GET /api/best-sellers?category=X&limit=50&window_days=30` (public) — ranks in-stock products by units sold in the last N days from paid/non-cancelled orders; tiebreaks on rating × log(reviews); falls back to all-time top-rated when no window data (`source: "window_sales" | "rating_fallback"`). Cancelled orders & OOS items excluded.
+> - Mobile renders `/best-sellers` with category chips + rank badges + "Bestseller" ribbon on top-3.
+> - Entry: home tab shows two destination cards above flash sales — 🔥 Today's Deals + 🏆 Best Sellers.
+> - Web parity recommended.
+
 > **June 19, 2026 — Today's Deals page + Coupons-active P0 fix**:
 > - NEW: `/deals` mobile route consolidating active flash sales (with live countdown timers + units-sold progress), public sitewide coupons (auth-gated horizontal strip with Copy-code), and a "More deals · 10%+ off" 2-col grid via the existing `min_discount_pct` facet.
 > - Entry point: home tab's `FlashSalesCarousel` now has a "See all →" link to `/deals`, and renders a "Today's Deals" promo card when no flash sales are live.

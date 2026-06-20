@@ -494,6 +494,111 @@ async def get_product(product_id: str):
     return Product(**p)
 
 
+@router.get("/best-sellers")
+async def best_sellers(
+    category: Optional[str] = None,
+    limit: int = 50,
+    window_days: int = 30,
+):
+    """Amazon-style "Best Sellers" leaderboard.
+
+    Ranks in-stock products by **units sold in the last ``window_days``**
+    (paid, non-cancelled orders), broken by rating × log(reviews_count)
+    as a tiebreaker. When ``category`` is provided, results are scoped to
+    that category. ``window_days`` is clamped to [7, 90]; ``limit`` to
+    [1, 100]. Falls back to all-time top-rated when no orders exist in
+    the window (so the screen never looks empty for a fresh marketplace).
+    """
+    import math
+
+    window_days = max(7, min(int(window_days), 90))
+    limit = max(1, min(int(limit), 100))
+
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=window_days)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    # --- Pass 1: aggregate units sold per product in the window --------------
+    sold_by_pid: dict[str, int] = {}
+    order_match: dict = {
+        "payment_status": "paid",
+        "status": {"$nin": ["cancelled", "refunded"]},
+        "$or": [
+            {"paid_at": {"$gte": start}},
+            {
+                "paid_at": {"$exists": False},
+                "created_at": {"$gte": start},
+            },
+        ],
+    }
+    async for o in db.orders.find(
+        order_match, {"_id": 0, "items": 1}
+    ):
+        for it in o.get("items", []):
+            pid = it.get("product_id")
+            if not pid:
+                continue
+            sold_by_pid[pid] = sold_by_pid.get(pid, 0) + int(
+                it.get("quantity", 1)
+            )
+
+    # --- Build the catalog filter -------------------------------------------
+    catalog_filter: dict = {
+        "in_stock": True,
+        "stock_count": {"$gt": 0},
+        "category": {"$nin": list(HIDDEN_BUYER_CATEGORIES)},
+    }
+    if category:
+        if category in HIDDEN_BUYER_CATEGORIES:
+            raise HTTPException(status_code=404, detail="Category not found")
+        catalog_filter["category"] = category
+
+    # Hide paused-seller listings (mirrors /products behaviour).
+    paused: list[str] = []
+    async for s in db.sellers.find(
+        {"vacation_mode": True}, {"_id": 0, "user_id": 1}
+    ):
+        if s.get("user_id"):
+            paused.append(s["user_id"])
+    if paused:
+        catalog_filter["seller_id"] = {"$nin": paused}
+
+    # --- Pass 2: score every catalog product --------------------------------
+    scored: list[tuple[int, float, dict]] = []
+    async for p in db.products.find(catalog_filter, {"_id": 0}):
+        sold = sold_by_pid.get(p["id"], 0)
+        rating = float(p.get("rating") or 0)
+        reviews = int(p.get("reviews_count") or 0)
+        tiebreak = rating * math.log(1 + reviews)
+        scored.append((sold, tiebreak, p))
+
+    # Sort: sold desc, then tiebreaker desc.
+    scored.sort(key=lambda x: (-x[0], -x[1]))
+
+    # Detect window-empty case for client copy ("All-time best sellers").
+    has_real_sales = any(sold > 0 for sold, _, _ in scored)
+
+    top = scored[:limit]
+    items = []
+    for rank, (sold, _tb, p) in enumerate(top, start=1):
+        items.append(
+            {
+                "rank": rank,
+                "units_sold_window": sold,
+                "product": Product(**p).model_dump(),
+            }
+        )
+
+    return {
+        "category": category,
+        "window_days": window_days,
+        "source": "window_sales" if has_real_sales else "rating_fallback",
+        "count": len(items),
+        "items": items,
+    }
+
+
 @router.get("/products/{product_id}/recommendations", response_model=List[Product])
 async def get_recommendations(product_id: str, limit: int = 8):
     """"You may also like" — scored by category match + rating + reviews.
