@@ -1,10 +1,10 @@
 /**
  * "Ships well" badge — surfaces a seller's delivery quality on the PDP.
  *
- * Pulls `/sellers/{seller_id}/delivery-score`. Renders only when the
- * seller has ≥5 delivery ratings averaging ≥4.0 stars (`ships_well:true`
- * from the API). Auto-hides otherwise so we never display "0 ratings"
- * noise — the badge has to be earned.
+ * Pulls `/sellers/{seller_id}/delivery-score`. Three render states:
+ *   • ships_well=true             → green earned badge (≥5 ratings, ≥4.0★)
+ *   • 1-4 ratings AND avg ≥ 4.0  → orange "Earning..." progress badge
+ *   • everything else            → hidden (no zero-rating noise)
  */
 import { Truck } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -42,17 +42,40 @@ export default function ShipsWellBadge({ sellerId }: { sellerId?: string }) {
     };
   }, [sellerId]);
 
-  if (!score || !score.ships_well || !score.avg_stars) return null;
+  if (!score || !score.avg_stars || score.ratings_count === 0) return null;
 
-  return (
-    <View style={styles.badge} testID="ships-well-badge">
-      <Truck size={11} color="#059669" />
-      <Text style={styles.label}>
-        Ships well · {score.avg_stars.toFixed(1)}★
-      </Text>
-      <Text style={styles.count}>({score.ratings_count})</Text>
-    </View>
-  );
+  // EARNED — full green badge
+  if (score.ships_well) {
+    return (
+      <View
+        style={[styles.badge, styles.badgeEarned]}
+        testID="ships-well-badge"
+      >
+        <Truck size={11} color="#059669" />
+        <Text style={[styles.label, { color: "#065F46" }]}>
+          Ships well · {score.avg_stars.toFixed(1)}★
+        </Text>
+        <Text style={styles.count}>({score.ratings_count})</Text>
+      </View>
+    );
+  }
+
+  // EARNING — show progress badge only when on track (avg ≥ 4.0)
+  if (score.avg_stars >= 4.0) {
+    return (
+      <View
+        style={[styles.badge, styles.badgeProgress]}
+        testID="ships-well-progress"
+      >
+        <Truck size={11} color="#A16207" />
+        <Text style={[styles.label, { color: "#854D0E" }]}>
+          Earning Ships well · {score.ratings_count}/5
+        </Text>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -63,11 +86,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: "#ECFDF5",
     borderWidth: 1,
-    borderColor: "#A7F3D0",
     alignSelf: "flex-start",
   },
-  label: { color: "#065F46", fontWeight: "800", fontSize: 10.5 },
+  badgeEarned: { backgroundColor: "#ECFDF5", borderColor: "#A7F3D0" },
+  badgeProgress: { backgroundColor: "#FEFCE8", borderColor: "#FDE68A" },
+  label: { fontWeight: "800", fontSize: 10.5 },
   count: { color: colors.textMuted, fontSize: 10, fontWeight: "700" },
 });
+
