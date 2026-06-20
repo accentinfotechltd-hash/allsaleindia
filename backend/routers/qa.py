@@ -103,32 +103,46 @@ async def list_questions(
 ):
     """List questions for a product. Each row includes the single top
     answer (by helpful_count desc, then recency) as a preview, plus the
-    total ``answer_count`` so the client can show "+N more answers"."""
+    total ``answer_count`` so the client can show "+N more answers".
+
+    Implemented as a single Mongo aggregation with ``$lookup`` so we don't
+    issue N+1 round-trips when fetching top answers.
+    """
     current_uid: Optional[str] = current.get("id") if current else None
 
-    sort_spec: list[tuple[str, int]]
     if sort == "recent":
-        sort_spec = [("created_at", -1)]
+        sort_stage = {"created_at": -1}
     else:
-        sort_spec = [("upvotes", -1), ("created_at", -1)]
+        sort_stage = {"upvotes": -1, "created_at": -1}
 
-    questions = [
-        q
-        async for q in db.product_questions.find(
-            {"product_id": product_id}, {"_id": 0}
-        )
-        .sort(sort_spec)
-        .limit(limit)
+    pipeline = [
+        {"$match": {"product_id": product_id}},
+        {"$sort": sort_stage},
+        {"$limit": limit},
+        {
+            "$lookup": {
+                "from": "product_answers",
+                "let": {"qid": "$id"},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$question_id", "$$qid"]}}},
+                    {"$sort": {"helpful_count": -1, "created_at": -1}},
+                    {"$limit": 1},
+                    {"$project": {"_id": 0}},
+                ],
+                "as": "_top_answer_rows",
+            }
+        },
+        {
+            "$addFields": {
+                "top_answer": {"$arrayElemAt": ["$_top_answer_rows", 0]}
+            }
+        },
+        {"$project": {"_id": 0, "_top_answer_rows": 0}},
     ]
 
     out: list[dict] = []
-    for q in questions:
-        # Pull the top answer for this question (max 1).
-        top = await db.product_answers.find_one(
-            {"question_id": q["id"]},
-            {"_id": 0},
-            sort=[("helpful_count", -1), ("created_at", -1)],
-        )
+    async for q in db.product_questions.aggregate(pipeline):
+        top = q.pop("top_answer", None)
         out.append(
             await _serialize_question(
                 q, current_uid=current_uid, top_answer=top

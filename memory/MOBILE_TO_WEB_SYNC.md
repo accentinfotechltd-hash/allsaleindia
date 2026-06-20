@@ -370,3 +370,18 @@ Mirror the same UX inside the saved-items / wishlist surface: multi-select + a "
 
 ### Tests
 - `backend/tests/test_wishlist_collections_move.py` — 13 cases, all pass.
+
+
+## Backend refactor — products router split (June 20, 2026)
+The previous monolithic `routers/products.py` (~830 lines) has been split:
+
+- `routers/products.py` (~520 lines) — catalog (`GET /products`, `GET /products/{id}`), brands, categories, taxonomy, category tiles, subcategory tiles, duty estimate, prohibited check, and the `/products/{id}/reviews` alias.
+- `routers/product_extras.py` (NEW, ~310 lines) — `GET /best-sellers`, `GET /products/{id}/recommendations`, `GET /products/{id}/frequently-bought-together`.
+
+**No URL changes** — every public `/api/...` path is identical. Web agent does not need any updates. Mounted in `server.py` immediately after `products.router`.
+
+## Backend perf — Q&A list endpoint $lookup (June 20, 2026)
+`GET /api/products/{product_id}/questions` no longer issues N+1 queries to fetch each question's top answer. The handler is now a single `aggregate()` pipeline using `$lookup` against `product_answers`, sorted by helpful_count desc + created_at desc, limited to 1 nested doc per question. Response shape unchanged.
+
+## Backend tests
+Critical-path suites: **102/102 pass** across qa, best_sellers, frequently_bought_together, wishlist_collections_move, subcategory_and_facets, delivery_rating, notification_prefs, analytics_low_stock.

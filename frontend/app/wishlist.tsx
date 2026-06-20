@@ -472,26 +472,30 @@ export default function WishlistScreen() {
             <ChevronDown size={14} color={colors.textMuted} />
           </Pressable>
           <View style={{ flex: 1 }} />
-          {inStockCount >= 2 ? (
+          <View style={styles.toolbarActions}>
+            {inStockCount >= 2 ? (
+              <Pressable
+                testID="wishlist-move-all-btn"
+                disabled={busy}
+                onPress={onMoveAllInStock}
+                style={styles.moveAllBtn}
+              >
+                <ShoppingCart size={12} color="#fff" />
+                <Text style={styles.moveAllText} numberOfLines={1}>
+                  Move {inStockCount}
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable
-              testID="wishlist-move-all-btn"
+              testID="wishlist-clear-all-btn"
               disabled={busy}
-              onPress={onMoveAllInStock}
-              style={styles.moveAllBtn}
+              onPress={onClearAll}
+              style={styles.clearAllBtn}
+              hitSlop={6}
             >
-              <ShoppingCart size={13} color="#fff" />
-              <Text style={styles.moveAllText}>Move all ({inStockCount})</Text>
+              <Trash2 size={13} color={colors.error} />
             </Pressable>
-          ) : null}
-          <Pressable
-            testID="wishlist-clear-all-btn"
-            disabled={busy}
-            onPress={onClearAll}
-            style={styles.clearAllBtn}
-            hitSlop={6}
-          >
-            <Trash2 size={13} color={colors.error} />
-          </Pressable>
+          </View>
         </View>
       ) : null}
 
@@ -930,6 +934,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     backgroundColor: "#fff",
   },
+  toolbarActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
   sortBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -938,19 +948,20 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 999,
     backgroundColor: colors.surface,
-    maxWidth: 200,
+    flexShrink: 1,
+    maxWidth: 180,
   },
-  sortBtnText: { color: colors.text, fontWeight: "700", fontSize: 12, maxWidth: 140 },
+  sortBtnText: { color: colors.text, fontWeight: "700", fontSize: 12, maxWidth: 120 },
   moveAllBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
+    gap: 5,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
     backgroundColor: colors.primary,
   },
-  moveAllText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  moveAllText: { color: "#fff", fontWeight: "800", fontSize: 11 },
   clearAllBtn: {
     width: 32,
     height: 32,

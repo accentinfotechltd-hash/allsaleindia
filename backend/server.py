@@ -54,6 +54,7 @@ from routers import (
     saved_searches,
     policies,
     products,
+    product_extras,
     qa,
     recommendations,
     referrals,
@@ -99,6 +100,7 @@ api.include_router(auth.router)
 api.include_router(auth_2fa.router)
 api.include_router(auth_sso.router)
 api.include_router(products.router)
+api.include_router(product_extras.router)
 api.include_router(qa.router)
 api.include_router(cart.router)
 api.include_router(seller.router)
