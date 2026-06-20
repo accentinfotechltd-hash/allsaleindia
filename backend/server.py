@@ -16,6 +16,38 @@ ingress rules.
 from __future__ import annotations
 
 import logging
+import os
+
+# ---------------------------------------------------------------------------
+# Sentry — production crash & performance monitoring.
+# Init must happen BEFORE FastAPI app is constructed so the integration
+# can hook into request lifecycle. No-op when ``SENTRY_DSN`` is unset so
+# local dev and tests run without sending anything outbound.
+# ---------------------------------------------------------------------------
+_SENTRY_DSN = (os.getenv("SENTRY_DSN") or "").strip()
+if _SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=_SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        release=os.getenv("SENTRY_RELEASE", "allsale-backend@1.0.0"),
+        integrations=[
+            FastApiIntegration(transaction_style="endpoint"),
+            StarletteIntegration(),
+        ],
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+        send_default_pii=False,  # never ship user emails / tokens by default
+        attach_stacktrace=True,
+        max_breadcrumbs=50,
+    )
+    logging.getLogger(__name__).info(
+        "Sentry initialised — environment=%s release=%s",
+        os.getenv("SENTRY_ENVIRONMENT", "production"),
+        os.getenv("SENTRY_RELEASE", "allsale-backend@1.0.0"),
+    )
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

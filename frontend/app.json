@@ -76,7 +76,8 @@
       ],
       "expo-video",
       "expo-localization",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true

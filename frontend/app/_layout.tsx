@@ -15,10 +15,15 @@ import { WishlistProvider } from "@/src/contexts/WishlistContext";
 import { UiOverlayProvider } from "@/src/components/UiOverlayProvider";
 import { loadStoredLanguage } from "@/src/i18n";
 import { captureRefFromUrl } from "@/src/lib/ref";
+import { initSentry, wrap as sentryWrap } from "@/src/lib/sentry";
+
+// Initialise Sentry as early as possible — no-op when DSN is empty so
+// dev / Expo Go / preview builds never crash on missing config.
+initSentry();
 
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+function RootLayout() {
   const [loaded, error] = useIconFonts();
 
   useEffect(() => {
@@ -66,3 +71,7 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// Wrap the root with Sentry for performance & profiling. `sentryWrap` is a
+// safe no-op when DSN is empty, so this stays cheap in dev / preview.
+export default sentryWrap(RootLayout);

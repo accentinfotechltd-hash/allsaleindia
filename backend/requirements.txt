@@ -130,3 +130,4 @@ websockets==16.0
 yarl==1.24.2
 zipp==4.1.0
 xlrd==2.0.1
+sentry-sdk[fastapi]==2.20.0
