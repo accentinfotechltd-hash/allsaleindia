@@ -14,15 +14,26 @@ import { colors } from "@/src/lib/theme";
 export default function AssistantFab({
   testID,
   offsetBottom = 96,
+  initialQuestion,
 }: {
   testID?: string;
   offsetBottom?: number;
+  initialQuestion?: string;
 }) {
   const router = useRouter();
   return (
     <Pressable
       testID={testID || "assistant-fab"}
-      onPress={() => router.push("/assistant")}
+      onPress={() => {
+        if (initialQuestion) {
+          router.push({
+            pathname: "/assistant",
+            params: { q: initialQuestion },
+          });
+        } else {
+          router.push("/assistant");
+        }
+      }}
       style={({ pressed }) => [
         styles.fab,
         { bottom: offsetBottom },

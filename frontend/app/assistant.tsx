@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, RotateCcw, Send, Sparkles } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -49,6 +49,7 @@ const STARTERS = [
 
 export default function AssistantScreen() {
   const router = useRouter();
+  const { q: incomingQ } = useLocalSearchParams<{ q?: string }>();
   const { show } = useToast();
 
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -57,6 +58,7 @@ export default function AssistantScreen() {
   const [sending, setSending] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const listRef = useRef<FlatList<Msg>>(null);
+  const seededRef = useRef(false);
 
   // Restore session if present
   useEffect(() => {
@@ -81,6 +83,15 @@ export default function AssistantScreen() {
       }
     })();
   }, []);
+
+  // Pre-fill input when arriving with a ?q= param (e.g. from PDP FAB)
+  useEffect(() => {
+    if (loadingHistory) return;
+    if (seededRef.current) return;
+    if (!incomingQ || typeof incomingQ !== "string") return;
+    seededRef.current = true;
+    setInput(incomingQ);
+  }, [incomingQ, loadingHistory]);
 
   // Scroll on new messages
   useEffect(() => {

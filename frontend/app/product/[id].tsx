@@ -9,6 +9,7 @@ import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import FrequentlyBoughtTogether from "@/src/components/FrequentlyBoughtTogether";
 import SponsoredCarousel from "@/src/components/SponsoredCarousel";
+import AssistantFab from "@/src/components/AssistantFab";
 import ProductQuestionsSection from "@/src/components/ProductQuestionsSection";
 import ShipsWellBadge from "@/src/components/ShipsWellBadge";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
@@ -422,6 +423,12 @@ export default function ProductDetail() {
           <RecentlyViewedRail excludeId={product.id} limit={10} />
         </View>
       </ScrollView>
+
+      <AssistantFab
+        offsetBottom={120}
+        initialQuestion={`Tell me more about "${product.name}"`}
+        testID="product-assistant-fab"
+      />
 
       <SafeAreaView edges={["bottom"]} style={styles.bottomBar}>
         <View style={styles.bottomInner}>

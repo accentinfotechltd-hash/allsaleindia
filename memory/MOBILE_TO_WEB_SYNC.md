@@ -648,3 +648,18 @@ Replaced post-paid invoicing with prepaid wallet model. Sellers fund a wallet vi
 
 ### Web parity
 Same endpoints. Web wallet UI mirrors mobile. Webhook delivery is platform-agnostic — point Stripe Dashboard webhook at `https://<your-domain>/api/sponsored/webhooks/stripe` with the `checkout.session.completed` event subscribed.
+
+
+## AI Assistant on PDP (June 20, 2026)
+Quick win — the floating ✨ "Ask" button now appears on every product page with a context-aware pre-filled question.
+
+### Changes
+- `AssistantFab` accepts a new optional `initialQuestion` prop — when set, tapping the FAB navigates to `/assistant?q=<encoded>` instead of a blank chat.
+- `app/assistant.tsx` reads the `q` query param (`useLocalSearchParams`) and seeds the input field with it once history has loaded. User can hit send or edit before sending.
+- `app/product/[id].tsx` mounts `<AssistantFab offsetBottom={120} initialQuestion={\`Tell me more about "${product.name}"\`} />` — `offsetBottom` clears the sticky "Add to cart" bar.
+
+### Live verified
+- Open the Crossbody Bag PDP → tap "✨ Ask" → assistant opens with input pre-filled `Tell me more about "Genuine Leather Crossbody Bag"`. One tap on Send invokes the chat backend with full product context.
+
+### Web parity
+Same pattern works on web — pass `initialQuestion` to whatever FAB/launcher the web frontend uses, navigate to `/assistant?q=<encoded>`.
