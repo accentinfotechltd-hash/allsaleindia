@@ -8,6 +8,7 @@ import { LanguagePicker, LanguagePill } from "@/src/components/LanguagePicker";
 import { useToast } from "@/src/components/UiOverlayProvider";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { useWishlist } from "@/src/contexts/WishlistContext";
 import { api } from "@/src/lib/api";
@@ -18,6 +19,7 @@ export default function Account() {
   const { user, logout } = useAuth();
   const { country, info, countries, setCountry } = useRegion();
   const { count: wishlistCount } = useWishlist();
+  const { t } = useTranslation();
   const [unread, setUnread] = useState(0);
   const [showCountrySheet, setShowCountrySheet] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
@@ -74,7 +76,7 @@ export default function Account() {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xxl }} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Account</Text>
+          <Text style={styles.title}>{t("account_menu.title")}</Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <LanguagePill onPress={() => setLangOpen(true)} />
             <Pressable
@@ -105,13 +107,13 @@ export default function Account() {
               {user?.email_verified ? (
                 <View style={styles.verifiedPill} testID="account-email-verified-pill">
                   <BadgeCheck size={11} color="#16a34a" />
-                  <Text style={styles.verifiedPillText}>Verified</Text>
+                  <Text style={styles.verifiedPillText}>{t("account_menu.verified")}</Text>
                 </View>
               ) : null}
             </View>
             <View style={styles.regionBadge}>
               <Globe2 size={11} color={colors.textMuted} />
-              <Text style={styles.regionText}>Shipping to New Zealand</Text>
+              <Text style={styles.regionText}>{t("account_menu.shipping_to", { country: regionName })}</Text>
             </View>
           </View>
         </View>
@@ -122,7 +124,7 @@ export default function Account() {
               <Mail size={18} color="#92400E" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.verifyTitle}>Verify your email</Text>
+              <Text style={styles.verifyTitle}>{t("account_menu.verify_email")}</Text>
               <Text style={styles.verifySubtitle}>
                 Secure your account & unlock checkout shortcuts.
               </Text>
@@ -138,7 +140,7 @@ export default function Account() {
               ]}
             >
               <Text style={styles.verifyCtaText}>
-                {resendingVerify ? "Sending…" : "Verify"}
+                {resendingVerify ? t("account_menu.sending") : t("account_menu.verify")}
               </Text>
             </Pressable>
           </View>
@@ -147,62 +149,62 @@ export default function Account() {
         <View style={styles.menuGroup}>
           <Row
             icon={<Package size={18} color={colors.text} />}
-            label="My orders"
+            label={t("account_menu.my_orders")}
             onPress={() => router.push("/orders")}
             testID="account-orders-btn"
           />
           <Row
             icon={<Heart size={18} color={colors.text} />}
-            label="My wishlist"
+            label={t("account_menu.my_wishlist")}
             subtitle={wishlistCount > 0 ? `${wishlistCount} saved` : "Save items for later"}
             onPress={() => router.push("/wishlist")}
             testID="account-wishlist-btn"
           />
           <Row
             icon={<Sparkles size={18} color="#7C3AED" />}
-            label="Allsale Points"
+            label={t("account_menu.points")}
             subtitle="Earn on every order · redeem for discounts"
             onPress={() => router.push("/points/history")}
             testID="account-points-btn"
           />
           <Row
             icon={<Gift size={18} color="#7C3AED" />}
-            label="Invite friends"
+            label={t("account_menu.invite_friends")}
             subtitle="Give pts, get pts when they buy"
             onPress={() => router.push("/referrals")}
             testID="account-referrals-btn"
           />
           <Row
             icon={<Sparkles size={18} color={colors.primary} />}
-            label="Ambassador Programme"
+            label={t("account_menu.ambassador")}
             subtitle="Share your code · earn 5–12% per sale"
             onPress={() => router.push("/ambassadors")}
             testID="account-ambassador-btn"
           />
           <Row
             icon={<MessageCircle size={18} color={colors.text} />}
-            label="Messages"
+            label={t("account_menu.messages")}
             subtitle="Chat with sellers about your orders"
             onPress={() => router.push("/chat")}
             testID="account-messages-btn"
           />
           <Row
             icon={<RefreshCcw size={18} color={colors.text} />}
-            label="My returns"
+            label={t("account_menu.returns")}
             subtitle="Track refund requests & seller responses"
             onPress={() => router.push("/returns")}
             testID="account-returns-btn"
           />
           <Row
             icon={<Search size={18} color={colors.text} />}
-            label="Saved searches"
+            label={t("account_menu.saved_searches")}
             subtitle="Re-launch your favourite filter combos"
             onPress={() => router.push("/account/saved-searches")}
             testID="account-saved-searches-btn"
           />
           <Row
             icon={<Text style={{ fontSize: 18 }}>{regionFlag}</Text>}
-            label={`Ship to ${regionName}`}
+            label={t("account_menu.ship_to", { country: regionName })}
             subtitle={`Prices shown in ${regionCurrency}`}
             onPress={() => setShowCountrySheet(true)}
             testID="account-region-btn"
@@ -210,7 +212,7 @@ export default function Account() {
           {user?.is_seller ? (
             <Row
               icon={<Store size={18} color={colors.primary} />}
-              label="Seller dashboard"
+              label={t("account_menu.seller_dashboard")}
               subtitle={user.seller_verified ? "Verified · manage listings" : "Verification pending"}
               onPress={() => router.push("/seller/dashboard")}
               testID="account-seller-dashboard-btn"
@@ -218,7 +220,7 @@ export default function Account() {
           ) : (
             <Row
               icon={<Store size={18} color={colors.primary} />}
-              label="Become a seller"
+              label={t("account_menu.become_seller")}
               subtitle="List your India-registered business on Allsale"
               onPress={() => router.push("/seller/welcome")}
               testID="account-become-seller-btn"
@@ -226,66 +228,66 @@ export default function Account() {
           )}
           <Row
             icon={<MapPin size={18} color={colors.text} />}
-            label="Shipping addresses"
+            label={t("account_menu.addresses")}
             onPress={() => {}}
             testID="account-addresses-btn"
             subtitle="Set up at checkout"
           />
           <Row
             icon={<ShieldAlert size={18} color={colors.primary} />}
-            label="Allowed in NZ?"
+            label={t("account_menu.prohibited")}
             subtitle="Check prohibited items before you ship"
             onPress={() => router.push("/help/prohibited-checker")}
             testID="account-prohibited-checker-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.text} />}
-            label="Buyer protection"
+            label={t("account_menu.protection")}
             onPress={() => {}}
             testID="account-protection-btn"
             subtitle="Refund if item not delivered"
           />
           <Row
             icon={<MapPin size={18} color={colors.primary} />}
-            label="Saved addresses"
+            label={t("account_menu.saved_addresses")}
             subtitle="Manage shipping addresses"
             onPress={() => router.push("/account/addresses")}
             testID="account-addresses-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.primary} />}
-            label="Two-factor authentication"
+            label={t("account_menu.two_factor")}
             subtitle="Email code at sign in for extra security"
             onPress={() => router.push("/account/two-factor")}
             testID="account-2fa-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.text} />}
-            label="Privacy & data"
+            label={t("account_menu.privacy")}
             subtitle="Download your data or close your account"
             onPress={() => router.push("/account/privacy")}
             testID="account-privacy-btn"
           />
           <Row
             icon={<Bell size={18} color={colors.primary} />}
-            label="Notifications"
+            label={t("account_menu.notifications")}
             subtitle="Mute categories: orders, deals, reviews…"
             onPress={() => router.push("/account/notification-prefs")}
             testID="account-notif-prefs-btn"
           />
           <Row
             icon={<Settings size={18} color={colors.text} />}
-            label="Preferences"
+            label={t("account_menu.preferences")}
             onPress={() => {}}
             testID="account-prefs-btn"
           />
         </View>
 
-        <Text style={styles.groupLabel}>Policies & help</Text>
+        <Text style={styles.groupLabel}>{t("account_menu.policies_help")}</Text>
         <View style={styles.menuGroup}>
           <Row
             icon={<HelpCircle size={18} color={colors.primary} />}
-            label="Help Center"
+            label={t("account_menu.help_center")}
             subtitle="FAQs · Contact support · My tickets"
             onPress={() => router.push("/help")}
             testID="account-help-center-btn"
@@ -329,10 +331,10 @@ export default function Account() {
           style={({ pressed }) => [styles.logout, pressed && { opacity: 0.8 }]}
         >
           <LogOut size={18} color={colors.error} />
-          <Text style={styles.logoutText}>Sign out</Text>
+          <Text style={styles.logoutText}>{t("account_menu.sign_out")}</Text>
         </Pressable>
 
-        <Text style={styles.footer}>Allsale · India → NZ · Authentic, fairly traded.</Text>
+        <Text style={styles.footer}>{t("account_menu.footer")}</Text>
       </ScrollView>
 
       <Modal

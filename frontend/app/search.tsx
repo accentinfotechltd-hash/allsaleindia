@@ -19,6 +19,7 @@ import { api } from "@/src/lib/api";
 import CategoryTileGrid from "@/src/components/CategoryTileGrid";
 import { EmptyState } from "@/src/components/EmptyState";
 import { SearchSuggestionsSkeleton } from "@/src/components/SkeletonRows";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type SuggestProduct = { id: string; name: string; image?: string; price_nzd: number; seller_name?: string };
@@ -31,6 +32,7 @@ const DEBOUNCE_MS = 240;
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [suggest, setSuggest] = useState<Suggest>({ products: [], brands: [], categories: [] });
@@ -200,7 +202,7 @@ export default function SearchScreen() {
                       title="Recent searches"
                       right={
                         <Pressable onPress={clearHistory} hitSlop={6} testID="search-history-clear">
-                          <Text style={styles.linkText}>Clear all</Text>
+                          <Text style={styles.linkText}>{t("search_screen.clear_all")}</Text>
                         </Pressable>
                       }
                     >

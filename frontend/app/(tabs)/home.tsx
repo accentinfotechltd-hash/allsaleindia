@@ -26,6 +26,7 @@ import AssistantFab from "@/src/components/AssistantFab";
 import SponsoredCarousel from "@/src/components/SponsoredCarousel";
 import { WelcomeCouponBanner } from "@/src/components/WelcomeCouponBanner";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -95,6 +96,7 @@ function ChatBellButton() {
 export default function Home() {
   const router = useRouter();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [products, setProducts] = useState<ProductLite[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [activeCat, setActiveCat] = useState<string>("All");
@@ -167,7 +169,7 @@ export default function Home() {
                 <View style={styles.brandAccent} />
                 <View style={styles.regionRow}>
                   <Globe2 size={12} color={colors.primary} />
-                  <Text style={styles.region}>Shipping to New Zealand</Text>
+                  <Text style={styles.region}>{t("home.shipping_to_nz")}</Text>
                 </View>
               </View>
               <View style={styles.headerActions}>
@@ -236,8 +238,8 @@ export default function Home() {
               >
                 <Text style={styles.quickEmoji}>🔥</Text>
                 <View>
-                  <Text style={styles.quickTitle}>Today&apos;s Deals</Text>
-                  <Text style={styles.quickSub}>Flash sales & coupons</Text>
+                  <Text style={styles.quickTitle}>{t("home.deals_title")}</Text>
+                  <Text style={styles.quickSub}>{t("home.deals_sub")}</Text>
                 </View>
               </Pressable>
               <Pressable
@@ -247,8 +249,8 @@ export default function Home() {
               >
                 <Text style={styles.quickEmoji}>🏆</Text>
                 <View>
-                  <Text style={styles.quickTitle}>Best Sellers</Text>
-                  <Text style={styles.quickSub}>Top picks this month</Text>
+                  <Text style={styles.quickTitle}>{t("home.best_sellers_title")}</Text>
+                  <Text style={styles.quickSub}>{t("home.best_sellers_sub")}</Text>
                 </View>
               </Pressable>
             </View>
@@ -301,8 +303,8 @@ export default function Home() {
           ) : (
             <EmptyState
               icon={Package}
-              title="No products match your search"
-              subtitle="Try a different filter, broaden your category, or come back later — new listings arrive daily."
+              title={t("home.no_match")}
+              subtitle={t("home.no_match_body")}
               flex={false}
             />
           )

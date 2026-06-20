@@ -52,7 +52,7 @@ export default function Cart() {
             onPress={() => router.replace("/(tabs)/home")}
             style={styles.shopBtn}
           >
-            <Text style={styles.shopBtnText}>Start shopping</Text>
+            <Text style={styles.shopBtnText}>{t("cart_screen.start_shopping")}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -83,7 +83,7 @@ export default function Cart() {
               </Text>
               <View style={styles.priceRow}>
                 <Text style={styles.priceNzd}>{formatPrice(item.price_nzd)}</Text>
-                <Text style={styles.priceLabel}>NZD</Text>
+                <Text style={styles.priceLabel}>{t("cart_screen.nzd_label")}</Text>
               </View>
               <View style={styles.qtyRow}>
                 <View style={styles.qtyBox}>
@@ -181,7 +181,7 @@ export default function Cart() {
           onPress={() => router.push("/checkout")}
           style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }]}
         >
-          <Text style={styles.ctaText}>Checkout · {formatPrice(cart.total_nzd)}</Text>
+          <Text style={styles.ctaText}>{t("cart_screen.checkout_cta", { total: formatPrice(cart.total_nzd) })}</Text>
         </Pressable>
       </View>
     </SafeAreaView>
