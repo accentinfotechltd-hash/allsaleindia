@@ -4,17 +4,19 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function SellerWelcome() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { user } = useAuth();
 
   const continueLabel = user
     ? user.is_seller
-      ? "Open seller dashboard"
-      : "Continue as " + user.full_name.split(" ")[0]
-    : "Create seller account";
+      ? t("seller_welcome.cta_open_dashboard")
+      : t("seller_welcome.cta_continue_as", { name: user.full_name.split(" ")[0] })
+    : t("seller_welcome.cta_create_account");
 
   const onContinue = () => {
     if (!user) router.push("/seller/signup");
@@ -28,7 +30,7 @@ export default function SellerWelcome() {
         <Pressable testID="seller-welcome-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.brand}>Sell on Allsale</Text>
+        <Text style={styles.brand}>{t("seller_welcome.brand")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -36,36 +38,34 @@ export default function SellerWelcome() {
         <View style={styles.heroIcon}>
           <Store size={28} color={colors.primary} />
         </View>
-        <Text style={styles.title}>List your products{"\n"}to NZ shoppers.</Text>
+        <Text style={styles.title}>{t("seller_welcome.title")}</Text>
         <Text style={styles.subtitle}>
-          Allsale connects India-registered businesses with shoppers in New Zealand. Get verified and start
-          selling in minutes.
+          {t("seller_welcome.subtitle")}
         </Text>
 
         <View style={styles.requirements}>
-          <Text style={styles.sectionTitle}>You&apos;ll need</Text>
+          <Text style={styles.sectionTitle}>{t("seller_welcome.youll_need")}</Text>
           <Row
             icon={<Globe2 size={16} color={colors.primary} />}
-            title="A business registered in India"
-            body="Sole-trader gigs are not eligible — this platform is for companies only."
+            title={t("seller_welcome.req1_title")}
+            body={t("seller_welcome.req1_body")}
           />
           <Row
             icon={<FileCheck size={16} color={colors.primary} />}
-            title="GSTIN, PAN (and optionally CIN)"
-            body="We auto-verify your business against Indian government formats."
+            title={t("seller_welcome.req2_title")}
+            body={t("seller_welcome.req2_body")}
           />
           <Row
             icon={<ShieldCheck size={16} color={colors.primary} />}
-            title="A registered Indian address"
-            body="Used for shipping documentation and buyer protection."
+            title={t("seller_welcome.req3_title")}
+            body={t("seller_welcome.req3_body")}
           />
         </View>
 
         <View style={styles.policy}>
-          <Text style={styles.policyTitle}>One platform, two audiences</Text>
+          <Text style={styles.policyTitle}>{t("seller_welcome.policy_title")}</Text>
           <Text style={styles.policyText}>
-            Buyers shop from New Zealand (allsale.co.nz). Sellers must own a company in India. We don&apos;t
-            allow individual or non-Indian sellers at this time.
+            {t("seller_welcome.policy_text")}
           </Text>
         </View>
       </ScrollView>
@@ -85,7 +85,7 @@ export default function SellerWelcome() {
             style={styles.secondaryLink}
           >
             <Text style={styles.secondaryText}>
-              Already have an Allsale account? <Text style={styles.linkText}>Sign in</Text>
+              {t("seller_welcome.already_have_account")}<Text style={styles.linkText}>{t("seller_welcome.sign_in")}</Text>
             </Text>
           </Pressable>
         ) : null}

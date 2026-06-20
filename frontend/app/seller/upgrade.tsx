@@ -16,11 +16,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BusinessFields, useBusinessForm } from "@/src/components/BusinessFields";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function SellerUpgrade() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { refresh } = useAuth();
   const { form, set, setType } = useBusinessForm();
   const [busy, setBusy] = useState(false);
@@ -49,7 +51,7 @@ export default function SellerUpgrade() {
       await refresh();
       router.replace("/seller/dashboard");
     } catch (e: any) {
-      setErr(e?.message || "Could not upgrade account");
+      setErr(e?.message || t("seller_upgrade.error_default"));
     } finally {
       setBusy(false);
     }
@@ -61,15 +63,14 @@ export default function SellerUpgrade() {
         <Pressable testID="seller-upgrade-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Become a seller</Text>
+        <Text style={styles.title}>{t("seller_upgrade.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={styles.intro}>
-            You&apos;re already signed in. Just add your business details below and we&apos;ll verify your
-            company against Indian government formats.
+            {t("seller_upgrade.intro")}
           </Text>
 
           <BusinessFields form={form} set={set} setType={setType} prefix="seller-upgrade" />
@@ -80,26 +81,26 @@ export default function SellerUpgrade() {
           <View style={styles.referralCard} testID="seller-upgrade-referral-card">
             <View style={styles.referralHeader}>
               <Sparkles size={16} color={colors.primary} />
-              <Text style={styles.referralTitle}>Referred by an Ambassador?</Text>
+              <Text style={styles.referralTitle}>{t("seller_upgrade.referral_title")}</Text>
             </View>
             <Text style={styles.referralSub}>
-              Enter their code below to get{" "}
-              <Text style={styles.referralHighlight}>3 months Pro free</Text>
-              {" "}— and they earn a bounty when your business ships its first 5 orders.
+              {t("seller_upgrade.referral_sub_a")}
+              <Text style={styles.referralHighlight}>{t("seller_upgrade.referral_sub_highlight")}</Text>
+              {t("seller_upgrade.referral_sub_b")}
             </Text>
             <TextInput
               testID="seller-upgrade-referral-code"
               style={styles.referralInput}
               value={referralCode}
               onChangeText={setReferralCode}
-              placeholder="e.g. RAJESHBIZ"
+              placeholder={t("seller_upgrade.referral_placeholder")}
               placeholderTextColor={colors.textFaint}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={40}
             />
             <Text style={styles.referralHint}>
-              Optional — leave blank if you don&apos;t have a code.
+              {t("seller_upgrade.referral_hint")}
             </Text>
           </View>
 
@@ -111,7 +112,7 @@ export default function SellerUpgrade() {
             onPress={submit}
             style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }, busy && { opacity: 0.7 }]}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Submit for verification</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("seller_upgrade.submit_btn")}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

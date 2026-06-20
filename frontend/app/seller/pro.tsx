@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -36,17 +37,18 @@ type ProStatus = {
   price_id_configured?: boolean;
 };
 
-const BENEFITS = [
-  { icon: Zap, color: "#f97316", title: "9% commission (vs 12%)", body: "Save 25% on every sale. Pays for itself at ₹17k monthly GMV." },
-  { icon: Star, color: "#facc15", title: "Featured Seller badge", body: "Gold star on every listing — proven to lift conversion 5–15%." },
-  { icon: TrendingUp, color: "#22c55e", title: "Boosted search ranking", body: "Pro sellers rank higher in category & search results." },
-  { icon: Sparkles, color: "#a855f7", title: "4 free featured listings / month", body: "Worth ₹1,000/mo on its own — give your best SKUs the spotlight." },
-  { icon: Users, color: "#0ea5e9", title: "Priority Trust & Safety support", body: "Same-day response. Disputes resolved faster, cash released sooner." },
-  { icon: Crown, color: "#ec4899", title: "Advanced analytics dashboard", body: "Conversion by SKU, traffic sources, abandoned-cart insights." },
+const BENEFIT_ICONS: { icon: typeof Zap; color: string; titleKey: string; bodyKey: string }[] = [
+  { icon: Zap, color: "#f97316", titleKey: "seller_pro.benefit1_title", bodyKey: "seller_pro.benefit1_body" },
+  { icon: Star, color: "#facc15", titleKey: "seller_pro.benefit2_title", bodyKey: "seller_pro.benefit2_body" },
+  { icon: TrendingUp, color: "#22c55e", titleKey: "seller_pro.benefit3_title", bodyKey: "seller_pro.benefit3_body" },
+  { icon: Sparkles, color: "#a855f7", titleKey: "seller_pro.benefit4_title", bodyKey: "seller_pro.benefit4_body" },
+  { icon: Users, color: "#0ea5e9", titleKey: "seller_pro.benefit5_title", bodyKey: "seller_pro.benefit5_body" },
+  { icon: Crown, color: "#ec4899", titleKey: "seller_pro.benefit6_title", bodyKey: "seller_pro.benefit6_body" },
 ];
 
 export default function AllsalePro() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
   const confirm = useConfirm();
   const [status, setStatus] = useState<ProStatus | null>(null);
@@ -70,8 +72,8 @@ export default function AllsalePro() {
   const startCheckout = async () => {
     if (!status?.price_id_configured) {
       show({
-        title: "Pro is not yet enabled",
-        message: "Our team is finalising pricing. Check back soon.",
+        title: t("seller_pro.not_enabled_title"),
+        message: t("seller_pro.not_enabled_msg"),
         kind: "info",
       });
       return;
@@ -82,7 +84,7 @@ export default function AllsalePro() {
       if (Platform.OS === "web") (globalThis as unknown as Window).location.href = d.url;
       else await Linking.openURL(d.url);
     } catch (e: any) {
-      show({ title: "Couldn't start checkout", message: e?.message, kind: "error" });
+      show({ title: t("seller_pro.couldnt_checkout"), message: e?.message, kind: "error" });
     } finally {
       setActing(false);
     }
@@ -90,19 +92,19 @@ export default function AllsalePro() {
 
   const cancelSub = async () => {
     const ok = await confirm({
-      title: "Cancel Allsale Pro?",
-      message: "Your benefits stay active until the end of the current billing period. After that you'll return to the standard 12% commission.",
-      confirmLabel: "Cancel subscription",
+      title: t("seller_pro.confirm_cancel_title"),
+      message: t("seller_pro.confirm_cancel_msg"),
+      confirmLabel: t("seller_pro.confirm_cancel_btn"),
       destructive: true,
     });
     if (!ok) return;
     setActing(true);
     try {
       await api("/seller/pro/cancel", { method: "POST", body: {} });
-      show({ title: "Cancellation scheduled", message: "Pro stays active until period end.", kind: "success" });
+      show({ title: t("seller_pro.cancel_scheduled_title"), message: t("seller_pro.cancel_scheduled_msg"), kind: "success" });
       load();
     } catch (e: any) {
-      show({ title: "Couldn't cancel", message: e?.message, kind: "error" });
+      show({ title: t("seller_pro.couldnt_cancel"), message: e?.message, kind: "error" });
     } finally {
       setActing(false);
     }
@@ -114,7 +116,7 @@ export default function AllsalePro() {
         <Pressable testID="pro-back" onPress={() => router.back()} style={styles.iconBtn} hitSlop={8}>
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Allsale Pro</Text>
+        <Text style={styles.headerTitle}>{t("seller_pro.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -124,15 +126,15 @@ export default function AllsalePro() {
           <View style={styles.crownChip}>
             <Crown size={20} color="#fff" />
           </View>
-          <Text style={styles.heroTitle}>Sell more, keep more.</Text>
+          <Text style={styles.heroTitle}>{t("seller_pro.hero_title")}</Text>
           <Text style={styles.heroBody}>
-            Allsale Pro slashes your commission from 12% to 9% and unlocks the tools serious sellers use to grow.
+            {t("seller_pro.hero_body")}
           </Text>
           <View style={styles.priceRow}>
-            <Text style={styles.price}>₹500</Text>
-            <Text style={styles.priceUnit}>/ month</Text>
+            <Text style={styles.price}>{t("seller_pro.price")}</Text>
+            <Text style={styles.priceUnit}>{t("seller_pro.price_unit")}</Text>
           </View>
-          <Text style={styles.priceSub}>Cancel anytime. No setup fees.</Text>
+          <Text style={styles.priceSub}>{t("seller_pro.price_sub")}</Text>
         </View>
 
         {/* Active banner */}
@@ -142,23 +144,21 @@ export default function AllsalePro() {
           <View style={styles.activeBanner}>
             <CheckCircle2 size={20} color="#16a34a" />
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <Text style={styles.activeTitle}>You&apos;re on Allsale Pro</Text>
+              <Text style={styles.activeTitle}>{t("seller_pro.active_title")}</Text>
               <Text style={styles.activeBody}>
                 {status.will_cancel
-                  ? "Cancelling at the end of your current period."
-                  : `Renews ${
-                      status.current_period_end
-                        ? new Date(status.current_period_end * 1000).toLocaleDateString()
-                        : "monthly"
-                    }`}
+                  ? t("seller_pro.will_cancel_body")
+                  : status.current_period_end
+                    ? t("seller_pro.renews_on", { date: new Date(status.current_period_end * 1000).toLocaleDateString() })
+                    : t("seller_pro.renews_monthly")}
               </Text>
             </View>
           </View>
         ) : null}
 
         {/* Benefits */}
-        <Text style={styles.sectionLabel}>What you get</Text>
-        {BENEFITS.map((b, i) => {
+        <Text style={styles.sectionLabel}>{t("seller_pro.section_benefits")}</Text>
+        {BENEFIT_ICONS.map((b, i) => {
           const Icon = b.icon;
           return (
             <View key={i} style={styles.benefit}>
@@ -166,8 +166,8 @@ export default function AllsalePro() {
                 <Icon size={18} color={b.color} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.benefitTitle}>{b.title}</Text>
-                <Text style={styles.benefitBody}>{b.body}</Text>
+                <Text style={styles.benefitTitle}>{t(b.titleKey)}</Text>
+                <Text style={styles.benefitBody}>{t(b.bodyKey)}</Text>
               </View>
             </View>
           );
@@ -186,7 +186,7 @@ export default function AllsalePro() {
                 <>
                   <Crown size={18} color="#fff" />
                   <Text style={styles.ctaText}>
-                    {status?.price_id_configured === false ? "Coming soon" : "Subscribe to Pro"}
+                    {status?.price_id_configured === false ? t("seller_pro.coming_soon") : t("seller_pro.subscribe_btn")}
                   </Text>
                 </>
               )}
@@ -198,7 +198,7 @@ export default function AllsalePro() {
               disabled={acting}
               style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.85 }]}
             >
-              <Text style={styles.cancelBtnText}>Cancel Allsale Pro</Text>
+              <Text style={styles.cancelBtnText}>{t("seller_pro.cancel_btn")}</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -206,18 +206,18 @@ export default function AllsalePro() {
             onPress={load}
             style={({ pressed }) => [styles.secondaryBtn, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.secondaryBtnText}>Refresh status</Text>
+            <Text style={styles.secondaryBtnText}>{t("seller_pro.refresh_btn")}</Text>
           </Pressable>
         </View>
 
         {/* Math */}
         <View style={styles.mathCard}>
-          <Text style={styles.mathTitle}>📊 Your savings, modelled</Text>
-          <Row label="Monthly GMV" value="₹50,000" />
-          <Row label="Standard commission (12%)" value="-₹6,000" />
-          <Row label="Pro commission (9%)" value="-₹4,500" highlight />
-          <Row label="Pro subscription" value="-₹500" />
-          <Row label="You save" value="₹1,000 / month" bold />
+          <Text style={styles.mathTitle}>{t("seller_pro.math_title")}</Text>
+          <Row label={t("seller_pro.math_gmv")} value={t("seller_pro.math_gmv_val")} />
+          <Row label={t("seller_pro.math_std")} value={t("seller_pro.math_std_val")} />
+          <Row label={t("seller_pro.math_pro")} value={t("seller_pro.math_pro_val")} highlight />
+          <Row label={t("seller_pro.math_sub")} value={t("seller_pro.math_sub_val")} />
+          <Row label={t("seller_pro.math_save")} value={t("seller_pro.math_save_val")} bold />
         </View>
 
         <Pressable
@@ -225,7 +225,7 @@ export default function AllsalePro() {
           onPress={() => Linking.openURL("https://shop.allsale.co.nz/help/seller-policy")}
           style={styles.linkBtn}
         >
-          <Text style={styles.linkText}>Read the full Seller Policy</Text>
+          <Text style={styles.linkText}>{t("seller_pro.seller_policy_link")}</Text>
           <ExternalLink size={12} color={colors.primary} />
         </Pressable>
       </ScrollView>
