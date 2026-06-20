@@ -78,7 +78,6 @@ export default function ProductQuestionsSection({
   const { user } = useAuth();
   const [items, setItems] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
   const [sheetMode, setSheetMode] = useState<
     null | { kind: "ask" } | { kind: "answer"; questionId: string; preview: string }
   >(null);
@@ -163,7 +162,7 @@ export default function ProductQuestionsSection({
     );
   }
 
-  const visible = showAll ? items : items.slice(0, PREVIEW_LIMIT);
+  const visible = items.slice(0, PREVIEW_LIMIT);
   const more = items.length - visible.length;
 
   return (
@@ -291,12 +290,31 @@ export default function ProductQuestionsSection({
           {more > 0 ? (
             <Pressable
               testID="qa-see-more"
-              onPress={() => setShowAll(true)}
+              onPress={() =>
+                router.push({
+                  pathname: "/product/[id]/questions",
+                  params: { id: productId },
+                })
+              }
               style={styles.seeMore}
             >
               <Text style={styles.seeMoreText}>
-                See {more} more question{more === 1 ? "" : "s"}
+                See all {items.length} question{items.length === 1 ? "" : "s"}
               </Text>
+              <ChevronRight size={14} color={colors.primary} />
+            </Pressable>
+          ) : items.length > 0 ? (
+            <Pressable
+              testID="qa-see-more"
+              onPress={() =>
+                router.push({
+                  pathname: "/product/[id]/questions",
+                  params: { id: productId },
+                })
+              }
+              style={styles.seeMore}
+            >
+              <Text style={styles.seeMoreText}>Open full Q&amp;A</Text>
               <ChevronRight size={14} color={colors.primary} />
             </Pressable>
           ) : null}
