@@ -15,7 +15,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { api } from "@/src/lib/api";
 import { storage } from "@/src/utils/storage";
 
-export type CountryCode = "NZ" | "AU" | "US" | "GB" | "CA";
+export type CountryCode = "NZ" | "AU" | "US" | "GB" | "CA" | "FJ";
 
 export type CountryInfo = {
   code: CountryCode;
@@ -67,6 +67,8 @@ function detectRegionFromHostname(): CountryCode | null {
       return "GB";
     case "ca":
       return "CA";
+    case "fj":
+      return "FJ";
     case "www":
     case "nz":
     case "allsale":

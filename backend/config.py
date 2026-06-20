@@ -60,6 +60,8 @@ SUPPORTED_COUNTRIES: list[dict] = [
     {"code": "US", "name": "United States", "currency": "USD", "symbol": "US$","flag": "🇺🇸"},
     {"code": "GB", "name": "United Kingdom","currency": "GBP", "symbol": "£",  "flag": "🇬🇧"},
     {"code": "CA", "name": "Canada",        "currency": "CAD", "symbol": "C$", "flag": "🇨🇦"},
+    # Pacific neighbour — large Indian-origin diaspora.
+    {"code": "FJ", "name": "Fiji",          "currency": "FJD", "symbol": "FJ$","flag": "🇫🇯"},
 ]
 COUNTRY_CODES = {c["code"] for c in SUPPORTED_COUNTRIES}
 DEFAULT_COUNTRY = "NZ"
@@ -72,6 +74,9 @@ FX_RATES_FROM_NZD: dict[str, float] = {
     "USD": 0.61,
     "GBP": 0.48,
     "CAD": 0.83,
+    # 1 NZD ≈ 1.32 FJD (mid-2026). Frankfurter doesn't track FJD so we use
+    # this hardcoded value as the source of truth.
+    "FJD": 1.32,
 }
 
 # Order cancellation window: buyers can cancel within 12 hours of payment.

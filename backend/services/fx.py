@@ -35,6 +35,8 @@ async def _refresh_now() -> None:
         async with httpx.AsyncClient(timeout=_TIMEOUT_S) as client:
             r = await client.get(
                 _FRANKFURTER_URL,
+                # NOTE: Frankfurter (ECB-tracked) does not support FJD.
+                # We fall back to FX_RATES_FROM_NZD for it.
                 params={"from": "NZD", "to": "AUD,USD,GBP,CAD"},
             )
             r.raise_for_status()

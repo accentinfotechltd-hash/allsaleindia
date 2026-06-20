@@ -67,6 +67,7 @@ async def auto_redirect(request: Request):
         "US": "us",
         "GB": "uk",
         "CA": "ca",
+        "FJ": "fj",
     }.get(detected, "www")
     info = next((c for c in SUPPORTED_COUNTRIES if c["code"] == detected), SUPPORTED_COUNTRIES[0])
     return {
