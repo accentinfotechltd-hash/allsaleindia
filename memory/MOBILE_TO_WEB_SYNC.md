@@ -6,6 +6,13 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 20, 2026 — Order delivery rating + Ships well badge**:
+> - NEW: `POST /api/orders/{id}/delivery-rating` (auth, body: `{stars: 1-5, comment?: str≤300}`). Buyer of a delivered order rates the SHIPPING experience (not the product itself). Idempotent — re-submits update the existing rating without double-counting.
+> - NEW: `GET /api/sellers/{id}/delivery-score` (public) → `{avg_stars, ratings_count, ships_well}`. `ships_well=true` only when count≥5 AND avg≥4.0.
+> - Sellers collection now carries `delivery_score_sum` + `delivery_score_count` aggregates, updated atomically on each rating submit.
+> - Order model now persists `delivery_rating: {stars, comment, rated_at}` (bug fix during testing — the field wasn't serialized).
+> - Web parity recommended: surface "Ships well · X.X★" badge on PDPs and add rate-delivery link on `/orders`.
+
 > **June 20, 2026 — Best Sellers leaderboard**:
 > - NEW: `GET /api/best-sellers?category=X&limit=50&window_days=30` (public) — ranks in-stock products by units sold in the last N days from paid/non-cancelled orders; tiebreaks on rating × log(reviews); falls back to all-time top-rated when no window data (`source: "window_sales" | "rating_fallback"`). Cancelled orders & OOS items excluded.
 > - Mobile renders `/best-sellers` with category chips + rank badges + "Bestseller" ribbon on top-3.
