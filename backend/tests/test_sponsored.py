@@ -27,6 +27,13 @@ def _seller_product_id() -> str:
 def test_create_then_lifecycle():
     headers = _login(SELLER)
     pid = _seller_product_id()
+    # Clean slate: clear any prior campaigns for this seller-product pair.
+    import os
+    from pymongo import MongoClient
+    cli = MongoClient(os.getenv("MONGO_URL", "mongodb://localhost:27017"))
+    cli[os.getenv("DB_NAME", "allsale_database")].sponsored_campaigns.delete_many(
+        {"product_id": pid}
+    )
 
     # Create
     r = requests.post(

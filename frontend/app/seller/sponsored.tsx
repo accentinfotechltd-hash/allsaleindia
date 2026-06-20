@@ -7,9 +7,11 @@
  * sellers know exactly what they'll be invoiced.
  */
 import { useFocusEffect, useRouter } from "expo-router";
+import * as Linking from "expo-linking";
 import {
   AlertCircle,
   ChevronLeft,
+  CreditCard,
   Eye,
   MousePointerClick,
   Pause,
@@ -18,6 +20,7 @@ import {
   Sparkles,
   Trash2,
   TrendingUp,
+  Wallet,
   X,
 } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
@@ -172,11 +175,13 @@ export default function SponsoredScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.heroTitle}>Boost what you want sold</Text>
             <Text style={styles.heroSub}>
-              Pay-per-click. Set a daily budget. Pause anytime. Invoiced
-              monthly.
+              Pay-per-click. Top up your wallet, set a daily budget, pause
+              anytime.
             </Text>
           </View>
         </View>
+
+        <WalletCard show={show} />
 
         {items.length > 0 ? (
           <View style={styles.statsRow}>
@@ -501,6 +506,141 @@ function CreateCampaignModal({
     </Modal>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Wallet card — balance + topup
+// ---------------------------------------------------------------------------
+function WalletCard({ show }: { show: (o: any) => void }) {
+  const [wallet, setWallet] = React.useState<{
+    balance_nzd: number;
+    lifetime_topup_nzd: number;
+    lifetime_spent_nzd: number;
+  } | null>(null);
+  const [amount, setAmount] = React.useState("50");
+  const [busy, setBusy] = React.useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      const d = await api<any>("/seller/sponsored/wallet");
+      setWallet(d);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const topup = useCallback(async () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt < 5) {
+      show({ title: "Minimum top-up is $5 NZD", kind: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const d = await api<{ url: string }>("/seller/sponsored/wallet/topup", {
+        method: "POST",
+        body: { amount_nzd: amt },
+      });
+      if (Platform.OS === "web") {
+        window.open(d.url, "_blank");
+      } else {
+        await Linking.openURL(d.url);
+      }
+      show({
+        title: "Opening Stripe Checkout",
+        body: "Your wallet will update after payment.",
+        kind: "success",
+      });
+    } catch (e: any) {
+      show({
+        title: "Topup failed",
+        body: e?.message || "",
+        kind: "error",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [amount, show]);
+
+  if (!wallet) return null;
+  return (
+    <View style={walletStyles.card}>
+      <View style={walletStyles.headerRow}>
+        <View style={walletStyles.iconWrap}>
+          <Wallet size={18} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={walletStyles.label}>Ad wallet balance</Text>
+          <Text style={walletStyles.balance}>
+            ${wallet.balance_nzd.toFixed(2)}
+          </Text>
+        </View>
+      </View>
+      <Text style={walletStyles.meta}>
+        Topped up ${wallet.lifetime_topup_nzd.toFixed(0)} · spent $
+        {wallet.lifetime_spent_nzd.toFixed(2)} lifetime
+      </Text>
+      <View style={walletStyles.row}>
+        <TextInput
+          testID="sponsored-topup-input"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="decimal-pad"
+          style={walletStyles.input}
+          placeholder="50"
+        />
+        <Pressable
+          testID="sponsored-topup-btn"
+          onPress={topup}
+          disabled={busy}
+          style={[walletStyles.topupBtn, busy && { opacity: 0.5 }]}
+        >
+          {busy ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <CreditCard size={14} color="#fff" />
+              <Text style={walletStyles.topupBtnText}>Top up via Stripe</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const walletStyles = StyleSheet.create({
+  card: {
+    margin: spacing.md, marginTop: 0, padding: spacing.md,
+    backgroundColor: "#fff", borderRadius: radius.lg,
+    borderWidth: 1, borderColor: colors.border, gap: 8,
+  },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  iconWrap: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center", justifyContent: "center",
+  },
+  label: { color: colors.textMuted, fontSize: 11, textTransform: "uppercase" },
+  balance: { color: colors.text, fontWeight: "900", fontSize: 22 },
+  meta: { color: colors.textMuted, fontSize: 11 },
+  row: { flexDirection: "row", gap: 8, marginTop: 6 },
+  input: {
+    flex: 1, backgroundColor: colors.surface, borderRadius: radius.md,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 16, fontWeight: "700", color: colors.text,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  topupBtn: {
+    flexDirection: "row", gap: 6, alignItems: "center",
+    backgroundColor: colors.primary, paddingHorizontal: 14,
+    borderRadius: radius.md, justifyContent: "center",
+  },
+  topupBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
+});
 
 // ---------------------------------------------------------------------------
 const styles = StyleSheet.create({

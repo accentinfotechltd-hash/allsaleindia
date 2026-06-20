@@ -614,3 +614,37 @@ Mounted the paid-placement slots from `/api/sponsored/slots` on both the home ta
 
 ### Web parity
 Web should mirror the same visual treatment — dark "Sponsored" pill badge + a small clarifying caption near the section title. Endpoint contract unchanged.
+
+
+## Sponsored Wallet — Stripe Topup (June 20, 2026)
+Replaced post-paid invoicing with prepaid wallet model. Sellers fund a wallet via Stripe Checkout; clicks atomically debit the balance; campaigns auto-pause when balance < CPC.
+
+### Backend
+- `GET /api/seller/sponsored/wallet` — `{balance_nzd, lifetime_topup_nzd, lifetime_spent_nzd}`.
+- `POST /api/seller/sponsored/wallet/topup` — body `{amount_nzd: 5..2000}` → returns Stripe Checkout URL. Uses `mode=payment` (one-time) with `currency=nzd`. Idempotent on customer creation.
+- `POST /api/sponsored/webhooks/stripe` — handles `checkout.session.completed` with `metadata.product == "sponsored_topup"`. Credits the seller's wallet **idempotently** (dedup via `stripe_events` + `seller_wallet_events.ref`).
+- Click tracker now calls `_debit_wallet()` atomically (`balance_nzd: {$gte: cpc}`); insufficient balance flips the campaign to `out_of_budget` and the click is recorded but unbilled.
+- Slot serving filters out campaigns whose seller's wallet can't cover one CPC (cached per request).
+
+### Storage
+- `seller_wallets`: `{seller_id, balance_nzd, lifetime_topup_nzd, lifetime_spent_nzd, created_at, updated_at}`.
+- `seller_wallet_events`: `{id, seller_id, type: topup|click_charge, source?, ref, amount_nzd, created_at}` — audit log.
+- `stripe_events`: existing dedup table reused for webhook replay protection.
+
+### Mobile UI
+- New `WalletCard` component inside `app/seller/sponsored.tsx`: balance + lifetime topup/spent metadata + amount input + "Top up via Stripe" button. Opens Stripe Checkout in a new tab on web, native `Linking.openURL` on iOS/Android.
+- Hero copy updated to "Pay-per-click. Top up your wallet, set a daily budget, pause anytime."
+
+### Verified E2E (live, no mocks)
+- Wallet $0 → topup $50 returns valid Stripe Checkout URL → simulated `checkout.session.completed` webhook → wallet = $50, lifetime_topup = $50.
+- Replay same event → deduped (no double credit).
+- Click on sponsored slot → wallet $49.50, lifetime_spent $0.50.
+- 4/4 sponsored pytest cases still pass with wallet seeding.
+
+### Env required
+- `STRIPE_SECRET_KEY` (or `STRIPE_API_KEY`) — Stripe API key (already in env).
+- `SPONSORED_WEBHOOK_SECRET` or `STRIPE_WEBHOOK_SECRET` — for HMAC verification of webhook payloads. If unset, signature check is skipped (dev mode).
+- `PUBLIC_SITE_URL` — used to build Stripe `success_url` and `cancel_url`. Falls back to `https://shop.allsale.co.nz`.
+
+### Web parity
+Same endpoints. Web wallet UI mirrors mobile. Webhook delivery is platform-agnostic — point Stripe Dashboard webhook at `https://<your-domain>/api/sponsored/webhooks/stripe` with the `checkout.session.completed` event subscribed.

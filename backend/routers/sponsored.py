@@ -1,29 +1,29 @@
 """Sponsored placements — seller-paid product boosts ("Sponsored" slots).
 
-MVP model (post-paid, monthly invoice):
+MVP model (prepaid wallet via Stripe Checkout):
   - Sellers create a ``SponsoredCampaign`` for one of their products.
   - Each campaign has a CPC (cost-per-click in NZD) and a ``daily_budget_nzd``.
+  - Sellers fund a ``seller_wallets`` row via Stripe Checkout (one-time
+    topup). Balance must cover CPC for ads to serve.
   - The public ``/sponsored/slots`` endpoint returns active, in-budget
-    campaigns weighted by remaining-daily-budget so higher-budget
-    campaigns are shown more often.
+    AND in-wallet campaigns weighted by remaining-daily-budget.
   - Clicks are tracked through ``/sponsored/track/click``. Each click
-    deducts ``cpc_nzd`` from ``spent_today`` and adds to ``spent_total``.
-    When ``spent_today >= daily_budget_nzd`` the campaign auto-pauses
-    until UTC midnight (status → ``out_of_budget``).
-  - Impressions are also tracked (free, for CTR analytics).
-
-Billing: ``spent_total`` is what we'll invoice the seller monthly. The
-seller dashboard surfaces both spend + CTR so it's transparent.
+    deducts ``cpc_nzd`` from BOTH ``spent_today`` (daily cap) AND the
+    seller's wallet balance. When ``spent_today >= daily_budget`` the
+    campaign auto-pauses for the day; when wallet balance drops below
+    CPC the campaign also stops serving until topped up.
 """
 from __future__ import annotations
 
 import logging
+import os
 import random
 import uuid
 from datetime import datetime, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import stripe
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from db import db
@@ -32,6 +32,15 @@ from utils import now_utc
 
 logger = logging.getLogger("allsale.sponsored")
 router = APIRouter(tags=["sponsored"])
+webhook_router = APIRouter(tags=["sponsored"])
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY") or os.getenv("STRIPE_API_KEY") or ""
+WEBHOOK_SECRET = (
+    os.getenv("SPONSORED_WEBHOOK_SECRET") or os.getenv("STRIPE_WEBHOOK_SECRET") or ""
+)
+BASE_URL = (
+    os.getenv("PUBLIC_SITE_URL") or "https://shop.allsale.co.nz"
+).rstrip("/")
 
 # ---------------------------------------------------------------------------
 # Tuning constants — defaults for a balanced auction.
@@ -145,6 +154,167 @@ async def _require_owns_product(seller_id: str, product_id: str) -> dict:
     if p.get("seller_id") != seller_id:
         raise HTTPException(status_code=403, detail="You don't own this product")
     return p
+
+
+# ---------------------------------------------------------------------------
+# Wallet helpers
+# ---------------------------------------------------------------------------
+async def _get_or_create_wallet(seller_id: str) -> dict:
+    w = await db.seller_wallets.find_one({"seller_id": seller_id}, {"_id": 0})
+    if w:
+        return w
+    w = {
+        "seller_id": seller_id,
+        "balance_nzd": 0.0,
+        "lifetime_topup_nzd": 0.0,
+        "lifetime_spent_nzd": 0.0,
+        "created_at": now_utc(),
+        "updated_at": now_utc(),
+    }
+    await db.seller_wallets.insert_one(w)
+    return w
+
+
+async def _credit_wallet(seller_id: str, amount_nzd: float, *, source: str, ref: str) -> dict:
+    """Idempotent credit: only applies if ``ref`` (e.g. stripe session id)
+    hasn't been processed before. Returns the latest wallet."""
+    existing = await db.seller_wallet_events.find_one({"ref": ref}, {"_id": 0})
+    if existing:
+        return await _get_or_create_wallet(seller_id)
+    await _get_or_create_wallet(seller_id)
+    await db.seller_wallets.update_one(
+        {"seller_id": seller_id},
+        {
+            "$inc": {"balance_nzd": amount_nzd, "lifetime_topup_nzd": amount_nzd},
+            "$set": {"updated_at": now_utc()},
+        },
+    )
+    await db.seller_wallet_events.insert_one(
+        {
+            "id": f"wev_{uuid.uuid4().hex[:12]}",
+            "seller_id": seller_id,
+            "type": "topup",
+            "source": source,
+            "ref": ref,
+            "amount_nzd": amount_nzd,
+            "created_at": now_utc(),
+        }
+    )
+    return await _get_or_create_wallet(seller_id)
+
+
+async def _debit_wallet(seller_id: str, amount_nzd: float, *, ref: str) -> bool:
+    """Atomic debit — returns True if balance was sufficient and got
+    debited, False if insufficient. ``ref`` is for audit (campaign id)."""
+    res = await db.seller_wallets.update_one(
+        {"seller_id": seller_id, "balance_nzd": {"$gte": amount_nzd}},
+        {
+            "$inc": {"balance_nzd": -amount_nzd, "lifetime_spent_nzd": amount_nzd},
+            "$set": {"updated_at": now_utc()},
+        },
+    )
+    if res.modified_count:
+        await db.seller_wallet_events.insert_one(
+            {
+                "id": f"wev_{uuid.uuid4().hex[:12]}",
+                "seller_id": seller_id,
+                "type": "click_charge",
+                "ref": ref,
+                "amount_nzd": amount_nzd,
+                "created_at": now_utc(),
+            }
+        )
+        return True
+    return False
+
+
+async def _ensure_stripe_customer(user: dict) -> str:
+    """Idempotent — returns the seller's Stripe customer id."""
+    cust_id = user.get("stripe_customer_id")
+    if cust_id:
+        return cust_id
+    cust = stripe.Customer.create(
+        email=user.get("email"),
+        name=user.get("full_name"),
+        metadata={"user_id": str(user["id"]), "platform": "allsale"},
+    )
+    await db.users.update_one(
+        {"id": user["id"]}, {"$set": {"stripe_customer_id": cust["id"]}}
+    )
+    return cust["id"]
+
+
+# ---------------------------------------------------------------------------
+# Seller — Wallet
+# ---------------------------------------------------------------------------
+@router.get("/seller/sponsored/wallet")
+async def get_wallet(current=Depends(get_current_user)):
+    if not current.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    w = await _get_or_create_wallet(current["id"])
+    return {
+        "balance_nzd": round(float(w.get("balance_nzd", 0)), 2),
+        "lifetime_topup_nzd": round(float(w.get("lifetime_topup_nzd", 0)), 2),
+        "lifetime_spent_nzd": round(float(w.get("lifetime_spent_nzd", 0)), 2),
+    }
+
+
+class TopupBody(BaseModel):
+    amount_nzd: float = Field(..., ge=5.0, le=2000.0)
+
+
+@router.post("/seller/sponsored/wallet/topup")
+async def topup_wallet(
+    body: TopupBody,
+    current=Depends(get_current_user),
+):
+    """Returns a Stripe Checkout URL the seller can open to fund the wallet."""
+    if not current.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    if not stripe.api_key:
+        raise HTTPException(status_code=503, detail="Stripe not configured")
+
+    await _get_or_create_wallet(current["id"])
+    cust_id = await _ensure_stripe_customer(current)
+    amount_cents = int(round(body.amount_nzd * 100))
+
+    try:
+        session = stripe.checkout.Session.create(
+            customer=cust_id,
+            mode="payment",
+            line_items=[
+                {
+                    "quantity": 1,
+                    "price_data": {
+                        "currency": "nzd",
+                        "unit_amount": amount_cents,
+                        "product_data": {
+                            "name": "Allsale Sponsored Wallet topup",
+                            "description": f"${body.amount_nzd:.2f} NZD ad credit for sponsored placements",
+                        },
+                    },
+                }
+            ],
+            success_url=f"{BASE_URL}/seller/sponsored?topup=success&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{BASE_URL}/seller/sponsored?topup=cancelled",
+            metadata={
+                "user_id": str(current["id"]),
+                "product": "sponsored_topup",
+                "amount_nzd": str(body.amount_nzd),
+            },
+            payment_intent_data={
+                "metadata": {
+                    "user_id": str(current["id"]),
+                    "product": "sponsored_topup",
+                    "amount_nzd": str(body.amount_nzd),
+                }
+            },
+        )
+    except stripe.error.StripeError as e:
+        msg = getattr(e, "user_message", None) or str(e)
+        raise HTTPException(status_code=502, detail=f"Stripe error: {msg}")
+
+    return {"url": session["url"], "session_id": session["id"]}
 
 
 # ---------------------------------------------------------------------------
@@ -298,18 +468,31 @@ async def serve_slots(
     if placement not in PLACEMENTS:
         raise HTTPException(status_code=400, detail=f"Bad placement: {placement}")
 
-    today = _today_utc_iso()
     q: dict = {
         "status": "active",
         "placements": placement,
     }
+    # Wallet balance cache so we don't query for the same seller repeatedly.
+    wallet_balance: dict[str, float] = {}
     candidates: list[dict] = []
     async for d in db.sponsored_campaigns.find(q, {"_id": 0}):
         d = await _reset_daily_if_needed(d)
         if d.get("status") != "active":
             continue
         remaining = float(d["daily_budget_nzd"]) - float(d.get("spent_today", 0))
-        if remaining < float(d.get("cpc_nzd", 0)):
+        cpc = float(d.get("cpc_nzd", 0))
+        if remaining < cpc:
+            continue
+
+        # Wallet gate — campaigns serve only when seller's prepaid balance
+        # can cover at least one click.
+        seller_id = d["seller_id"]
+        if seller_id not in wallet_balance:
+            w = await db.seller_wallets.find_one(
+                {"seller_id": seller_id}, {"_id": 0, "balance_nzd": 1}
+            )
+            wallet_balance[seller_id] = float((w or {}).get("balance_nzd", 0))
+        if wallet_balance[seller_id] < cpc:
             continue
         # Hydrate product
         prod = await db.products.find_one(
@@ -391,6 +574,18 @@ async def track_click(
     spent_today = float(d.get("spent_today", 0)) + cpc
     spent_total = float(d.get("spent_total", 0)) + cpc
 
+    # Debit the prepaid wallet — fail-open: if wallet is empty we still
+    # record the click but mark it un-billed and pause the campaign.
+    billed = await _debit_wallet(
+        d["seller_id"], cpc, ref=f"camp:{d['id']}"
+    )
+    if not billed:
+        await db.sponsored_campaigns.update_one(
+            {"id": d["id"]},
+            {"$inc": {"clicks": 1}, "$set": {"status": "out_of_budget", "updated_at": now_utc()}},
+        )
+        return {"ok": True, "billed": False, "reason": "wallet_empty"}
+
     set_doc: dict = {
         "spent_today": round(spent_today, 4),
         "spent_total": round(spent_total, 4),
@@ -411,3 +606,62 @@ async def track_click(
         "spent_total": set_doc["spent_total"],
         "status": set_doc.get("status", "active"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Stripe webhook — credit wallet on successful one-time topup
+# ---------------------------------------------------------------------------
+@webhook_router.post("/sponsored/webhooks/stripe")
+async def sponsored_webhook(
+    request: Request,
+    stripe_signature: Optional[str] = Header(default=None, alias="Stripe-Signature"),
+):
+    payload = await request.body()
+    if WEBHOOK_SECRET:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload=payload,
+                sig_header=stripe_signature or "",
+                secret=WEBHOOK_SECRET,
+            )
+        except (ValueError, stripe.error.SignatureVerificationError):
+            raise HTTPException(status_code=400, detail="Invalid signature")
+    else:
+        import json as _json
+        try:
+            event = _json.loads(payload.decode("utf-8"))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid payload")
+
+    event_id = event.get("id")
+    event_type = event.get("type")
+    if event_id:
+        seen = await db.stripe_events.find_one({"event_id": event_id}, {"_id": 0})
+        if seen:
+            return {"ok": True, "deduped": True}
+
+    obj = (event.get("data") or {}).get("object") or {}
+    metadata = obj.get("metadata") or {}
+    if event_type == "checkout.session.completed" and metadata.get("product") == "sponsored_topup":
+        seller_id = metadata.get("user_id")
+        try:
+            amount_nzd = float(metadata.get("amount_nzd") or 0)
+        except (TypeError, ValueError):
+            amount_nzd = float(obj.get("amount_total", 0)) / 100.0
+        if seller_id and amount_nzd > 0:
+            await _credit_wallet(
+                seller_id,
+                amount_nzd,
+                source="stripe_checkout",
+                ref=str(obj.get("id") or event_id),
+            )
+            logger.info(
+                "Sponsored wallet credited: seller=%s amount=%s session=%s",
+                seller_id, amount_nzd, obj.get("id"),
+            )
+
+    if event_id:
+        await db.stripe_events.insert_one(
+            {"event_id": event_id, "type": event_type, "received_at": now_utc()}
+        )
+    return {"ok": True}
