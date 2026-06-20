@@ -1,8 +1,7 @@
 import { useRouter } from "expo-router";
-import { Bell, Globe2, MessageCircle, Search, Sparkles } from "lucide-react-native";
+import { Bell, Globe2, MessageCircle, Package, Search, Sparkles } from "lucide-react-native";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -18,7 +17,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ProductCard, ProductLite } from "@/src/components/ProductCard";
 import BuyItAgainRail from "@/src/components/BuyItAgainRail";
+import { EmptyState } from "@/src/components/EmptyState";
 import FlashSalesCarousel from "@/src/components/FlashSalesCarousel";
+import { ProductGridSkeleton } from "@/src/components/SkeletonRows";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import AmbassadorWelcomeBanner from "@/src/components/AmbassadorWelcomeBanner";
 import AssistantFab from "@/src/components/AssistantFab";
@@ -291,13 +292,14 @@ export default function Home() {
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.empty}>
-              <ActivityIndicator color={colors.primary} />
-            </View>
+            <ProductGridSkeleton count={6} />
           ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyText}>No products match your search.</Text>
-            </View>
+            <EmptyState
+              icon={Package}
+              title="No products match your search"
+              subtitle="Try a different filter, broaden your category, or come back later — new listings arrive daily."
+              flex={false}
+            />
           )
         }
       />

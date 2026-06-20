@@ -1,8 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { ChevronLeft, Package, RefreshCcw, Star, XCircle } from "lucide-react-native";
+import { ChevronLeft, Package, RefreshCcw, ShoppingBag, Star, XCircle } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   Pressable,
@@ -13,6 +12,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import DeliveryRatingSheet from "@/src/components/DeliveryRatingSheet";
+import { EmptyState } from "@/src/components/EmptyState";
+import { OrderListSkeleton } from "@/src/components/SkeletonRows";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -72,17 +73,28 @@ export default function Orders() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <OrderListSkeleton count={4} />
       ) : orders.length === 0 ? (
-        <View style={styles.center}>
-          <View style={styles.emptyIcon}>
-            <Package size={28} color={colors.primary} />
-          </View>
-          <Text style={styles.emptyTitle}>No orders yet</Text>
-          <Text style={styles.emptyText}>Once you place an order, it will show up here.</Text>
-        </View>
+        <EmptyState
+          icon={Package}
+          title="No orders yet"
+          subtitle="Place your first order from sellers across India and it'll show up here. Tracking, refunds, and re-ordering all live in one place."
+          cta={{
+            label: "Start shopping",
+            onPress: () => router.push("/(tabs)/home"),
+            testID: "orders-shop-cta",
+          }}
+          secondaryCta={{
+            label: "Browse deals",
+            onPress: () => router.push("/deals"),
+            testID: "orders-deals-cta",
+          }}
+          visual={
+            <View style={styles.emptyIcon}>
+              <ShoppingBag size={28} color={colors.primary} strokeWidth={1.8} />
+            </View>
+          }
+        />
       ) : (
         <FlatList
           data={orders}

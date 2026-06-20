@@ -3,7 +3,6 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { ChevronLeft, Clock, Flame, Search as SearchIcon, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -18,6 +17,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
 import CategoryTileGrid from "@/src/components/CategoryTileGrid";
+import { EmptyState } from "@/src/components/EmptyState";
+import { SearchSuggestionsSkeleton } from "@/src/components/SkeletonRows";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type SuggestProduct = { id: string; name: string; image?: string; price_nzd: number; seller_name?: string };
@@ -156,12 +157,14 @@ export default function SearchScreen() {
               {/* Section 1: Live suggest */}
               {showResults ? (
                 loading && !hasResults ? (
-                  <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+                  <SearchSuggestionsSkeleton />
                 ) : !hasResults ? (
-                  <View style={styles.empty}>
-                    <Text style={styles.emptyTitle}>No matches</Text>
-                    <Text style={styles.emptySub}>Try a different spelling or a broader keyword.</Text>
-                  </View>
+                  <EmptyState
+                    icon={SearchIcon}
+                    title="No matches"
+                    subtitle="Try a different spelling, a broader keyword, or browse our categories below."
+                    flex={false}
+                  />
                 ) : (
                   <View>
                     {suggest.categories.length > 0 ? (
@@ -236,11 +239,12 @@ export default function SearchScreen() {
                   ) : null}
 
                   {history.length === 0 && trending.length === 0 ? (
-                    <View style={styles.empty}>
-                      <SearchIcon size={36} color={colors.textFaint} />
-                      <Text style={styles.emptyTitle}>Find anything from India</Text>
-                      <Text style={styles.emptySub}>Try &quot;kurta&quot;, &quot;spices&quot;, &quot;handicrafts&quot;…</Text>
-                    </View>
+                    <EmptyState
+                      icon={SearchIcon}
+                      title="Find anything from India"
+                      subtitle="Try &ldquo;kurta&rdquo;, &ldquo;spices&rdquo;, &ldquo;handicrafts&rdquo;… or pick a category below."
+                      flex={false}
+                    />
                   ) : null}
 
                   {/* Amazon-style "Browse all categories" mosaic — shown

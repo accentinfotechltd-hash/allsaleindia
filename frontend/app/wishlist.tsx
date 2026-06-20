@@ -30,6 +30,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { EmptyState } from "@/src/components/EmptyState";
+import { WishlistListSkeleton } from "@/src/components/SkeletonRows";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useCart } from "@/src/contexts/CartContext";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -500,39 +502,34 @@ export default function WishlistScreen() {
       ) : null}
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
+        <WishlistListSkeleton count={4} />
       ) : !user ? (
-        <View style={styles.empty}>
-          <Heart size={42} color="#FCA5A5" fill="#FECACA" strokeWidth={1.6} />
-          <Text style={styles.emptyTitle}>Sign in to view your wishlist</Text>
-          <Text style={styles.emptySub}>
-            Save items you love and find them anytime from any device.
-          </Text>
-          <Pressable
-            onPress={() => router.push("/(auth)/login")}
-            style={styles.cta}
-            testID="wishlist-signin-cta"
-          >
-            <Text style={styles.ctaText}>Sign in</Text>
-          </Pressable>
-        </View>
+        <EmptyState
+          icon={Heart}
+          title="Sign in to view your wishlist"
+          subtitle="Save items you love and find them anytime from any device."
+          cta={{
+            label: "Sign in",
+            onPress: () => router.push("/(auth)/login"),
+            testID: "wishlist-signin-cta",
+          }}
+        />
       ) : items.length === 0 ? (
-        <View style={styles.empty}>
-          <Heart size={42} color="#FCA5A5" fill="#FECACA" strokeWidth={1.6} />
-          <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
-          <Text style={styles.emptySub}>
-            Tap the ❤️ on any product to save it for later.
-          </Text>
-          <Pressable
-            onPress={() => router.push("/(tabs)/home")}
-            style={styles.cta}
-            testID="wishlist-shop-cta"
-          >
-            <Text style={styles.ctaText}>Start shopping</Text>
-          </Pressable>
-        </View>
+        <EmptyState
+          icon={Heart}
+          title="Your wishlist is empty"
+          subtitle="Tap the heart on any product to save it for later. We'll keep you posted on price drops."
+          cta={{
+            label: "Start shopping",
+            onPress: () => router.push("/(tabs)/home"),
+            testID: "wishlist-shop-cta",
+          }}
+          secondaryCta={{
+            label: "Today's deals",
+            onPress: () => router.push("/deals"),
+            testID: "wishlist-deals-cta",
+          }}
+        />
       ) : (
         <FlatList
           data={items}
