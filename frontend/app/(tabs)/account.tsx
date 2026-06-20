@@ -163,42 +163,42 @@ export default function Account() {
           <Row
             icon={<Sparkles size={18} color="#7C3AED" />}
             label={t("account_menu.points")}
-            subtitle="Earn on every order · redeem for discounts"
+            subtitle={t("account_sub.points")}
             onPress={() => router.push("/points/history")}
             testID="account-points-btn"
           />
           <Row
             icon={<Gift size={18} color="#7C3AED" />}
             label={t("account_menu.invite_friends")}
-            subtitle="Give pts, get pts when they buy"
+            subtitle={t("account_sub.invite_friends")}
             onPress={() => router.push("/referrals")}
             testID="account-referrals-btn"
           />
           <Row
             icon={<Sparkles size={18} color={colors.primary} />}
             label={t("account_menu.ambassador")}
-            subtitle="Share your code · earn 5–12% per sale"
+            subtitle={t("account_sub.ambassador")}
             onPress={() => router.push("/ambassadors")}
             testID="account-ambassador-btn"
           />
           <Row
             icon={<MessageCircle size={18} color={colors.text} />}
             label={t("account_menu.messages")}
-            subtitle="Chat with sellers about your orders"
+            subtitle={t("account_sub.messages")}
             onPress={() => router.push("/chat")}
             testID="account-messages-btn"
           />
           <Row
             icon={<RefreshCcw size={18} color={colors.text} />}
             label={t("account_menu.returns")}
-            subtitle="Track refund requests & seller responses"
+            subtitle={t("account_sub.returns")}
             onPress={() => router.push("/returns")}
             testID="account-returns-btn"
           />
           <Row
             icon={<Search size={18} color={colors.text} />}
             label={t("account_menu.saved_searches")}
-            subtitle="Re-launch your favourite filter combos"
+            subtitle={t("account_sub.saved_searches")}
             onPress={() => router.push("/account/saved-searches")}
             testID="account-saved-searches-btn"
           />
@@ -221,7 +221,7 @@ export default function Account() {
             <Row
               icon={<Store size={18} color={colors.primary} />}
               label={t("account_menu.become_seller")}
-              subtitle="List your India-registered business on Allsale"
+              subtitle={t("account_sub.become_seller")}
               onPress={() => router.push("/seller/welcome")}
               testID="account-become-seller-btn"
             />
@@ -231,12 +231,12 @@ export default function Account() {
             label={t("account_menu.addresses")}
             onPress={() => {}}
             testID="account-addresses-btn"
-            subtitle="Set up at checkout"
+            subtitle={t("account_sub.addresses_setup")}
           />
           <Row
             icon={<ShieldAlert size={18} color={colors.primary} />}
             label={t("account_menu.prohibited")}
-            subtitle="Check prohibited items before you ship"
+            subtitle={t("account_sub.prohibited")}
             onPress={() => router.push("/help/prohibited-checker")}
             testID="account-prohibited-checker-btn"
           />
@@ -245,33 +245,33 @@ export default function Account() {
             label={t("account_menu.protection")}
             onPress={() => {}}
             testID="account-protection-btn"
-            subtitle="Refund if item not delivered"
+            subtitle={t("account_sub.protection")}
           />
           <Row
             icon={<MapPin size={18} color={colors.primary} />}
             label={t("account_menu.saved_addresses")}
-            subtitle="Manage shipping addresses"
+            subtitle={t("account_sub.saved_addresses")}
             onPress={() => router.push("/account/addresses")}
             testID="account-addresses-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.primary} />}
             label={t("account_menu.two_factor")}
-            subtitle="Email code at sign in for extra security"
+            subtitle={t("account_sub.two_factor")}
             onPress={() => router.push("/account/two-factor")}
             testID="account-2fa-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.text} />}
             label={t("account_menu.privacy")}
-            subtitle="Download your data or close your account"
+            subtitle={t("account_sub.privacy")}
             onPress={() => router.push("/account/privacy")}
             testID="account-privacy-btn"
           />
           <Row
             icon={<Bell size={18} color={colors.primary} />}
             label={t("account_menu.notifications")}
-            subtitle="Mute categories: orders, deals, reviews…"
+            subtitle={t("account_sub.notifications")}
             onPress={() => router.push("/account/notification-prefs")}
             testID="account-notif-prefs-btn"
           />
@@ -288,35 +288,35 @@ export default function Account() {
           <Row
             icon={<HelpCircle size={18} color={colors.primary} />}
             label={t("account_menu.help_center")}
-            subtitle="FAQs · Contact support · My tickets"
+            subtitle={t("account_sub.help_center")}
             onPress={() => router.push("/help")}
             testID="account-help-center-btn"
           />
           <Row
             icon={<FileText size={18} color={colors.primary} />}
             label="Legal & Policies"
-            subtitle="Terms, Privacy, Shipping, Returns, Cookies…"
+            subtitle={t("account_sub.legal")}
             onPress={() => router.push("/legal")}
             testID="account-legal-hub-btn"
           />
           <Row
             icon={<CreditCard size={18} color={colors.text} />}
             label="Payment policy"
-            subtitle="How we charge, taxes, refunds"
+            subtitle={t("account_sub.fees")}
             onPress={() => router.push("/legal/payment")}
             testID="account-payment-policy-btn"
           />
           <Row
             icon={<RefreshCcw size={18} color={colors.text} />}
             label="Return policy"
-            subtitle="7-day window · cross-border returns"
+            subtitle={t("account_sub.returns_policy")}
             onPress={() => router.push("/legal/return")}
             testID="account-return-policy-btn"
           />
           <Row
             icon={<XCircle size={18} color={colors.text} />}
             label="Cancellation policy"
-            subtitle="Free cancel within 12 hours"
+            subtitle={t("account_sub.cancel_policy")}
             onPress={() => router.push("/legal/cancellation")}
             testID="account-cancellation-policy-btn"
           />

@@ -159,7 +159,7 @@ export default function SellerPayoutsScreen() {
             <BarChart3 size={20} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.stripeBannerTitle}>Earnings analytics</Text>
+            <Text style={styles.stripeBannerTitle}>{t("seller_payouts.earnings_analytics")}</Text>
             <Text style={styles.stripeBannerSub}>
               Track gross, commission &amp; net by period and category.
             </Text>
@@ -177,7 +177,7 @@ export default function SellerPayoutsScreen() {
             <Banknote size={20} color="#635BFF" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.stripeBannerTitle}>Stripe payouts</Text>
+            <Text style={styles.stripeBannerTitle}>{t("seller_payouts.stripe_payouts")}</Text>
             <Text style={styles.stripeBannerSub}>
               Connect or manage your bank account to receive earnings.
             </Text>
@@ -313,7 +313,7 @@ export default function SellerPayoutsScreen() {
         </Pressable>
 
         {/* Recent payouts list */}
-        <Text style={styles.sectionTitle}>Recent payouts</Text>
+        <Text style={styles.sectionTitle}>{t("seller_payouts.recent_payouts")}</Text>
         {summary.payouts.length === 0 ? (
           <View style={styles.empty}>
             <Wallet size={28} color={colors.textFaint} />
@@ -353,7 +353,7 @@ export default function SellerPayoutsScreen() {
         <View style={styles.infoCard}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Info size={14} color={colors.primary} />
-            <Text style={styles.infoTitle}>How payouts work</Text>
+            <Text style={styles.infoTitle}>{t("seller_payouts.how_it_works")}</Text>
           </View>
           <Text style={styles.infoBody}>
             1. Buyer pays via Stripe → your earnings are recorded as <Text style={{ fontWeight: "800" }}>Held</Text>.{"\n"}
