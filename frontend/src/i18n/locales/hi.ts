@@ -384,6 +384,23 @@ const hi = {
     trending: "NZ में ट्रेंडिंग",
     suggested: "सुझाए गए उत्पाद",
   },
+  seller_dashboard_extra: {
+    earnings: "कमाई",
+    sponsored_placements: "स्पॉन्सर्ड प्रचार",
+    referral_rewards: "रेफरल इनाम",
+    refer_and_earn: "रेफर करें और कमाएँ",
+  },
+  admin_index: {
+    admin: "एडमिन",
+    admin_access: "एडमिन पहुँच",
+    log_out: "लॉग आउट",
+    sign_in: "साइन इन",
+    unlock: "अनलॉक",
+    reviews_moderation: "समीक्षा मॉडरेशन",
+    ambassadors: "एंबेसडर",
+    commission_analytics: "कमीशन एनालिटिक्स",
+    audit_log: "ऑडिट लॉग",
+  },
   payouts_screen: {
     title: "पेआउट",
     next_release_at: "अगली रिलीज़ %{date} को",

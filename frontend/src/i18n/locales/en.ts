@@ -384,6 +384,23 @@ const en = {
     trending: "Trending in NZ",
     suggested: "Suggested products",
   },
+  seller_dashboard_extra: {
+    earnings: "Earnings",
+    sponsored_placements: "Sponsored placements",
+    referral_rewards: "Referral rewards",
+    refer_and_earn: "Refer & Earn",
+  },
+  admin_index: {
+    admin: "Admin",
+    admin_access: "Admin access",
+    log_out: "Log out",
+    sign_in: "Sign in",
+    unlock: "Unlock",
+    reviews_moderation: "Reviews moderation",
+    ambassadors: "Ambassadors",
+    commission_analytics: "Commission analytics",
+    audit_log: "Audit log",
+  },
   payouts_screen: {
     title: "Payouts",
     next_release_at: "Next release on %{date}",

@@ -164,12 +164,12 @@ export default function AdminDashboard() {
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
             <ChevronLeft size={22} color={colors.text} />
           </Pressable>
-          <Text style={styles.headerTitle}>Admin</Text>
+          <Text style={styles.headerTitle}>{t("admin_index.admin")}</Text>
           <View style={{ width: 40 }} />
         </View>
         <ScrollView contentContainerStyle={styles.lockScroll} keyboardShouldPersistTaps="handled">
           <ShieldAlert size={42} color={colors.primary} />
-          <Text style={styles.lockTitle}>Admin access</Text>
+          <Text style={styles.lockTitle}>{t("admin_index.admin_access")}</Text>
           <Text style={styles.lockSub}>
             {authMode === "password"
               ? "Sign in with your admin email and password."
@@ -226,7 +226,7 @@ export default function AdminDashboard() {
                   (authBusy || !email.trim() || password.length < 8) && { opacity: 0.5 },
                 ]}
               >
-                {authBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Sign in</Text>}
+                {authBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("admin_index.sign_in")}</Text>}
               </Pressable>
             </>
           ) : (
@@ -246,7 +246,7 @@ export default function AdminDashboard() {
                 onPress={onLoginSecret}
                 style={[styles.cta, (authBusy || secret.length < 4) && { opacity: 0.5 }]}
               >
-                {authBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Unlock</Text>}
+                {authBusy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("admin_index.unlock")}</Text>}
               </Pressable>
             </>
           )}
@@ -282,7 +282,7 @@ export default function AdminDashboard() {
         </View>
         <Pressable onPress={onLogout} style={styles.logoutBtn} testID="admin-logout-btn">
           <LogOut size={14} color={colors.textMuted} />
-          <Text style={styles.logoutText}>Log out</Text>
+          <Text style={styles.logoutText}>{t("admin_index.log_out")}</Text>
         </Pressable>
       </View>
 
@@ -411,7 +411,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.reviewsBtn, pressed && { opacity: 0.85 }]}
         >
           <MessageSquare size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Reviews moderation</Text>
+          <Text style={styles.reviewBtnText}>{t("admin_index.reviews_moderation")}</Text>
         </Pressable>
 
         <Pressable
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.ambassadorsBtn, pressed && { opacity: 0.85 }]}
         >
           <Sparkles size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Ambassadors</Text>
+          <Text style={styles.reviewBtnText}>{t("admin_index.ambassadors")}</Text>
         </Pressable>
 
         <Pressable
@@ -429,7 +429,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.commissionBtn, pressed && { opacity: 0.85 }]}
         >
           <LineChart size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Commission analytics</Text>
+          <Text style={styles.reviewBtnText}>{t("admin_index.commission_analytics")}</Text>
         </Pressable>
 
         <Pressable
@@ -438,7 +438,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.auditBtn, pressed && { opacity: 0.85 }]}
         >
           <ShieldAlert size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Audit log</Text>
+          <Text style={styles.reviewBtnText}>{t("admin_index.audit_log")}</Text>
         </Pressable>
 
         <Text style={styles.section}>{t("admin.sellers_count", { count: sellers.length })}</Text>

@@ -180,7 +180,7 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <PiggyBank size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Earnings</Text>
+                  <Text style={styles.quickTitle}>{t("seller_dashboard_extra.earnings")}</Text>
                   <Text style={styles.quickSubtitle}>Gross · commission · net</Text>
                 </Pressable>
                 <Pressable
@@ -249,7 +249,7 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <TrendingUp size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Sponsored placements</Text>
+                  <Text style={styles.quickTitle}>{t("seller_dashboard_extra.sponsored_placements")}</Text>
                   <Text style={styles.quickSubtitle}>Boost a listing · pay per click</Text>
                 </Pressable>
                 <Pressable
@@ -260,7 +260,7 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Trophy size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Referral rewards</Text>
+                  <Text style={styles.quickTitle}>{t("seller_dashboard_extra.referral_rewards")}</Text>
                   <Text style={styles.quickSubtitle}>Tiers · badges · leaderboard</Text>
                 </Pressable>
                 <Pressable
@@ -293,7 +293,7 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Sparkles size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Refer & Earn</Text>
+                  <Text style={styles.quickTitle}>{t("seller_dashboard_extra.refer_and_earn")}</Text>
                   <Text style={styles.quickSubtitle}>5% commission · NZ$500 cap</Text>
                 </Pressable>
                 <Pressable
