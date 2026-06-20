@@ -430,9 +430,18 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
   },
   verifiedText: { color: colors.success, fontSize: 13, fontWeight: "700", flex: 1 },
-  quickActions: { flexDirection: "row", gap: 10, marginTop: spacing.md },
+  quickActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: spacing.md,
+  },
   quickCard: {
-    flex: 1,
+    // Aim for ~4 tiles per row on wide screens; the minWidth forces wrap
+    // to 2-col on phones (≤ 380px) so each tile stays legible.
+    flexGrow: 1,
+    flexBasis: "22%",
+    minWidth: 140,
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
