@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 /**
@@ -24,6 +25,7 @@ import { colors, radius, spacing } from "@/src/lib/theme";
  * it in by hand.
  */
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ token?: string }>();
   const initialToken = useMemo(
@@ -48,17 +50,17 @@ export default function ResetPassword() {
 
   const submit = async () => {
     setErr("");
-    const t = token.trim();
-    if (!t) {
-      setErr("Paste the reset link or token from your email");
+    const tok = token.trim();
+    if (!tok) {
+      setErr(t("validations.paste_reset_token"));
       return;
     }
     if (pwd.length < 8 || !/\d/.test(pwd)) {
-      setErr("Password must be 8+ characters and include a number");
+      setErr(t("validations.password_8_plus_number"));
       return;
     }
     if (pwd !== confirmPwd) {
-      setErr("Passwords don't match");
+      setErr(t("validations.passwords_dont_match"));
       return;
     }
     setBusy(true);
@@ -68,12 +70,12 @@ export default function ResetPassword() {
         {
           method: "POST",
           auth: false,
-          body: { token: t, new_password: pwd },
+          body: { token: tok, new_password: pwd },
         }
       );
       setDone({ email: res.email });
     } catch (e: any) {
-      setErr(e?.message || "Couldn't reset password — link may have expired");
+      setErr(e?.message || t("validations.reset_failed"));
     } finally {
       setBusy(false);
     }

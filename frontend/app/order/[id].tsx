@@ -193,14 +193,14 @@ export default function OrderDetail() {
         await Linking.openURL(dl.uri);
       }
       toast.show({
-        title: "Invoice ready",
-        body: `Saved as allsale-invoice-${shortId}.pdf`,
+        title: t("toasts.invoice_ready"),
+        body: t("toasts.invoice_ready_body", { filename: `allsale-invoice-${shortId}.pdf` }),
         kind: "success",
       });
     } catch (e: any) {
       toast.show({
-        title: "Couldn't download invoice",
-        body: e?.message || "Please try again in a moment.",
+        title: t("toasts.couldnt_download_invoice"),
+        body: e?.message || t("toasts.try_again_moment"),
         kind: "error",
       });
     } finally {
@@ -211,9 +211,9 @@ export default function OrderDetail() {
   const emailInvoice = useCallback(async () => {
     if (!order || emailingInvoice) return;
     const ok = await confirm({
-      title: "Email this invoice?",
-      message: "We'll send a PDF copy to the email on your account.",
-      confirmLabel: "Send",
+      title: t("confirms.email_invoice_title"),
+      message: t("confirms.email_invoice_msg"),
+      confirmLabel: t("confirms.email_invoice_send"),
     });
     if (!ok) return;
     setEmailingInvoice(true);
@@ -226,27 +226,27 @@ export default function OrderDetail() {
       }>(`/orders/${order.id}/invoice/email`, { method: "POST", body: {} });
       if (resp.sent) {
         toast.show({
-          title: "Invoice emailed",
-          body: `Sent to ${resp.to}`,
+          title: t("toasts.invoice_emailed"),
+          body: t("toasts.invoice_emailed_body", { email: resp.to }),
           kind: "success",
         });
       } else if (resp.skipped) {
         toast.show({
-          title: "Email service not configured",
-          body: "Ask support to enable Resend — or download the PDF instead.",
+          title: t("toasts.email_not_configured"),
+          body: t("toasts.email_not_configured_body"),
           kind: "error",
         });
       } else {
         toast.show({
-          title: "Couldn't send invoice",
-          body: resp.reason || "Try again or download the PDF.",
+          title: t("toasts.couldnt_send_invoice"),
+          body: resp.reason || t("toasts.couldnt_send_invoice_body"),
           kind: "error",
         });
       }
     } catch (e: any) {
       toast.show({
-        title: "Couldn't send invoice",
-        body: e?.message || "Please try again in a moment.",
+        title: t("toasts.couldnt_send_invoice"),
+        body: e?.message || t("toasts.try_again_moment"),
         kind: "error",
       });
     } finally {
@@ -269,8 +269,8 @@ export default function OrderDetail() {
     // Validate locally so we can show inline feedback before the round-trip.
     if (!reasonCode) {
       toast.show({
-        title: "Pick a reason",
-        body: "Help us improve by telling us why you're cancelling.",
+        title: t("toasts.pick_reason"),
+        body: t("toasts.pick_reason_body"),
         kind: "error",
       });
       return;
@@ -278,8 +278,8 @@ export default function OrderDetail() {
     const selected = cancelReasons.find((r) => r.code === reasonCode);
     if (selected?.requires_note && !reason.trim()) {
       toast.show({
-        title: "A short note is required",
-        body: "Please add a quick line so we can do better next time.",
+        title: t("toasts.note_required_title"),
+        body: t("toasts.note_required_body"),
         kind: "error",
       });
       return;
@@ -300,14 +300,14 @@ export default function OrderDetail() {
         setReasonCode(null);
       }
       toast.show({
-        title: "Order cancelled",
+        title: t("toasts.order_cancelled"),
         body: updated.refund_id
-          ? `Refund of ${formatNZD(updated.refund_amount_nzd || 0)} on its way (5–10 business days).`
-          : "Your cancellation has been received. Your refund will be processed shortly.",
+          ? t("toasts.order_cancelled_refund", { amount: formatNZD(updated.refund_amount_nzd || 0) })
+          : t("toasts.order_cancelled_received"),
         kind: "success",
       });
     } catch (e: any) {
-      toast.show({ title: "Couldn't cancel", body: e?.message || "Please try again.", kind: "error" });
+      toast.show({ title: t("toasts.couldnt_cancel"), body: e?.message || t("toasts.try_again"), kind: "error" });
     } finally {
       if (mounted.current) setCancelling(false);
     }
@@ -343,14 +343,14 @@ export default function OrderDetail() {
       });
       if (mounted.current) setOrder(updated);
       toast.show({
-        title: "Delivery confirmed",
-        body: "Thanks! Your return window starts now if anything's wrong.",
+        title: t("toasts.delivery_confirmed"),
+        body: t("toasts.delivery_confirmed_body"),
         kind: "success",
       });
     } catch (e: any) {
       toast.show({
-        title: "Couldn't confirm",
-        body: e?.message || "Please try again.",
+        title: t("toasts.couldnt_confirm"),
+        body: e?.message || t("toasts.try_again"),
         kind: "error",
       });
     } finally {
@@ -369,10 +369,16 @@ export default function OrderDetail() {
       const addedCount = res.added.length;
       const skippedCount = res.skipped.length;
       toast.show({
-        title: addedCount ? `Added ${addedCount} item${addedCount === 1 ? "" : "s"} to cart` : "Nothing added",
+        title: addedCount
+          ? (addedCount === 1
+              ? t("toasts.added_to_cart_one")
+              : t("toasts.added_to_cart_other", { count: addedCount }))
+          : t("toasts.nothing_added"),
         body: skippedCount
-          ? `${skippedCount} item${skippedCount === 1 ? "" : "s"} skipped (out of stock or unavailable).`
-          : "Heading to your cart…",
+          ? (skippedCount === 1
+              ? t("toasts.skipped_one")
+              : t("toasts.skipped_other", { count: skippedCount }))
+          : t("toasts.heading_to_cart"),
         kind: addedCount ? "success" : "error",
       });
       if (addedCount > 0) {
@@ -380,8 +386,8 @@ export default function OrderDetail() {
       }
     } catch (e: any) {
       toast.show({
-        title: "Couldn't reorder",
-        body: e?.message || "Please try again.",
+        title: t("toasts.couldnt_reorder"),
+        body: e?.message || t("toasts.try_again"),
         kind: "error",
       });
     } finally {
@@ -395,8 +401,8 @@ export default function OrderDetail() {
     const sellerId = order.items.find((it: any) => it.seller_id)?.["seller_id"] || null;
     if (!sellerId) {
       toast.show({
-        title: "Can't open chat",
-        body: "We couldn't find a seller for this order.",
+        title: t("toasts.cant_open_chat"),
+        body: t("toasts.cant_open_chat_body"),
         kind: "error",
       });
       return;
@@ -414,8 +420,8 @@ export default function OrderDetail() {
       router.push(`/chat/${conv.id}`);
     } catch (e: any) {
       toast.show({
-        title: "Couldn't open chat",
-        body: e?.message || "Please try again.",
+        title: t("toasts.couldnt_open_chat"),
+        body: e?.message || t("toasts.try_again"),
         kind: "error",
       });
     }

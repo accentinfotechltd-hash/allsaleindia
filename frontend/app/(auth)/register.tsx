@@ -34,19 +34,19 @@ export default function Register() {
   const submit = async () => {
     setErr("");
     if (!fullName.trim() || !email.trim() || !password) {
-      setErr("Please fill in all fields");
+      setErr(t("validations.fill_all_fields"));
       return;
     }
     if (password.length < 8) {
-      setErr("Password must be at least 8 characters");
+      setErr(t("validations.password_too_short"));
       return;
     }
     if (!/\d/.test(password)) {
-      setErr("Password must contain at least one number");
+      setErr(t("validations.password_needs_number"));
       return;
     }
     if (!agree) {
-      setErr("Please accept the Terms & Privacy Policy to continue");
+      setErr(t("validations.accept_terms"));
       return;
     }
     setBusy(true);
@@ -54,7 +54,7 @@ export default function Register() {
       await register(email.trim(), password, fullName.trim());
       router.replace("/(tabs)/home");
     } catch (e: any) {
-      setErr(e?.message || "Could not create account");
+      setErr(e?.message || t("validations.could_not_create_account"));
     } finally {
       setBusy(false);
     }

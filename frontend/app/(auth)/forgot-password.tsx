@@ -29,7 +29,7 @@ export default function ForgotPassword() {
     setErr("");
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !trimmed.includes("@")) {
-      setErr("Enter a valid email address");
+      setErr(t("validations.valid_email_required"));
       return;
     }
     setBusy(true);

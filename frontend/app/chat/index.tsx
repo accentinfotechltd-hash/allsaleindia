@@ -31,6 +31,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -54,6 +55,7 @@ export default function ChatListScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const toast = useToast();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Conv[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,7 +77,7 @@ export default function ChatListScreen() {
       );
       setItems(d || []);
     } catch (e: any) {
-      toast.show({ title: "Couldn't load messages", message: e?.message || "", kind: "error" });
+      toast.show({ title: t("toasts.couldnt_load_msgs"), body: e?.message || "", kind: "error" });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -108,7 +110,7 @@ export default function ChatListScreen() {
           });
         });
       } catch (e: any) {
-        toast.show({ title: "Couldn't update", message: e?.message || "", kind: "error" });
+        toast.show({ title: t("toasts.couldnt_update"), body: e?.message || "", kind: "error" });
       } finally {
         setBusyId(null);
       }
@@ -130,7 +132,7 @@ export default function ChatListScreen() {
           kind: "success",
         });
       } catch (e: any) {
-        toast.show({ title: "Couldn't update", message: e?.message || "", kind: "error" });
+        toast.show({ title: t("toasts.couldnt_update"), body: e?.message || "", kind: "error" });
       } finally {
         setBusyId(null);
       }
@@ -153,9 +155,9 @@ export default function ChatListScreen() {
               try {
                 await api(`/chat/conversations/${c.id}`, { method: "DELETE" });
                 setItems((prev) => prev.filter((x) => x.id !== c.id));
-                toast.show({ title: "Conversation deleted", kind: "success" });
+                toast.show({ title: t("toasts.conv_deleted"), kind: "success" });
               } catch (e: any) {
-                toast.show({ title: "Couldn't delete", message: e?.message || "", kind: "error" });
+                toast.show({ title: t("toasts.couldnt_delete"), body: e?.message || "", kind: "error" });
               } finally {
                 setBusyId(null);
               }
@@ -191,9 +193,9 @@ export default function ChatListScreen() {
       setReplyText("");
       setReplyOpenId(null);
       Keyboard.dismiss();
-      toast.show({ title: "Sent", kind: "success" });
+      toast.show({ title: t("toasts.sent_label"), kind: "success" });
     } catch (e: any) {
-      toast.show({ title: "Couldn't send", message: e?.message || "", kind: "error" });
+      toast.show({ title: t("toasts.couldnt_send"), body: e?.message || "", kind: "error" });
     } finally {
       setSending(false);
     }

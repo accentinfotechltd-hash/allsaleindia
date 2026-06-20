@@ -77,7 +77,14 @@
       "expo-video",
       "expo-localization",
       "expo-apple-authentication",
-      "@sentry/react-native"
+      [
+        "@sentry/react-native/expo",
+        {
+          "organization": "allsale",
+          "project": "allsale-mobile",
+          "url": "https://sentry.io/"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

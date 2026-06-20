@@ -57,20 +57,20 @@ export default function Account() {
     try {
       await api("/auth/verify-email/request", { method: "POST", body: {} });
       toast.show({
-        type: "success",
-        title: "Verification email sent",
-        message: `Open the link in your inbox — it's valid for 24 hours.`,
+        kind: "success",
+        title: t("toasts.verify_email_sent"),
+        body: t("toasts.verify_email_sent_body"),
       });
     } catch (e: any) {
       toast.show({
-        type: "error",
-        title: "Couldn't send email",
-        message: e?.message || "Try again in a moment.",
+        kind: "error",
+        title: t("toasts.couldnt_send_email"),
+        body: e?.message || t("toasts.try_again_moment"),
       });
     } finally {
       setResendingVerify(false);
     }
-  }, [resendingVerify, toast]);
+  }, [resendingVerify, toast, t]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

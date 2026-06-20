@@ -1,0 +1,45 @@
+{
+  "summary": "Frontend-only i18n polish verification (Allsale). All 7 requested buyer flows verified end-to-end on mobile viewport (390x844). App loads cleanly; Register/forgot-password validations show correct English strings from new `validations.*` namespace; Account → Verify email button now displays green success toast with title + body (the previously broken kind/body field rename works); Cart → Checkout button renders 'Checkout · $101.00' and navigates without crash; Wishlist confirm modals render translated copy ('Remove 1 item?', 'Clear entire wishlist?'); Order cancel modal opens, reason can be picked, Confirm cancel succeeds with green 'Order cancelled' toast. Found ONE new i18n regression: wishlist select-mode header references missing key `common.selected` → shows raw `[missing \"en.common.selected\" translation]` literal in the header. Added the missing key to en.ts + hi.ts as a small fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "wishlist.tsx (select-mode header)",
+        "issue": "Header rendered '1 [missing \"en.common.selected\" translation]' because `t(\"common.selected\")` had no matching key in en.ts / hi.ts. Fixed by adding `common.selected` to both locale files. Reference: /app/frontend/app/wishlist.tsx:433",
+        "testID": "wishlist-select-mode",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "(auth)/register.tsx (terms validation)",
+        "issue": "Validation key `validations.accept_terms` is dead code — submit button is disabled while terms unchecked (aria-disabled=true via `disabled={busy || !agree}` at line 155), so the inline error 'Please accept the Terms & Privacy Policy to continue' can never trigger. Either remove the dead branch (line 48-51) OR allow submit and surface the inline error for better feedback. Reference: /app/frontend/app/(auth)/register.tsx:48-51 and 155",
+        "testID": "register-submit-btn",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Decide on register Terms UX: either remove dead `validations.accept_terms` branch OR drop the `!agree` from the disabled state so the inline error message is reachable. Same dead-code path exists in any locale that translates `validations.accept_terms`.",
+    "Verify `common.selected` (now added by tester) is rendered correctly in Hindi locale too (hi.ts now has 'चयनित')."
+  ],
+  "critical_code_review_comments": [
+    "wishlist.tsx:433 uses `t(\"common.selected\") || \"selected\"` — i18n libs typically return the key string when missing (not falsy), so the `||` fallback never fires. Always declare every key in the canonical locale to avoid this pattern.",
+    "register.tsx submit button is disabled when `!agree` AND also has an `accept_terms` inline-error branch — these two enforcement paths conflict; pick one for cleaner UX."
+  ],
+  "updated_files": [
+    "/app/frontend/src/i18n/locales/en.ts (added common.selected)",
+    "/app/frontend/src/i18n/locales/hi.ts (added common.selected)"
+  ],
+  "success_rate": {"backend": "n/a (frontend-only request)", "frontend": "95% (7/7 requested flows pass; 1 minor missing-key bug found & patched)"},
+  "seed_data_creation": "Re-used existing buyer@example.com / Buyer2026!. Created one fresh paid order via /app/test_reports/_ui_setup_paid_order.py (order_1303d9b1327b under TEST_ui_iter8_1781961837799@allsale.co.nz). That order has now been cancelled by the test (status: cancelled/refund pending).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All 7 i18n flows from the iter50 review request were exercised on mobile web preview (390x844). The kind/body toast field rename in account.tsx is confirmed working (Verify email button now produces a green success card with title + body). chat/index.tsx was not exercised live (would require an active conversation) but the source-level grep confirmed `toasts.couldnt_send` / `kind: \"error\"` uses the new field names. Cancel-order happy path on a paid order was end-to-end verified including the 200 from `POST /api/orders/{id}/cancel`. ETA badge & tracking timeline render fine post-cancel.",
+  "rca_of_issue": "Wishlist select-header bug RCA: `wishlist.tsx` line 433 was authored expecting i18next to return a falsy value for missing keys, but i18next returns the key path itself prefixed with the namespace ('en.common.selected'), wrapped by the missing-key handler as a `[missing \"…\"]` literal. The new `toasts.*` / `confirms.*` / `validations.*` keys are fully present in en.ts + hi.ts, so this is a long-standing latent bug in `common.*` rather than an artifact of this iteration's refactor — it just becomes more visible because the select-mode UI is exercised in regression. Mitigation applied: added `common.selected` to both locale files. Reproduction: login → wishlist → tap 'Select' → tap any card → observe header."
+}

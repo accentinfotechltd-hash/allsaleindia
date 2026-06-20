@@ -294,16 +294,18 @@ export default function WishlistScreen() {
       show({
         title:
           moved > 0
-            ? `Moved ${moved} item${moved === 1 ? "" : "s"} to cart`
-            : "Nothing moved",
+            ? (moved === 1
+                ? t("toasts.moved_items_one")
+                : t("toasts.moved_items_other", { count: moved }))
+            : t("toasts.nothing_to_move"),
         body: skipReason || undefined,
         kind: moved > 0 ? "success" : "error",
       });
       exitSelectionMode();
     } catch (e: any) {
       show({
-        title: "Move failed",
-        body: e?.message || "Try again",
+        title: t("toasts.move_failed"),
+        body: e?.message || t("toasts.try_again"),
         kind: "error",
       });
     } finally {
@@ -314,9 +316,12 @@ export default function WishlistScreen() {
   const onBulkRemove = async () => {
     if (selected.size === 0) return;
     const ok = await confirm({
-      title: `Remove ${selected.size} item${selected.size === 1 ? "" : "s"}?`,
-      message: "They'll be removed from your wishlist. You can add them back anytime.",
-      confirmLabel: "Remove",
+      title:
+        selected.size === 1
+          ? t("confirms.remove_items_title_one")
+          : t("confirms.remove_items_title_other", { count: selected.size }),
+      message: t("confirms.remove_items_msg"),
+      confirmLabel: t("confirms.remove_confirm"),
       destructive: true,
     });
     if (!ok) return;
@@ -330,12 +335,15 @@ export default function WishlistScreen() {
       setItems((prev) => prev.filter((p) => !ids.includes(p.product_id)));
       await refresh();
       show({
-        title: `Removed ${ids.length} item${ids.length === 1 ? "" : "s"}`,
+        title:
+          ids.length === 1
+            ? t("toasts.removed_items_one")
+            : t("toasts.removed_items_other", { count: ids.length }),
         kind: "success",
       });
       exitSelectionMode();
     } catch (e: any) {
-      show({ title: "Remove failed", body: e?.message, kind: "error" });
+      show({ title: t("toasts.remove_failed"), body: e?.message, kind: "error" });
     } finally {
       setBusy(false);
     }
@@ -344,9 +352,12 @@ export default function WishlistScreen() {
   const onClearAll = async () => {
     if (items.length === 0) return;
     const ok = await confirm({
-      title: "Clear entire wishlist?",
-      message: `This removes all ${items.length} item${items.length === 1 ? "" : "s"}. You can re-add anytime.`,
-      confirmLabel: "Clear all",
+      title: t("confirms.clear_wishlist_title"),
+      message:
+        items.length === 1
+          ? t("confirms.clear_wishlist_msg_one")
+          : t("confirms.clear_wishlist_msg_other", { count: items.length }),
+      confirmLabel: t("confirms.clear_all_confirm"),
       destructive: true,
     });
     if (!ok) return;
@@ -354,18 +365,21 @@ export default function WishlistScreen() {
       await api("/wishlist", { method: "DELETE" });
       setItems([]);
       await refresh();
-      show({ title: "Wishlist cleared", kind: "success" });
+      show({ title: t("toasts.wishlist_cleared"), kind: "success" });
     } catch (e: any) {
-      show({ title: "Clear failed", body: e?.message, kind: "error" });
+      show({ title: t("toasts.clear_failed"), body: e?.message, kind: "error" });
     }
   };
 
   const onMoveAllInStock = async () => {
     if (inStockCount === 0) return;
     const ok = await confirm({
-      title: `Move ${inStockCount} item${inStockCount === 1 ? "" : "s"} to cart?`,
-      message: "Out-of-stock items will stay in your wishlist.",
-      confirmLabel: "Move all",
+      title:
+        inStockCount === 1
+          ? t("confirms.move_items_title_one")
+          : t("confirms.move_items_title_other", { count: inStockCount }),
+      message: t("confirms.move_items_msg"),
+      confirmLabel: t("confirms.move_all_confirm"),
     });
     if (!ok) return;
     setBusy(true);
@@ -384,11 +398,15 @@ export default function WishlistScreen() {
       await refreshCart();
       await refresh();
       show({
-        title: moved > 0 ? `Moved ${moved} item${moved === 1 ? "" : "s"} to cart` : "Nothing to move",
+        title: moved > 0
+          ? (moved === 1
+              ? t("toasts.moved_items_one")
+              : t("toasts.moved_items_other", { count: moved }))
+          : t("toasts.nothing_to_move"),
         kind: moved > 0 ? "success" : "error",
       });
     } catch (e: any) {
-      show({ title: "Move failed", body: e?.message, kind: "error" });
+      show({ title: t("toasts.move_failed"), body: e?.message, kind: "error" });
     } finally {
       setBusy(false);
     }

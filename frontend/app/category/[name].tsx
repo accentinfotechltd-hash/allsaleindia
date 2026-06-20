@@ -25,6 +25,7 @@ import {
 import SubcategoryTileGrid from "@/src/components/SubcategoryTileGrid";
 import { api } from "@/src/lib/api";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { fetchTaxonomy, NZ_FAQS, TRUST_POINTS, TaxonomyNode } from "@/src/lib/nz";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -35,6 +36,7 @@ const CARD_W = (SCREEN_W - spacing.lg * 2 - GUTTER) / 2;
 export default function CategoryDetail() {
   const { name } = useLocalSearchParams<{ name: string }>();
   const toast = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [items, setItems] = useState<ProductLite[]>([]);
   const [taxonomy, setTaxonomy] = useState<TaxonomyNode | null>(null);
@@ -220,9 +222,9 @@ export default function CategoryDetail() {
                             notify: false,
                           },
                         });
-                        toast.show({ title: "Search saved", body: "Find it in Account → Saved searches.", kind: "success" });
+                        toast.show({ title: t("toasts.search_saved"), body: t("toasts.search_saved_body"), kind: "success" });
                       } catch (e: any) {
-                        toast.show({ title: e?.message || "Save failed", kind: "error" });
+                        toast.show({ title: e?.message || t("toasts.save_failed"), kind: "error" });
                       }
                     }}
                     style={styles.clearAllBtn}

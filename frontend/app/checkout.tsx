@@ -176,7 +176,7 @@ export default function Checkout() {
     } catch (e: any) {
       setErr(e?.message || t("checkout.could_not_start"));
       toast.show({
-        title: "Couldn't start checkout",
+        title: t("toasts.couldnt_start_checkout"),
         body: e?.message,
         kind: "error",
       });
