@@ -22,6 +22,7 @@ import FlashSalesCarousel from "@/src/components/FlashSalesCarousel";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import AmbassadorWelcomeBanner from "@/src/components/AmbassadorWelcomeBanner";
 import AssistantFab from "@/src/components/AssistantFab";
+import SponsoredCarousel from "@/src/components/SponsoredCarousel";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -248,6 +249,9 @@ export default function Home() {
 
             {/* Flash sales / Deal of the Day */}
             <FlashSalesCarousel />
+
+            {/* Sponsored placements — paid listings boosted by sellers */}
+            <SponsoredCarousel placement="home" />
 
             {/* Category chips (sticky chrome) */}
             <ScrollView

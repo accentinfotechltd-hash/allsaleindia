@@ -8,6 +8,7 @@ import SizeGuideModal from "@/src/components/SizeGuideModal";
 import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import FrequentlyBoughtTogether from "@/src/components/FrequentlyBoughtTogether";
+import SponsoredCarousel from "@/src/components/SponsoredCarousel";
 import ProductQuestionsSection from "@/src/components/ProductQuestionsSection";
 import ShipsWellBadge from "@/src/components/ShipsWellBadge";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
@@ -391,6 +392,13 @@ export default function ProductDetail() {
           {/* Amazon-style "Frequently Bought Together" — co-purchase
               bundle widget. Auto-hides when there's no signal. */}
           <FrequentlyBoughtTogether productId={product.id} />
+
+          {/* Sponsored placements in this category — auto-hides when none */}
+          <SponsoredCarousel
+            placement="pdp"
+            category={product.category}
+            title="More you may like"
+          />
 
           {/* Amazon-style Q&A — buyers ask, sellers + verified buyers answer. */}
           <ProductQuestionsSection productId={product.id} />

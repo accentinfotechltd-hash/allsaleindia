@@ -593,3 +593,24 @@ Freshly-registered sellers start at `verification_status="pending_documents"` (c
 ### Coverage
 - 9/9 bulk-listings tests pass.
 - Full critical-path: **84/84 pass** across bulk_listings, b2b_gamification, sponsored, assistant, policies, catalog_importer, qa, best_sellers, wishlist_collections_move.
+
+
+## Sponsored Carousel — buyer-side rendering (June 20, 2026)
+Mounted the paid-placement slots from `/api/sponsored/slots` on both the home tab and the PDP. Loop closed: sellers can promote → buyers see "Sponsored" cards → clicks bill via existing `/track/click`.
+
+### Component
+- `src/components/SponsoredCarousel.tsx` — drop-in horizontal scroller. Props: `placement: "home"|"category"|"search"|"pdp"`, optional `category`, `title`, `limit`. Fetches once on mount, fires impression beacons (debounced 1s settle), fires click beacons on tap before navigating to PDP. Returns `null` when no slots, so the surface stays clean for empty inventory.
+
+### Placements wired
+- **Home tab** — `placement="home"` between Flash Sales and category chips.
+- **PDP** — `placement="pdp"` with the product's category, titled "More you may like", between Frequently-Bought-Together and Q&A.
+
+### Visual cues
+- Dark "Sponsored" badge overlay on the product image (top-left).
+- Small "ⓘ Paid placements by sellers" disclosure next to the section heading — App Store / GDPR friendly.
+
+### Live verified
+- 2 active campaigns seeded → home carousel renders both cards with proper badges + prices + seller names. Click navigation to PDP works.
+
+### Web parity
+Web should mirror the same visual treatment — dark "Sponsored" pill badge + a small clarifying caption near the section title. Endpoint contract unchanged.
