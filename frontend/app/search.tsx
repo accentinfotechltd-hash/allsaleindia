@@ -199,7 +199,7 @@ export default function SearchScreen() {
                   {/* Section 2: Recent searches */}
                   {history.length > 0 ? (
                     <Section
-                      title="Recent searches"
+                      title={t("search_extra.recent")}
                       right={
                         <Pressable onPress={clearHistory} hitSlop={6} testID="search-history-clear">
                           <Text style={styles.linkText}>{t("search_screen.clear_all")}</Text>
@@ -227,7 +227,7 @@ export default function SearchScreen() {
                   {/* Section 3: Trending */}
                   {trending.length > 0 ? (
                     <Section
-                      title="Trending"
+                      title={t("search_extra.trending")}
                       right={<Flame size={14} color={colors.accent} />}
                     >
                       <View style={styles.chipRow}>

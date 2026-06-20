@@ -166,7 +166,7 @@ export default function ProductDetail() {
   if (!product) {
     return (
       <SafeAreaView style={[styles.container, styles.center]}>
-        <Text style={styles.muted}>Product not found.</Text>
+        <Text style={styles.muted}>{t("product.not_found")}</Text>
       </SafeAreaView>
     );
   }
@@ -230,7 +230,7 @@ export default function ProductDetail() {
           {product.seller_name || product.seller_city ? (
             <>
               <Text style={styles.sellerLine} testID="product-seller-line">
-                by {product.seller_name || "Seller"}
+                {t("product.by_seller", { name: product.seller_name || t("product.seller") })}
                 {product.seller_city ? ` · ${product.seller_city}, India` : " · India"}
               </Text>
               {sellerPublic?.response_stats?.label ? (
@@ -269,19 +269,19 @@ export default function ProductDetail() {
           <View style={styles.priceCard}>
             <View>
               <Text style={styles.priceNzd}>{formatPrice(product.price_nzd, { showNzd: true })}</Text>
-              <Text style={styles.priceInr}>Inclusive of seller pricing</Text>
+              <Text style={styles.priceInr}>{t("product.inclusive_pricing")}</Text>
             </View>
             <View style={styles.discountTag}>
-              <Text style={styles.discountText}>Direct import</Text>
+              <Text style={styles.discountText}>{t("product.direct_import")}</Text>
             </View>
           </View>
 
           <View style={styles.factsCard}>
             <Fact icon={<Truck size={16} color={colors.primary} />} title="Shipping to NZ" value={`${product.shipping_days_min}-${product.shipping_days_max} days`} />
             <View style={styles.divider} />
-            <Fact icon={<Globe2 size={16} color={colors.primary} />} title="Ships from" value={product.origin} />
+            <Fact icon={<Globe2 size={16} color={colors.primary} />} title={t("product.ships_from")} value={product.origin} />
             <View style={styles.divider} />
-            <Fact icon={<ShieldCheck size={16} color={colors.primary} />} title="Buyer protection" value="Refund if not as described" />
+            <Fact icon={<ShieldCheck size={16} color={colors.primary} />} title={t("product.buyer_protection")} value={t("product.refund_promise")} />
           </View>
 
           {/* Stock indicator */}
@@ -298,7 +298,7 @@ export default function ProductDetail() {
             </View>
           ) : (
             <View style={styles.stockOk} testID="product-in-stock">
-              <Text style={styles.stockOkText}>In stock</Text>
+              <Text style={styles.stockOkText}>{t("product.in_stock")}</Text>
             </View>
           )}
 
@@ -348,7 +348,7 @@ export default function ProductDetail() {
                     style={({ pressed }) => [styles.sizeGuideLink, pressed && { opacity: 0.7 }]}
                   >
                     <Ruler size={13} color={colors.primary} />
-                    <Text style={styles.sizeGuideLinkText}>Size guide</Text>
+                    <Text style={styles.sizeGuideLinkText}>{t("product.size_guide")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -383,11 +383,11 @@ export default function ProductDetail() {
               style={({ pressed }) => [styles.standaloneSizeGuide, pressed && { opacity: 0.85 }]}
             >
               <Ruler size={16} color={colors.primary} />
-              <Text style={styles.standaloneSizeGuideText}>View size guide (NZ ↔ India)</Text>
+              <Text style={styles.standaloneSizeGuideText}>{t("product.view_size_guide")}</Text>
             </Pressable>
           ) : null}
 
-          <Text style={styles.sectionTitle}>About this item</Text>
+          <Text style={styles.sectionTitle}>{t("product.about_this_item")}</Text>
           <Text style={styles.description}>{product.description}</Text>
 
           {/* Amazon-style "Frequently Bought Together" — co-purchase
@@ -433,7 +433,7 @@ export default function ProductDetail() {
       <SafeAreaView edges={["bottom"]} style={styles.bottomBar}>
         <View style={styles.bottomInner}>
           <View>
-            <Text style={styles.bottomLabel}>Total</Text>
+            <Text style={styles.bottomLabel}>{t("product.total")}</Text>
             <Text style={styles.bottomPrice}>{formatPrice(product.price_nzd)}</Text>
           </View>
           <Pressable

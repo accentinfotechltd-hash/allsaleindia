@@ -349,7 +349,7 @@ export default function Checkout() {
           <View style={styles.pointsCard} testID="checkout-points-card">
             <View style={styles.pointsHead}>
               <Sparkles size={14} color="#7C3AED" />
-              <Text style={styles.pointsHeadText}>Loyalty rewards</Text>
+              <Text style={styles.pointsHeadText}>{t("checkout_extra.loyalty_rewards")}</Text>
             </View>
             <PointsRedeemInput />
           </View>
@@ -386,8 +386,7 @@ export default function Checkout() {
               <Line
                 label={
                   cart.coupon_code
-                    ? `Coupon (${cart.coupon_code})`
-                    : "Discount"
+                    ? t("checkout_extra.coupon", { code: cart.coupon_code }) : t("checkout_extra.discount")
                 }
                 value={`-${formatNZD(cart.discount_nzd || 0)}`}
                 highlight
@@ -395,14 +394,14 @@ export default function Checkout() {
             ) : null}
             {(cart.points_discount_nzd || 0) > 0 ? (
               <Line
-                label={`Loyalty points (-${cart.points_used} pts)`}
+                label={t("checkout_extra.loyalty_points_used", { points: cart.points_used })}
                 value={`-${formatNZD(cart.points_discount_nzd || 0)}`}
                 highlight
               />
             ) : null}
             {(cart.gift_wrap_fee_nzd || 0) > 0 ? (
               <Line
-                label={`🎁 Gift wrap × ${cart.gift_wrap_count || 0}`}
+                label={t("checkout_extra.gift_wrap", { count: cart.gift_wrap_count || 0 })}
                 value={`+${formatNZD(cart.gift_wrap_fee_nzd || 0)}`}
               />
             ) : null}
