@@ -32,6 +32,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { EmptyState } from "@/src/components/EmptyState";
 import { WishlistListSkeleton } from "@/src/components/SkeletonRows";
+import { useTranslation } from "@/src/i18n";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useCart } from "@/src/contexts/CartContext";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -71,6 +72,7 @@ export default function WishlistScreen() {
   const { toggle, refresh } = useWishlist();
   const { show } = useToast();
   const confirm = useConfirm();
+  const { t } = useTranslation();
 
   const [items, setItems] = useState<WishItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -410,8 +412,8 @@ export default function WishlistScreen() {
         </Pressable>
         <Text style={styles.title}>
           {selectionMode
-            ? `${selected.size} selected`
-            : `My Wishlist${items.length > 0 ? ` · ${items.length}` : ""}`}
+            ? `${selected.size} ${t("common.selected") || "selected"}`
+            : `${t("wishlist.title")}${items.length > 0 ? ` · ${items.length}` : ""}`}
         </Text>
         {selectionMode ? (
           <Pressable
@@ -506,10 +508,10 @@ export default function WishlistScreen() {
       ) : !user ? (
         <EmptyState
           icon={Heart}
-          title="Sign in to view your wishlist"
-          subtitle="Save items you love and find them anytime from any device."
+          title={t("wishlist.signin_required")}
+          subtitle={t("wishlist.signin_sub")}
           cta={{
-            label: "Sign in",
+            label: t("auth.sign_in"),
             onPress: () => router.push("/(auth)/login"),
             testID: "wishlist-signin-cta",
           }}
@@ -517,15 +519,15 @@ export default function WishlistScreen() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={Heart}
-          title="Your wishlist is empty"
-          subtitle="Tap the heart on any product to save it for later. We'll keep you posted on price drops."
+          title={t("wishlist.empty_title")}
+          subtitle={t("wishlist.empty_sub")}
           cta={{
-            label: "Start shopping",
+            label: t("wishlist.start_shopping"),
             onPress: () => router.push("/(tabs)/home"),
             testID: "wishlist-shop-cta",
           }}
           secondaryCta={{
-            label: "Today's deals",
+            label: t("wishlist.todays_deals"),
             onPress: () => router.push("/deals"),
             testID: "wishlist-deals-cta",
           }}

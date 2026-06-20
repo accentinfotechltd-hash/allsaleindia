@@ -4,6 +4,7 @@ import { Platform, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useCart } from "@/src/contexts/CartContext";
+import { useTranslation } from "@/src/i18n";
 import { colors } from "@/src/lib/theme";
 
 function CartIcon({ color, size }: { color: string; size: number }) {
@@ -22,6 +23,7 @@ function CartIcon({ color, size }: { color: string; size: number }) {
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <Tabs
       screenOptions={{
@@ -42,28 +44,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Home",
+          title: t("tabs.home"),
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} strokeWidth={2.2} />,
         }}
       />
       <Tabs.Screen
         name="categories"
         options={{
-          title: "Categories",
+          title: t("tabs.categories"),
           tabBarIcon: ({ color, size }) => <LayoutGrid size={size} color={color} strokeWidth={2.2} />,
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
-          title: "Cart",
+          title: t("tabs.cart"),
           tabBarIcon: ({ color, size }) => <CartIcon color={color} size={size} />,
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
-          title: "Account",
+          title: t("tabs.account"),
           tabBarIcon: ({ color, size }) => <User size={size} color={color} strokeWidth={2.2} />,
         }}
       />

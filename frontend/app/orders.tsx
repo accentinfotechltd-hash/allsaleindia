@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import DeliveryRatingSheet from "@/src/components/DeliveryRatingSheet";
 import { EmptyState } from "@/src/components/EmptyState";
 import { OrderListSkeleton } from "@/src/components/SkeletonRows";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -41,6 +42,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 export default function Orders() {
   const { formatPrice } = useRegion();
   const router = useRouter();
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [ratingFor, setRatingFor] = useState<
@@ -68,7 +70,7 @@ export default function Orders() {
         <Pressable testID="orders-back-btn" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>My orders</Text>
+        <Text style={styles.title}>{t("orders_screen.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -77,15 +79,15 @@ export default function Orders() {
       ) : orders.length === 0 ? (
         <EmptyState
           icon={Package}
-          title="No orders yet"
-          subtitle="Place your first order from sellers across India and it'll show up here. Tracking, refunds, and re-ordering all live in one place."
+          title={t("orders_screen.empty_title")}
+          subtitle={t("orders_screen.empty_body")}
           cta={{
-            label: "Start shopping",
+            label: t("orders_screen.start_shopping"),
             onPress: () => router.push("/(tabs)/home"),
             testID: "orders-shop-cta",
           }}
           secondaryCta={{
-            label: "Browse deals",
+            label: t("orders_screen.browse_deals"),
             onPress: () => router.push("/deals"),
             testID: "orders-deals-cta",
           }}
@@ -127,7 +129,7 @@ export default function Orders() {
                   ) : null}
                 </View>
                 <View style={styles.rowFoot}>
-                  <Text style={styles.deliveryText}>Est. delivery: {item.estimated_delivery}</Text>
+                  <Text style={styles.deliveryText}>{t("orders_screen.est_delivery", { date: item.estimated_delivery })}</Text>
                   <Text style={styles.totalText}>{formatPrice(item.total_nzd)}</Text>
                 </View>
 
@@ -153,7 +155,7 @@ export default function Orders() {
                       <Text style={styles.rateLinkText}>
                         {item.delivery_rating
                           ? `You rated ${item.delivery_rating.stars}★ · Edit`
-                          : "Rate delivery"}
+                          : t("orders_screen.rate_delivery")}
                       </Text>
                     </Pressable>
                     <Pressable
@@ -165,7 +167,7 @@ export default function Orders() {
                       style={styles.returnLink}
                     >
                       <RefreshCcw size={13} color={colors.primary} />
-                      <Text style={styles.returnLinkText}>Request return</Text>
+                      <Text style={styles.returnLinkText}>{t("orders_screen.request_return")}</Text>
                     </Pressable>
                   </View>
                 ) : (() => {
@@ -187,8 +189,8 @@ export default function Orders() {
                       style={styles.cancelLink}
                     >
                       <XCircle size={13} color={colors.error} />
-                      <Text style={styles.cancelLinkText}>Cancel order</Text>
-                      <Text style={styles.cancelHint}> · before dispatch</Text>
+                      <Text style={styles.cancelLinkText}>{t("orders_screen.cancel_order")}</Text>
+                      <Text style={styles.cancelHint}>{t("orders_screen.before_dispatch")}</Text>
                     </Pressable>
                   );
                 })()}

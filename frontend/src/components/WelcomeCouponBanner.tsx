@@ -21,6 +21,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -42,6 +43,7 @@ export function WelcomeCouponBanner() {
   const { user } = useAuth();
   const router = useRouter();
   const toast = useToast();
+  const { t } = useTranslation();
   const [coupon, setCoupon] = useState<WelcomeCoupon | null>(null);
   const [dismissed, setDismissed] = useState<boolean>(true);
 
@@ -86,18 +88,18 @@ export function WelcomeCouponBanner() {
     try {
       await Clipboard.setStringAsync(coupon.code);
       toast.show({
-        title: "Code copied",
-        body: `${coupon.code} — apply at checkout to claim your discount.`,
+        title: t("welcome_coupon.copied_title"),
+        body: t("welcome_coupon.copied_body", { code: coupon.code }),
         kind: "success",
       });
     } catch {
       toast.show({
-        title: "Couldn't copy",
-        body: `Use code ${coupon.code} at checkout.`,
+        title: t("welcome_coupon.copy_failed_title"),
+        body: t("welcome_coupon.copy_failed_body", { code: coupon.code }),
         kind: "info",
       });
     }
-  }, [coupon, toast]);
+  }, [coupon, toast, t]);
 
   const onDismiss = useCallback(async () => {
     setCoupon(null);
@@ -128,7 +130,7 @@ export function WelcomeCouponBanner() {
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={styles.title}>
-          Welcome — {pctLabel} off your first order{capLabel}
+          {t("welcome_coupon.title", { pct: pctLabel, cap: capLabel })}
         </Text>
         <Text style={styles.body} numberOfLines={2}>
           {coupon.description ||
@@ -141,14 +143,14 @@ export function WelcomeCouponBanner() {
             style={({ pressed }) => [styles.codePill, pressed && { opacity: 0.85 }]}
           >
             <Text style={styles.codeText}>{coupon.code}</Text>
-            <Text style={styles.codeHint}> · tap to copy</Text>
+            <Text style={styles.codeHint}>{t("welcome_coupon.tap_to_copy")}</Text>
           </Pressable>
           <Pressable
             testID="welcome-coupon-shop"
             onPress={() => router.push("/(tabs)/home")}
             style={({ pressed }) => [styles.shopBtn, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.shopBtnText}>Shop now</Text>
+            <Text style={styles.shopBtnText}>{t("welcome_coupon.shop_now")}</Text>
           </Pressable>
         </View>
       </View>
