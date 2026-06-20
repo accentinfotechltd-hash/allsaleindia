@@ -8,14 +8,25 @@
     "scheme": "allsale",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "description": "Shop authentic Indian fashion, beauty, home and food — sent straight from verified sellers in India to your door in New Zealand, Australia, the UK, USA and Canada.",
+    "primaryColor": "#F37021",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.allsale.shop",
       "buildNumber": "1",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Upload product photos to your seller listings",
-        "NSCameraUsageDescription": "Take photos of your products to sell on Allsale"
+        "NSPhotoLibraryUsageDescription": "Upload product photos to your listings",
+        "NSPhotoLibraryAddUsageDescription": "Save product images shared in chat",
+        "NSCameraUsageDescription": "Take photos of products or receipts",
+        "NSMicrophoneUsageDescription": "Record short videos for product listings",
+        "NSLocationWhenInUseUsageDescription": "Show nearby sellers and accurate delivery times",
+        "NSContactsUsageDescription": "Invite friends to shop with you",
+        "NSUserTrackingUsageDescription": "Personalise your home feed and deal recommendations",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -28,7 +39,15 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -51,8 +70,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Upload product photos to your seller listings",
-          "cameraPermission": "Take photos of your products to sell on Allsale"
+          "photosPermission": "Upload product photos to your listings",
+          "cameraPermission": "Take photos of products or receipts"
         }
       ],
       "expo-video",
@@ -61,6 +80,11 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "supportEmail": "support@allsale.co.nz",
+      "privacyPolicyUrl": "https://shop.allsale.co.nz/legal/privacy",
+      "termsUrl": "https://shop.allsale.co.nz/legal/terms"
     }
   }
 }
