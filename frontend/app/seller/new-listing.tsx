@@ -19,12 +19,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 
 const MAX_PHOTOS = 10;
 const DEFAULT_CATEGORIES = ["Ethnic Wear", "Home & Decor", "Spices & Tea", "Jewelry", "Beauty", "Electronics"];
 
 export default function NewListing() {
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -45,7 +47,7 @@ export default function NewListing() {
 
   const pickPhotos = async () => {
     if (photos.length >= MAX_PHOTOS) {
-      show({ title: "Photo limit reached", message: `You can add up to ${MAX_PHOTOS} photos per listing.`, kind: "error" });
+      show({ title: t("seller_new_listing.photo_limit_title"), message: t("seller_new_listing.photo_limit_msg", { max: MAX_PHOTOS }), kind: "error" });
       return;
     }
     setPicking(true);
@@ -53,7 +55,7 @@ export default function NewListing() {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
         if (!perm.canAskAgain) {
-          show({ title: "Photos permission needed", message: "Open Settings to allow photo access so you can upload product images.", kind: "error" });
+          show({ title: t("seller_new_listing.photos_perm_title"), message: t("seller_new_listing.photos_perm_msg"), kind: "error" });
         }
         return;
       }
@@ -82,11 +84,11 @@ export default function NewListing() {
         } catch (e: any) {
           // Fall back to local data URI so the form is not dead-ended.
           setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
-          show({ title: "Upload warning", message: e?.message || "Upload failed; using local copy.", kind: "error" });
+          show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
         }
       }
     } catch (e: any) {
-      show({ title: "Couldn't open photos", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_new_listing.couldnt_open_photos"), message: e?.message || t("seller_new_listing.try_again"), kind: "error" });
     } finally {
       setPicking(false);
     }
@@ -116,10 +118,10 @@ export default function NewListing() {
         setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
       } catch (e: any) {
         setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
-        show({ title: "Upload warning", message: e?.message || "Upload failed; using local copy.", kind: "error" });
+        show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
       }
     } catch (e: any) {
-      show({ title: "Couldn't open camera", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_new_listing.couldnt_open_camera"), message: e?.message || t("seller_new_listing.try_again"), kind: "error" });
     } finally {
       setPicking(false);
     }
@@ -169,15 +171,15 @@ export default function NewListing() {
     setErr("");
     const price = parseFloat(priceNzd);
     if (!name.trim() || description.trim().length < 10) {
-      setErr("Name and description (10+ chars) are required");
+      setErr(t("seller_new_listing.err_name_desc"));
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
-      setErr("Enter a valid price in NZD");
+      setErr(t("seller_new_listing.err_price"));
       return;
     }
     if (photos.length === 0) {
-      setErr("Please add at least one product photo.");
+      setErr(t("seller_new_listing.err_photos"));
       return;
     }
     setBusy(true);
@@ -199,7 +201,7 @@ export default function NewListing() {
       });
       router.replace("/seller/dashboard");
     } catch (e: any) {
-      setErr(e?.message || "Could not create listing");
+      setErr(e?.message || t("seller_new_listing.err_default"));
     } finally {
       setBusy(false);
     }
@@ -211,15 +213,15 @@ export default function NewListing() {
         <Pressable testID="new-listing-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>New listing</Text>
+        <Text style={styles.title}>{t("seller_new_listing.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-          <Text style={styles.label}>Product photos ({photos.length}/{MAX_PHOTOS})</Text>
+          <Text style={styles.label}>{t("seller_new_listing.photos_label", { count: photos.length, max: MAX_PHOTOS })}</Text>
           <Text style={styles.photoHint}>
-            First photo is the cover. Add up to {MAX_PHOTOS} photos.
+            {t("seller_new_listing.photos_hint", { max: MAX_PHOTOS })}
           </Text>
           <View style={styles.photoGrid}>
             {photos.map((uri, idx) => (
@@ -227,7 +229,7 @@ export default function NewListing() {
                 <Image source={{ uri }} style={styles.photoTileImg} />
                 {idx === 0 ? (
                   <View style={styles.coverBadge}>
-                    <Text style={styles.coverBadgeText}>Cover</Text>
+                    <Text style={styles.coverBadgeText}>{t("seller_new_listing.cover_badge")}</Text>
                   </View>
                 ) : null}
                 <Pressable
@@ -256,7 +258,7 @@ export default function NewListing() {
                 ) : (
                   <>
                     <ImageIcon size={22} color={colors.primary} />
-                    <Text style={styles.photoAddText}>Gallery</Text>
+                    <Text style={styles.photoAddText}>{t("seller_new_listing.photo_gallery")}</Text>
                   </>
                 )}
               </Pressable>
@@ -273,14 +275,14 @@ export default function NewListing() {
                 ]}
               >
                 <Camera size={22} color={colors.primary} />
-                <Text style={styles.photoAddText}>Camera</Text>
+                <Text style={styles.photoAddText}>{t("seller_new_listing.photo_camera")}</Text>
               </Pressable>
             ) : null}
           </View>
 
-          <Field label="Product name" testID="new-listing-name" value={name} onChangeText={setName} placeholder="e.g. Handmade Brass Lamp" />
+          <Field label={t("seller_new_listing.field_name")} testID="new-listing-name" value={name} onChangeText={setName} placeholder={t("seller_new_listing.name_placeholder")} />
 
-          <Text style={styles.label}>Category</Text>
+          <Text style={styles.label}>{t("seller_new_listing.field_category")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
             {categories.map((c) => {
               const active = c === category;
@@ -298,36 +300,36 @@ export default function NewListing() {
           </ScrollView>
 
           <Field
-            label="Price (NZD)"
+            label={t("seller_new_listing.field_price")}
             testID="new-listing-price"
             value={priceNzd}
             onChangeText={setPriceNzd}
-            placeholder="49.00"
+            placeholder={t("seller_new_listing.price_placeholder")}
             keyboardType="decimal-pad"
           />
 
           <Field
-            label="Stock count"
+            label={t("seller_new_listing.field_stock")}
             testID="new-listing-stock"
             value={stockCount}
             onChangeText={setStockCount}
-            placeholder="25"
+            placeholder={t("seller_new_listing.stock_placeholder")}
             keyboardType="decimal-pad"
           />
           {parseInt(stockCount, 10) === 0 ? (
             <Text style={styles.stockHint}>
-              0 stock means buyers will see this as &ldquo;Out of stock&rdquo;.
+              {t("seller_new_listing.stock_oos_hint")}
             </Text>
           ) : null}
 
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={styles.label}>Colors available</Text>
+            <Text style={styles.label}>{t("seller_new_listing.field_colors")}</Text>
             <View style={styles.tokenRow}>
               <TextInput
                 testID="new-listing-color-input"
                 value={colorDraft}
                 onChangeText={setColorDraft}
-                placeholder="e.g. Indigo"
+                placeholder={t("seller_new_listing.color_placeholder")}
                 placeholderTextColor={colors.textFaint}
                 onSubmitEditing={addColor}
                 returnKeyType="done"
@@ -353,18 +355,18 @@ export default function NewListing() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.stockHint}>Optional. Up to 10 colors.</Text>
+              <Text style={styles.stockHint}>{t("seller_new_listing.colors_hint")}</Text>
             )}
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={styles.label}>Sizes available</Text>
+            <Text style={styles.label}>{t("seller_new_listing.field_sizes")}</Text>
             <View style={styles.tokenRow}>
               <TextInput
                 testID="new-listing-size-input"
                 value={sizeDraft}
                 onChangeText={setSizeDraft}
-                placeholder="e.g. S, M, L, XL or Free Size"
+                placeholder={t("seller_new_listing.size_placeholder")}
                 placeholderTextColor={colors.textFaint}
                 onSubmitEditing={addSize}
                 returnKeyType="done"
@@ -390,12 +392,12 @@ export default function NewListing() {
                 ))}
               </View>
             ) : (
-              <Text style={styles.stockHint}>Optional. Leave empty for one-size items.</Text>
+              <Text style={styles.stockHint}>{t("seller_new_listing.sizes_hint")}</Text>
             )}
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={styles.label}>Description</Text>
+            <Text style={styles.label}>{t("seller_new_listing.field_description")}</Text>
             <TextInput
               testID="new-listing-description"
               value={description}
@@ -403,7 +405,7 @@ export default function NewListing() {
               multiline
               numberOfLines={5}
               style={[styles.input, { height: 120, paddingTop: 12, textAlignVertical: "top" }]}
-              placeholder="Tell buyers about materials, dimensions, what makes it special."
+              placeholder={t("seller_new_listing.description_placeholder")}
               placeholderTextColor={colors.textFaint}
             />
           </View>
@@ -416,7 +418,7 @@ export default function NewListing() {
             onPress={submit}
             style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }, busy && { opacity: 0.7 }]}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Publish listing</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("seller_new_listing.publish_btn")}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
