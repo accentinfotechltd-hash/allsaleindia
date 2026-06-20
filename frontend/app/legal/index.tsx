@@ -35,6 +35,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -62,6 +63,7 @@ const ICONS: Record<string, { Icon: any; tint: string }> = {
 
 export default function LegalHub() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [policies, setPolicies] = useState<PolicyMeta[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,9 +74,9 @@ export default function LegalHub() {
       const data = await api<PolicyMeta[]>("/policies");
       setPolicies(data);
     } catch (e: any) {
-      setError(e?.message || "Couldn't load policies");
+      setError(e?.message || t("legal_hub.couldnt_load"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -96,7 +98,7 @@ export default function LegalHub() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Legal & Policies</Text>
+        <Text style={styles.headerTitle}>{t("legal_hub.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -115,11 +117,8 @@ export default function LegalHub() {
             <ShieldCheck size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle}>Everything in one place</Text>
-            <Text style={styles.heroSub}>
-              The terms you agreed to when you signed up, plus shipping,
-              returns and seller obligations.
-            </Text>
+            <Text style={styles.heroTitle}>{t("legal_hub.hero_title")}</Text>
+            <Text style={styles.heroSub}>{t("legal_hub.hero_sub")}</Text>
           </View>
         </View>
 
@@ -133,7 +132,7 @@ export default function LegalHub() {
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
             <Pressable onPress={load} style={styles.retryBtn} testID="legal-hub-retry">
-              <Text style={styles.retryText}>Try again</Text>
+              <Text style={styles.retryText}>{t("legal_hub.try_again")}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -161,9 +160,7 @@ export default function LegalHub() {
                 <Text style={styles.tileSub} numberOfLines={2}>
                   {p.description}
                 </Text>
-                <Text style={styles.tileMeta}>
-                  Updated {p.last_updated}
-                </Text>
+                <Text style={styles.tileMeta}>{t("legal_hub.updated_prefix", { date: p.last_updated })}</Text>
               </View>
               <ChevronRight size={18} color={colors.textMuted} />
             </Pressable>
@@ -171,9 +168,7 @@ export default function LegalHub() {
         })}
 
         <View style={{ height: 24 }} />
-        <Text style={styles.footer}>
-          Allsale Ltd · Registered in New Zealand
-        </Text>
+        <Text style={styles.footer}>{t("legal_hub.footer_line")}</Text>
       </ScrollView>
     </SafeAreaView>
   );

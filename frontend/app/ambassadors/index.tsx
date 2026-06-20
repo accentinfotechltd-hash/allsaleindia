@@ -11,11 +11,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { getMe, getProgramConfig, ProgramConfig } from "@/src/lib/ambassadors";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function AmbassadorsLanding() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [config, setConfig] = useState<ProgramConfig | null>(null);
   const [enrolled, setEnrolled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,9 +70,7 @@ export default function AmbassadorsLanding() {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
         <View style={styles.center}>
-          <Text style={{ color: colors.textMuted }}>
-            Programme details unavailable. Please try again.
-          </Text>
+          <Text style={{ color: colors.textMuted }}>{t("ambassadors_landing.unavailable")}</Text>
         </View>
       </SafeAreaView>
     );
@@ -82,7 +82,7 @@ export default function AmbassadorsLanding() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Ambassador Programme</Text>
+        <Text style={styles.headerTitle}>{t("ambassadors_landing.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -91,65 +91,54 @@ export default function AmbassadorsLanding() {
           <View style={styles.heroIcon}>
             <Sparkles size={28} color="#fff" />
           </View>
-          <Text style={styles.heroTitle}>Earn while you share</Text>
-          <Text style={styles.heroSub}>
-            Become an Allsale Ambassador. Share your code, earn commission
-            on every order — up to {config.b2c.tiers[config.b2c.tiers.length - 1]?.rate_pct}% per sale.
-          </Text>
+          <Text style={styles.heroTitle}>{t("ambassadors_landing.hero_title")}</Text>
+          <Text style={styles.heroSub}>{t("ambassadors_landing.hero_sub", { pct: config.b2c.tiers[config.b2c.tiers.length - 1]?.rate_pct })}</Text>
         </View>
 
         {/* B2C Tier ladder */}
-        <Text style={styles.sectionTitle}>How you earn (NZ · AU · US · UK · CA)</Text>
+        <Text style={styles.sectionTitle}>{t("ambassadors_landing.section_how_you_earn")}</Text>
         <View style={styles.tierLadder}>
-          {config.b2c.tiers.map((t, i) => (
-            <View key={t.key} style={[styles.tierRow, i === 0 && styles.tierRowFirst]}>
+          {config.b2c.tiers.map((tier, i) => (
+            <View key={tier.key} style={[styles.tierRow, i === 0 && styles.tierRowFirst]}>
               <View style={styles.tierLeft}>
-                <Text style={styles.tierLabel}>{t.label}</Text>
+                <Text style={styles.tierLabel}>{tier.label}</Text>
                 <Text style={styles.tierThreshold}>
-                  {t.min_orders_30d === 0
-                    ? "From day one"
-                    : `${t.min_orders_30d}+ orders / 30 days`}
+                  {tier.min_orders_30d === 0
+                    ? t("ambassadors_landing.tier_from_day_one")
+                    : t("ambassadors_landing.tier_threshold", { n: tier.min_orders_30d })}
                 </Text>
               </View>
-              <Text style={styles.tierPct}>{t.rate_pct}%</Text>
+              <Text style={styles.tierPct}>{tier.rate_pct}%</Text>
             </View>
           ))}
-          <Text style={styles.tierFootnote}>
-            Your customers get {config.b2c.customer_discount_pct}% off when they use your code.
-          </Text>
+          <Text style={styles.tierFootnote}>{t("ambassadors_landing.tier_footnote", { pct: config.b2c.customer_discount_pct })}</Text>
         </View>
 
         {/* India B2B */}
         <View style={styles.indiaCard}>
-          <Text style={styles.indiaPill}>🇮🇳  India</Text>
-          <Text style={styles.indiaTitle}>Refer sellers — earn big</Text>
-          <Text style={styles.indiaSub}>
-            ₹{config.b2b.bounty_inr.toLocaleString("en-IN")} bounty per new seller (after {config.b2b.bounty_trigger_orders} shipped orders)
-            plus {config.b2b.hot_phase_rate_pct}% of platform fees for {config.b2b.hot_phase_months} months
-            (cap ₹{config.b2b.hot_phase_cap_inr.toLocaleString("en-IN")}) and {config.b2b.tail_rate_pct}% lifetime tail.
-          </Text>
-          <Text style={styles.indiaSub}>
-            Indian Ambassadors also get a customer code — drive both diaspora sales abroad AND seller signups in India.
-          </Text>
+          <Text style={styles.indiaPill}>{t("ambassadors_landing.india_label")}</Text>
+          <Text style={styles.indiaTitle}>{t("ambassadors_landing.india_title")}</Text>
+          <Text style={styles.indiaSub}>{t("ambassadors_landing.india_p1", { bounty: config.b2b.bounty_inr.toLocaleString("en-IN"), trigger: config.b2b.bounty_trigger_orders, hot: config.b2b.hot_phase_rate_pct, months: config.b2b.hot_phase_months, cap: config.b2b.hot_phase_cap_inr.toLocaleString("en-IN"), tail: config.b2b.tail_rate_pct })}</Text>
+          <Text style={styles.indiaSub}>{t("ambassadors_landing.india_p2")}</Text>
         </View>
 
         {/* Why join */}
-        <Text style={styles.sectionTitle}>Why join</Text>
+        <Text style={styles.sectionTitle}>{t("ambassadors_landing.section_why_join")}</Text>
         <View style={styles.featureGrid}>
           <View style={styles.featureCard}>
             <TrendingUp size={20} color={colors.primary} />
-            <Text style={styles.featureTitle}>Auto-tier up</Text>
-            <Text style={styles.featureSub}>Hit {config.b2c.tiers[1]?.min_orders_30d}+ orders / 30 days → unlock {config.b2c.tiers[1]?.rate_pct}%</Text>
+            <Text style={styles.featureTitle}>{t("ambassadors_landing.feature_auto_tier_title")}</Text>
+            <Text style={styles.featureSub}>{t("ambassadors_landing.feature_auto_tier_sub", { orders: config.b2c.tiers[1]?.min_orders_30d, pct: config.b2c.tiers[1]?.rate_pct })}</Text>
           </View>
           <View style={styles.featureCard}>
             <Video size={20} color={colors.primary} />
-            <Text style={styles.featureTitle}>Post {config.content_requirement.posts_per_month}/mo</Text>
-            <Text style={styles.featureSub}>Tag {config.content_requirement.required_tag} on any platform</Text>
+            <Text style={styles.featureTitle}>{t("ambassadors_landing.feature_post_title", { n: config.content_requirement.posts_per_month })}</Text>
+            <Text style={styles.featureSub}>{t("ambassadors_landing.feature_post_sub", { tag: config.content_requirement.required_tag })}</Text>
           </View>
           <View style={styles.featureCard}>
             <Users size={20} color={colors.primary} />
-            <Text style={styles.featureTitle}>{config.b2c.attribution_days}-day cookie</Text>
-            <Text style={styles.featureSub}>Your customers stay attributed for 90 days</Text>
+            <Text style={styles.featureTitle}>{t("ambassadors_landing.feature_cookie_title", { days: config.b2c.attribution_days })}</Text>
+            <Text style={styles.featureSub}>{t("ambassadors_landing.feature_cookie_sub")}</Text>
           </View>
         </View>
 
@@ -158,10 +147,10 @@ export default function AmbassadorsLanding() {
           style={styles.joinBtn}
           onPress={() => router.push("/ambassadors/join")}
         >
-          <Text style={styles.joinBtnText}>Apply to join</Text>
+          <Text style={styles.joinBtnText}>{t("ambassadors_landing.join_btn")}</Text>
         </Pressable>
         <Text style={styles.joinFootnote}>
-          Free to join · No minimums · Withdrawals from {"\n"}
+          {t("ambassadors_landing.join_footnote_prefix")}
           {Object.entries(config.withdrawal_minimums)
             .slice(0, 3)
             .map(([k, v]) => `${k} ${v}`)

@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -46,6 +47,7 @@ type Policy = {
 
 export default function LegalPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,12 +61,12 @@ export default function LegalPage() {
       const p = await api<Policy>(`/policies/${slug}`);
       setPolicy(p);
     } catch (e: any) {
-      const msg = e?.message || "Couldn't load policy";
-      setError(msg.includes("404") ? `Policy "${slug}" not found.` : msg);
+      const msg = e?.message || t("legal_page.couldnt_load_default");
+      setError(msg.includes("404") ? t("legal_page.not_found", { slug }) : msg);
     } finally {
       setLoading(false);
     }
-  }, [slug]);
+  }, [slug, t]);
 
   useEffect(() => {
     load();
@@ -82,7 +84,7 @@ export default function LegalPage() {
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {policy?.title || "Loading…"}
+          {policy?.title || t("legal_page.loading")}
         </Text>
         <View style={{ width: 36 }} />
       </View>
@@ -94,7 +96,7 @@ export default function LegalPage() {
       ) : error ? (
         <View style={styles.errorWrap}>
           <AlertCircle size={32} color={colors.textMuted} />
-          <Text style={styles.errorTitle}>Couldn't load this page</Text>
+          <Text style={styles.errorTitle}>{t("legal_page.couldnt_load_title")}</Text>
           <Text style={styles.errorBody}>{error}</Text>
           <Pressable
             testID="legal-retry-btn"
@@ -102,16 +104,14 @@ export default function LegalPage() {
             style={({ pressed }) => [styles.retry, pressed && { opacity: 0.85 }]}
           >
             <RefreshCcw size={14} color="#fff" />
-            <Text style={styles.retryText}>Retry</Text>
+            <Text style={styles.retryText}>{t("legal_page.retry")}</Text>
           </Pressable>
         </View>
       ) : policy ? (
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Effective / updated date */}
           <View style={styles.dateBox}>
-            <Text style={styles.dateText}>
-              Effective {policy.effective} · Last updated {policy.last_updated}
-            </Text>
+            <Text style={styles.dateText}>{t("legal_page.effective_line", { effective: policy.effective, updated: policy.last_updated })}</Text>
           </View>
 
           {/* Intro paragraph if present */}
@@ -144,9 +144,7 @@ export default function LegalPage() {
             style={({ pressed }) => [styles.footer, pressed && { opacity: 0.85 }]}
           >
             <Mail size={14} color={colors.primary} />
-            <Text style={styles.footerText}>
-              Questions? Email <Text style={styles.footerEmail}>{policy.contact_email}</Text>
-            </Text>
+            <Text style={styles.footerText}>{t("legal_page.questions_prefix")}<Text style={styles.footerEmail}>{policy.contact_email}</Text></Text>
           </Pressable>
 
           <View style={{ height: 32 }} />
