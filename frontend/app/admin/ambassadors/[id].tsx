@@ -25,6 +25,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { adminApi, AdminForbidden, AdminUnauthorized } from "@/src/lib/adminApi";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Row = {
@@ -59,6 +60,7 @@ export default function AdminAmbassadorDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const { t } = useTranslation();
   const [amb, setAmb] = useState<Row | null>(null);
   const [content, setContent] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,7 @@ export default function AdminAmbassadorDetail() {
       ]);
       const match = rows.find((r) => r.id === id);
       if (!match) {
-        toast.show({ title: "Ambassador not found", kind: "error" });
+        toast.show({ title: t("admin_ambassador_detail.not_found"), kind: "error" });
         router.back();
         return;
       }
@@ -85,15 +87,15 @@ export default function AdminAmbassadorDetail() {
       setContent(items);
     } catch (e: any) {
       if (e instanceof AdminUnauthorized || e instanceof AdminForbidden) {
-        toast.show({ title: "Admin access required", kind: "error" });
+        toast.show({ title: t("admin_ambassador_detail.admin_required"), kind: "error" });
         router.replace("/admin");
         return;
       }
-      toast.show({ title: "Couldn't load", body: e?.message, kind: "error" });
+      toast.show({ title: t("admin_ambassador_detail.couldnt_load"), body: e?.message, kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [id, router, toast]);
+  }, [id, router, toast, t]);
 
   useEffect(() => {
     load();
@@ -117,13 +119,13 @@ export default function AdminAmbassadorDetail() {
         { method: "POST" },
       );
       toast.show({
-        title: "Marked as paid ✓",
-        body: `${res.currency} ${res.paid_amount.toFixed(2)} cleared`,
+        title: t("admin_ambassador_detail.mark_paid_done"),
+        body: t("admin_ambassador_detail.mark_paid_done_body", { currency: res.currency, amount: res.paid_amount.toFixed(2) }),
         kind: "success",
       });
       await load();
     } catch (e: any) {
-      toast.show({ title: "Mark-paid failed", body: e?.message, kind: "error" });
+      toast.show({ title: t("admin_ambassador_detail.mark_paid_failed"), body: e?.message, kind: "error" });
     } finally {
       setBusy(null);
     }
@@ -132,7 +134,7 @@ export default function AdminAmbassadorDetail() {
   const onSuspend = async () => {
     if (!amb) return;
     if (suspendReason.trim().length < 4) {
-      toast.show({ title: "Reason needs at least 4 characters", kind: "error" });
+      toast.show({ title: t("admin_ambassador_detail.reason_too_short"), kind: "error" });
       return;
     }
     setBusy("sus");
@@ -141,11 +143,11 @@ export default function AdminAmbassadorDetail() {
         `/admin/ambassadors/${amb.id}/suspend?reason=${encodeURIComponent(suspendReason.trim())}`,
         { method: "POST" },
       );
-      toast.show({ title: "Suspended", kind: "success" });
+      toast.show({ title: t("admin_ambassador_detail.suspended_done"), kind: "success" });
       setSuspendReason("");
       await load();
     } catch (e: any) {
-      toast.show({ title: "Suspend failed", body: e?.message, kind: "error" });
+      toast.show({ title: t("admin_ambassador_detail.suspend_failed"), body: e?.message, kind: "error" });
     } finally {
       setBusy(null);
     }
@@ -156,10 +158,10 @@ export default function AdminAmbassadorDetail() {
     setBusy("unsus");
     try {
       await adminApi(`/admin/ambassadors/${amb.id}/unsuspend`, { method: "POST" });
-      toast.show({ title: "Reactivated", kind: "success" });
+      toast.show({ title: t("admin_ambassador_detail.reactivated"), kind: "success" });
       await load();
     } catch (e: any) {
-      toast.show({ title: "Unsuspend failed", body: e?.message, kind: "error" });
+      toast.show({ title: t("admin_ambassador_detail.unsuspend_failed"), body: e?.message, kind: "error" });
     } finally {
       setBusy(null);
     }
@@ -171,16 +173,15 @@ export default function AdminAmbassadorDetail() {
     if (action === "reject") {
       reason = await new Promise<string | undefined>((resolve) => {
         Alert.prompt?.(
-          "Reject reason",
-          "Why are you rejecting this post?",
+          t("admin_ambassador_detail.reject_reason_title"),
+          t("admin_ambassador_detail.reject_reason_body"),
           [
-            { text: "Cancel", style: "cancel", onPress: () => resolve(undefined) },
-            { text: "Reject", onPress: (v) => resolve(v || "Does not meet content guidelines") },
+            { text: t("admin_ambassador_detail.cancel_btn"), style: "cancel", onPress: () => resolve(undefined) },
+            { text: t("admin_ambassador_detail.reject_btn"), onPress: (v) => resolve(v || t("admin_ambassador_detail.reject_default_reason")) },
           ],
           "plain-text",
         );
-        // On Android / web there's no prompt — fall back to a default.
-        if (!Alert.prompt) resolve("Does not meet content guidelines");
+        if (!Alert.prompt) resolve(t("admin_ambassador_detail.reject_default_reason"));
       });
       if (reason === undefined) return;
     }
@@ -191,7 +192,7 @@ export default function AdminAmbassadorDetail() {
         `/admin/ambassadors/${amb.id}/content/${contentId}/review?${qs}`,
         { method: "POST" },
       );
-      toast.show({ title: action === "verify" ? "Approved ✓" : "Rejected", kind: "success" });
+      toast.show({ title: action === "verify" ? t("admin_ambassador_detail.approved_done") : t("admin_ambassador_detail.rejected_done"), kind: "success" });
       setContent((prev) =>
         prev.map((c) =>
           c.id === contentId
@@ -205,7 +206,7 @@ export default function AdminAmbassadorDetail() {
         )
       );
     } catch (e: any) {
-      toast.show({ title: "Review failed", body: e?.message, kind: "error" });
+      toast.show({ title: t("admin_ambassador_detail.review_failed"), body: e?.message, kind: "error" });
     } finally {
       setBusy(null);
     }

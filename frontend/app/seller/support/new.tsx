@@ -24,30 +24,32 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 import { useToast } from "@/src/components/UiOverlayProvider";
 
-const CATEGORIES = [
-  { value: "payments", label: "Payments / Payouts" },
-  { value: "orders", label: "Orders" },
-  { value: "kyc", label: "KYC / Verification" },
-  { value: "shipping", label: "Shipping" },
-  { value: "listings", label: "Listings" },
-  { value: "returns", label: "Returns" },
-  { value: "account", label: "Account access" },
-  { value: "other", label: "Other" },
+const CATEGORIES: { value: string; tkey: string }[] = [
+  { value: "payments", tkey: "cat_payments" },
+  { value: "orders", tkey: "cat_orders" },
+  { value: "kyc", tkey: "cat_kyc" },
+  { value: "shipping", tkey: "cat_shipping" },
+  { value: "listings", tkey: "cat_listings" },
+  { value: "returns", tkey: "cat_returns" },
+  { value: "account", tkey: "cat_account" },
+  { value: "other", tkey: "cat_other" },
 ];
 
-const PRIORITIES = [
-  { value: "low", label: "Low", desc: "General question", color: "#6B7280" },
-  { value: "medium", label: "Medium", desc: "Affects part of my store", color: "#0EA5E9" },
-  { value: "high", label: "High", desc: "Blocking my work today", color: "#F59E0B" },
-  { value: "urgent", label: "Urgent", desc: "Critical, losing money", color: "#EF4444" },
+const PRIORITIES: { value: string; tkey: string; descKey: string; color: string }[] = [
+  { value: "low", tkey: "pri_low", descKey: "pri_low_desc", color: "#6B7280" },
+  { value: "medium", tkey: "pri_medium", descKey: "pri_medium_desc", color: "#0EA5E9" },
+  { value: "high", tkey: "pri_high", descKey: "pri_high_desc", color: "#F59E0B" },
+  { value: "urgent", tkey: "pri_urgent", descKey: "pri_urgent_desc", color: "#EF4444" },
 ];
 
 export default function NewTicketScreen() {
   const toast = useToast();
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
@@ -58,12 +60,12 @@ export default function NewTicketScreen() {
 
   const pickAttachment = useCallback(async () => {
     if (attachments.length >= 4) {
-      show({ title: "Limit reached", message: "You can attach up to 4 screenshots.", kind: "error" });
+      show({ title: t("seller_support_new.limit_reached"), body: t("seller_support_new.limit_reached_body"), kind: "error" });
       return;
     }
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      show({ title: "Permission needed", message: "We need access to your photos to attach screenshots.", kind: "error" });
+      show({ title: t("seller_support_new.permission_needed"), body: t("seller_support_new.permission_needed_body"), kind: "error" });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -81,9 +83,9 @@ export default function NewTicketScreen() {
       });
       setAttachments((cur) => [...cur, up.url]);
     } catch (e: any) {
-      show({ title: "Upload failed", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_support_new.upload_failed"), body: e?.message || t("seller_support_new.try_again"), kind: "error" });
     }
-  }, [attachments.length]);
+  }, [attachments.length, show, t]);
 
   const removeAttachment = (idx: number) => {
     setAttachments((cur) => cur.filter((_, i) => i !== idx));
@@ -91,16 +93,16 @@ export default function NewTicketScreen() {
 
   const submit = useCallback(async () => {
     if (subject.trim().length < 4) {
-      toast.show({ title: "Subject too short", body: "Please give your ticket a clear subject (4+ chars).", kind: "error" });
+      toast.show({ title: t("seller_support_new.subject_too_short"), body: t("seller_support_new.subject_too_short_body"), kind: "error" });
       return;
     }
     if (description.trim().length < 10) {
-      show({ title: "Need more detail", message: "Please describe the issue with at least 10 characters.", kind: "error" });
+      show({ title: t("seller_support_new.need_more_detail"), body: t("seller_support_new.need_more_detail_body"), kind: "error" });
       return;
     }
     setSubmitting(true);
     try {
-      const t = await api<{ id: string }>("/support/tickets", {
+      const tk = await api<{ id: string }>("/support/tickets", {
         method: "POST",
         body: {
           subject: subject.trim(),
@@ -110,13 +112,18 @@ export default function NewTicketScreen() {
           attachments,
         },
       });
-      router.replace(`/seller/support/${t.id}`);
+      router.replace(`/seller/support/${tk.id}`);
     } catch (e: any) {
-      show({ title: "Could not raise ticket", message: e?.message || "Please try again.", kind: "error" });
+      show({ title: t("seller_support_new.couldnt_raise"), body: e?.message || t("seller_support_new.please_try_again"), kind: "error" });
     } finally {
       setSubmitting(false);
     }
-  }, [subject, description, category, priority, attachments, router]);
+  }, [subject, description, category, priority, attachments, router, show, toast, t]);
+
+  const responseTime = priority === "urgent" ? t("seller_support_new.response_time_urgent")
+    : priority === "high" ? t("seller_support_new.response_time_high")
+    : t("seller_support_new.response_time_default");
+  const priorityLabel = t(`seller_support_new.pri_${priority}`);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -124,7 +131,7 @@ export default function NewTicketScreen() {
         <Pressable testID="new-ticket-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Raise a ticket</Text>
+        <Text style={styles.title}>{t("seller_support_new.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -133,22 +140,22 @@ export default function NewTicketScreen() {
           <View style={styles.helpCard}>
             <CheckCircle2 size={16} color={colors.success} />
             <Text style={styles.helpText}>
-              We respond within {priority === "urgent" ? "4 hours" : priority === "high" ? "24 hours" : "2 business days"} for {priority} priority tickets.
+              {t("seller_support_new.help_text", { time: responseTime, priority: priorityLabel.toLowerCase() })}
             </Text>
           </View>
 
-          <Text style={styles.label}>Subject</Text>
+          <Text style={styles.label}>{t("seller_support_new.subject_label")}</Text>
           <TextInput
             testID="ticket-subject"
             value={subject}
             onChangeText={setSubject}
-            placeholder="One-line summary of the issue"
+            placeholder={t("seller_support_new.subject_placeholder")}
             placeholderTextColor={colors.textFaint}
             maxLength={140}
             style={styles.input}
           />
 
-          <Text style={styles.label}>Category</Text>
+          <Text style={styles.label}>{t("seller_support_new.category_label")}</Text>
           <View style={styles.chipRow}>
             {CATEGORIES.map((c) => (
               <Pressable
@@ -158,13 +165,13 @@ export default function NewTicketScreen() {
                 style={[styles.chip, category === c.value && styles.chipActive]}
               >
                 <Text style={[styles.chipText, category === c.value && styles.chipTextActive]}>
-                  {c.label}
+                  {t(`seller_support_new.${c.tkey}`)}
                 </Text>
               </Pressable>
             ))}
           </View>
 
-          <Text style={styles.label}>Priority</Text>
+          <Text style={styles.label}>{t("seller_support_new.priority_label")}</Text>
           <View style={{ gap: 8 }}>
             {PRIORITIES.map((p) => (
               <Pressable
@@ -181,8 +188,8 @@ export default function NewTicketScreen() {
               >
                 <View style={[styles.priorityDot, { backgroundColor: p.color }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.priorityLabel}>{p.label}</Text>
-                  <Text style={styles.priorityDesc}>{p.desc}</Text>
+                  <Text style={styles.priorityLabel}>{t(`seller_support_new.${p.tkey}`)}</Text>
+                  <Text style={styles.priorityDesc}>{t(`seller_support_new.${p.descKey}`)}</Text>
                 </View>
                 <View
                   style={[
@@ -194,12 +201,12 @@ export default function NewTicketScreen() {
             ))}
           </View>
 
-          <Text style={styles.label}>Describe the issue</Text>
+          <Text style={styles.label}>{t("seller_support_new.describe_label")}</Text>
           <TextInput
             testID="ticket-description"
             value={description}
             onChangeText={setDescription}
-            placeholder="Steps to reproduce, order/payout IDs, expected vs actual…"
+            placeholder={t("seller_support_new.describe_placeholder")}
             placeholderTextColor={colors.textFaint}
             multiline
             numberOfLines={6}
@@ -208,7 +215,7 @@ export default function NewTicketScreen() {
           />
           <Text style={styles.counter}>{description.length}/4000</Text>
 
-          <Text style={styles.label}>Attachments (up to 4)</Text>
+          <Text style={styles.label}>{t("seller_support_new.attachments_label")}</Text>
           <View style={styles.attachRow}>
             {attachments.map((url, idx) => (
               <View key={idx} style={styles.attachThumb}>
@@ -229,7 +236,7 @@ export default function NewTicketScreen() {
                 style={styles.attachAdd}
               >
                 <ImageIcon size={20} color={colors.primary} />
-                <Text style={styles.attachAddText}>Add screenshot</Text>
+                <Text style={styles.attachAddText}>{t("seller_support_new.add_screenshot")}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -237,7 +244,7 @@ export default function NewTicketScreen() {
           <View style={styles.warning}>
             <AlertTriangle size={14} color={colors.primaryDark} />
             <Text style={styles.warningText}>
-              Don&apos;t share passwords, card numbers, or buyer&apos;s personal info.
+              {t("seller_support_new.warning_text")}
             </Text>
           </View>
 
@@ -261,7 +268,7 @@ export default function NewTicketScreen() {
           ) : (
             <>
               <Send size={18} color="#fff" />
-              <Text style={styles.submitText}>Submit ticket</Text>
+              <Text style={styles.submitText}>{t("seller_support_new.submit_btn")}</Text>
             </>
           )}
         </Pressable>
