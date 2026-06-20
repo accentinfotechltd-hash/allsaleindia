@@ -34,6 +34,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Listing = {
@@ -55,18 +56,19 @@ type Action =
   | "set_in_stock"
   | "delete";
 
-const ACTION_LABELS: { key: Action; label: string; hint: string }[] = [
-  { key: "set_price", label: "Set price", hint: "Same NZD price for all selected" },
-  { key: "adjust_price_pct", label: "Adjust price %", hint: "+/- percentage change" },
-  { key: "set_stock", label: "Set stock", hint: "Same stock count for all" },
-  { key: "adjust_stock", label: "Adjust stock", hint: "+/- delta from current" },
-  { key: "set_category", label: "Change category", hint: "Move into another category" },
-  { key: "set_in_stock", label: "Toggle availability", hint: "Mark as in/out of stock" },
-  { key: "delete", label: "Delete", hint: "Permanently remove (cannot undo)" },
+const ACTION_LABELS: { key: Action; tkey: string }[] = [
+  { key: "set_price", tkey: "action_set_price" },
+  { key: "adjust_price_pct", tkey: "action_adjust_pct" },
+  { key: "set_stock", tkey: "action_set_stock" },
+  { key: "adjust_stock", tkey: "action_adjust_stock" },
+  { key: "set_category", tkey: "action_set_category" },
+  { key: "set_in_stock", tkey: "action_toggle_avail" },
+  { key: "delete", tkey: "action_delete" },
 ];
 
 export default function BulkEditScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Listing[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [action, setAction] = useState<Action>("set_price");
@@ -104,31 +106,31 @@ export default function BulkEditScreen() {
   };
 
   const validate = (): { ok: true; payload: Record<string, any> } | { ok: false; msg: string } => {
-    if (selected.size === 0) return { ok: false, msg: "Select at least one listing" };
+    if (selected.size === 0) return { ok: false, msg: t("seller_bulk_edit.err_select_one") };
     const ids = Array.from(selected);
     if (action === "set_price") {
       const n = parseFloat(price);
-      if (!isFinite(n) || n <= 0) return { ok: false, msg: "Enter a valid price > 0" };
+      if (!isFinite(n) || n <= 0) return { ok: false, msg: t("seller_bulk_edit.err_price") };
       return { ok: true, payload: { product_ids: ids, action, price_nzd: n } };
     }
     if (action === "adjust_price_pct") {
       const n = parseFloat(pct);
-      if (!isFinite(n)) return { ok: false, msg: "Enter a percentage like -10 or 15" };
-      if (n <= -100) return { ok: false, msg: "Percentage would zero/negate price" };
+      if (!isFinite(n)) return { ok: false, msg: t("seller_bulk_edit.err_pct") };
+      if (n <= -100) return { ok: false, msg: t("seller_bulk_edit.err_pct_too_neg") };
       return { ok: true, payload: { product_ids: ids, action, pct: n } };
     }
     if (action === "set_stock") {
       const n = parseInt(stock, 10);
-      if (!isFinite(n) || n < 0) return { ok: false, msg: "Enter a stock count >= 0" };
+      if (!isFinite(n) || n < 0) return { ok: false, msg: t("seller_bulk_edit.err_stock") };
       return { ok: true, payload: { product_ids: ids, action, stock_count: n } };
     }
     if (action === "adjust_stock") {
       const n = parseInt(stockDelta, 10);
-      if (!isFinite(n)) return { ok: false, msg: "Enter a stock delta like -5 or +10" };
+      if (!isFinite(n)) return { ok: false, msg: t("seller_bulk_edit.err_stock_delta") };
       return { ok: true, payload: { product_ids: ids, action, stock_delta: n } };
     }
     if (action === "set_category") {
-      if (!category.trim()) return { ok: false, msg: "Enter a category name" };
+      if (!category.trim()) return { ok: false, msg: t("seller_bulk_edit.err_category") };
       return { ok: true, payload: { product_ids: ids, action, category: category.trim() } };
     }
     if (action === "set_in_stock") {
@@ -144,7 +146,7 @@ export default function BulkEditScreen() {
   const apply = async () => {
     const v = validate();
     if (!v.ok) {
-      toast.show({ kind: "error", title: "Can't apply", body: v.msg });
+      toast.show({ kind: "error", title: t("seller_bulk_edit.toast_cant_apply"), body: v.msg });
       return;
     }
     const doIt = async () => {
@@ -156,26 +158,32 @@ export default function BulkEditScreen() {
         );
         toast.show({
           kind: "success",
-          title: "Done",
+          title: t("seller_bulk_edit.toast_done"),
           body: action === "delete"
-            ? `${res.deleted} listing${res.deleted === 1 ? "" : "s"} deleted.`
-            : `${res.modified} listing${res.modified === 1 ? "" : "s"} updated.`,
+            ? (res.deleted === 1
+                ? t("seller_bulk_edit.deleted_count_one")
+                : t("seller_bulk_edit.deleted_count_other", { count: res.deleted }))
+            : (res.modified === 1
+                ? t("seller_bulk_edit.updated_count_one")
+                : t("seller_bulk_edit.updated_count_other", { count: res.modified })),
         });
         setSelected(new Set());
         setPrice(""); setPct(""); setStock(""); setStockDelta(""); setCategory("");
         await load();
       } catch (e: any) {
-        toast.show({ kind: "error", title: "Couldn't apply", body: e?.message || "Please try again." });
+        toast.show({ kind: "error", title: t("seller_bulk_edit.toast_couldnt_apply"), body: e?.message || t("seller_bulk_edit.try_again") });
       } finally {
         setWorking(false);
       }
     };
     if (action === "delete") {
       const ok = await confirm({
-        title: "Delete listings?",
-        message: `Permanently remove ${selected.size} listing${selected.size === 1 ? "" : "s"}? This cannot be undone.`,
+        title: t("seller_bulk_edit.delete_title"),
+        message: selected.size === 1
+          ? t("seller_bulk_edit.delete_msg_one")
+          : t("seller_bulk_edit.delete_msg_other", { count: selected.size }),
         destructive: true,
-        confirmLabel: "Delete",
+        confirmLabel: t("seller_bulk_edit.delete_btn"),
       });
       if (ok) doIt();
     } else {
@@ -184,9 +192,9 @@ export default function BulkEditScreen() {
   };
 
   const summaryText = useMemo(() => {
-    if (selected.size === 0) return "0 selected";
-    return `${selected.size} of ${items.length} selected`;
-  }, [selected, items.length]);
+    if (selected.size === 0) return t("seller_bulk_edit.summary_zero");
+    return t("seller_bulk_edit.summary_some", { count: selected.size, total: items.length });
+  }, [selected, items.length, t]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -194,7 +202,7 @@ export default function BulkEditScreen() {
         <Pressable testID="bulk-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Bulk edit listings</Text>
+        <Text style={styles.title}>{t("seller_bulk_edit.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -217,7 +225,7 @@ export default function BulkEditScreen() {
                     <Square size={18} color={colors.textMuted} />
                   )}
                   <Text style={styles.selectAllText}>
-                    {allSelected ? "Deselect all" : "Select all"}
+                    {allSelected ? t("seller_bulk_edit.deselect_all") : t("seller_bulk_edit.select_all")}
                   </Text>
                 </Pressable>
                 <Text style={styles.summaryText}>{summaryText}</Text>
@@ -241,7 +249,7 @@ export default function BulkEditScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
                   <Text style={styles.itemMeta}>
-                    {formatNZD(item.price_nzd)} · stock {item.stock_count}
+                    {t("seller_bulk_edit.item_meta", { price: formatNZD(item.price_nzd), count: item.stock_count })}
                   </Text>
                 </View>
               </Pressable>
@@ -249,7 +257,7 @@ export default function BulkEditScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>No listings yet.</Text>
+              <Text style={styles.emptyText}>{t("seller_bulk_edit.empty")}</Text>
             </View>
           }
         />
@@ -257,7 +265,7 @@ export default function BulkEditScreen() {
 
       {/* Bottom action sheet */}
       <SafeAreaView edges={["bottom"]} style={styles.sheet}>
-        <Text style={styles.sheetLabel}>Choose an action</Text>
+        <Text style={styles.sheetLabel}>{t("seller_bulk_edit.action_choose")}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {ACTION_LABELS.map((a) => {
             const active = a.key === action;
@@ -268,7 +276,7 @@ export default function BulkEditScreen() {
                 onPress={() => setAction(a.key)}
                 style={[styles.chip, active && styles.chipActive, a.key === "delete" && active && styles.chipDanger]}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{a.label}</Text>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{t(`seller_bulk_edit.${a.tkey}`)}</Text>
               </Pressable>
             );
           })}
@@ -280,9 +288,9 @@ export default function BulkEditScreen() {
             <TextInput
               testID="bulk-input-price"
               value={price}
-              onChangeText={(t) => setPrice(t.replace(/[^0-9.]/g, ""))}
+              onChangeText={(v) => setPrice(v.replace(/[^0-9.]/g, ""))}
               keyboardType="numeric"
-              placeholder="e.g. 49.99"
+              placeholder={t("seller_bulk_edit.ph_price")}
               style={styles.input}
               placeholderTextColor={colors.textFaint}
             />
@@ -291,9 +299,9 @@ export default function BulkEditScreen() {
             <TextInput
               testID="bulk-input-pct"
               value={pct}
-              onChangeText={(t) => setPct(t.replace(/[^0-9.\-]/g, ""))}
+              onChangeText={(v) => setPct(v.replace(/[^0-9.\-]/g, ""))}
               keyboardType="numbers-and-punctuation"
-              placeholder="e.g. -10 for 10% off, 15 for +15%"
+              placeholder={t("seller_bulk_edit.ph_pct")}
               style={styles.input}
               placeholderTextColor={colors.textFaint}
             />
@@ -302,9 +310,9 @@ export default function BulkEditScreen() {
             <TextInput
               testID="bulk-input-stock"
               value={stock}
-              onChangeText={(t) => setStock(t.replace(/[^0-9]/g, ""))}
+              onChangeText={(v) => setStock(v.replace(/[^0-9]/g, ""))}
               keyboardType="numeric"
-              placeholder="New total stock count"
+              placeholder={t("seller_bulk_edit.ph_stock")}
               style={styles.input}
               placeholderTextColor={colors.textFaint}
             />
@@ -313,9 +321,9 @@ export default function BulkEditScreen() {
             <TextInput
               testID="bulk-input-stock-delta"
               value={stockDelta}
-              onChangeText={(t) => setStockDelta(t.replace(/[^0-9\-]/g, ""))}
+              onChangeText={(v) => setStockDelta(v.replace(/[^0-9\-]/g, ""))}
               keyboardType="numbers-and-punctuation"
-              placeholder="+/- delta (e.g. -2 or 10)"
+              placeholder={t("seller_bulk_edit.ph_stock_delta")}
               style={styles.input}
               placeholderTextColor={colors.textFaint}
             />
@@ -325,7 +333,7 @@ export default function BulkEditScreen() {
               testID="bulk-input-category"
               value={category}
               onChangeText={setCategory}
-              placeholder="e.g. Ethnic Fashion"
+              placeholder={t("seller_bulk_edit.ph_category")}
               style={styles.input}
               placeholderTextColor={colors.textFaint}
             />
@@ -337,21 +345,21 @@ export default function BulkEditScreen() {
                 onPress={() => setInStock(true)}
                 style={[styles.toggleBtn, inStock && styles.toggleBtnOn]}
               >
-                <Text style={[styles.toggleText, inStock && styles.toggleTextOn]}>In stock</Text>
+                <Text style={[styles.toggleText, inStock && styles.toggleTextOn]}>{t("seller_bulk_edit.toggle_in_stock")}</Text>
               </Pressable>
               <Pressable
                 testID="bulk-instock-no"
                 onPress={() => setInStock(false)}
                 style={[styles.toggleBtn, !inStock && styles.toggleBtnOn]}
               >
-                <Text style={[styles.toggleText, !inStock && styles.toggleTextOn]}>Out of stock</Text>
+                <Text style={[styles.toggleText, !inStock && styles.toggleTextOn]}>{t("seller_bulk_edit.toggle_out_of_stock")}</Text>
               </Pressable>
             </View>
           ) : null}
           {action === "delete" ? (
             <View style={styles.deleteWarn}>
               <Trash2 size={14} color={colors.error} />
-              <Text style={styles.deleteWarnText}>This will permanently delete selected listings.</Text>
+              <Text style={styles.deleteWarnText}>{t("seller_bulk_edit.delete_warn")}</Text>
             </View>
           ) : null}
         </View>
@@ -370,7 +378,9 @@ export default function BulkEditScreen() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.applyText}>
-              {action === "delete" ? `Delete ${selected.size}` : `Apply to ${selected.size}`}
+              {action === "delete"
+                ? t("seller_bulk_edit.apply_delete_btn", { count: selected.size })
+                : t("seller_bulk_edit.apply_btn", { count: selected.size })}
             </Text>
           )}
         </Pressable>
