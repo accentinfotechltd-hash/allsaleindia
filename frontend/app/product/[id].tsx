@@ -9,6 +9,7 @@ import ReviewsSection from "@/src/components/ReviewsSection";
 import RecommendationsSection from "@/src/components/RecommendationsSection";
 import FrequentlyBoughtTogether from "@/src/components/FrequentlyBoughtTogether";
 import ProductQuestionsSection from "@/src/components/ProductQuestionsSection";
+import ShipsWellBadge from "@/src/components/ShipsWellBadge";
 import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import WishlistButton from "@/src/components/WishlistButton";
 import NotifyWhenInStock from "@/src/components/NotifyWhenInStock";
@@ -236,6 +237,11 @@ export default function ProductDetail() {
                   <Text style={styles.responsePillText}>
                     {sellerPublic.response_stats.label}
                   </Text>
+                </View>
+              ) : null}
+              {product.seller_id ? (
+                <View style={{ marginTop: 6 }}>
+                  <ShipsWellBadge sellerId={product.seller_id} />
                 </View>
               ) : null}
               {product.seller_id ? (

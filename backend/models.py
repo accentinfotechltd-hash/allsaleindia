@@ -708,6 +708,9 @@ class Order(BaseModel):
     awb_code: Optional[str] = None
     # Delivery proof — set by Shiprocket webhook (pod_url) or seller upload
     proof_of_delivery: Optional[dict] = None  # {image, note?, uploaded_by, uploaded_at}
+    # Post-delivery shipping rating (separate from product reviews).
+    # Shape: {stars: int, comment: str, rated_at: datetime}
+    delivery_rating: Optional[dict] = None
 
 
 class CancelOrderRequest(BaseModel):

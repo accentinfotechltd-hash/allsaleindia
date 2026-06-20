@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { ChevronLeft, Package, RefreshCcw, XCircle } from "lucide-react-native";
+import { ChevronLeft, Package, RefreshCcw, Star, XCircle } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import DeliveryRatingSheet from "@/src/components/DeliveryRatingSheet";
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
@@ -26,6 +27,7 @@ type Order = {
   created_at: string;
   estimated_delivery: string;
   cancellable_until?: string | null;
+  delivery_rating?: { stars: number; comment?: string } | null;
 };
 
 const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
@@ -43,6 +45,9 @@ export default function Orders() {
   const toast = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [ratingFor, setRatingFor] = useState<
+    null | { id: string; stars: number; comment: string }
+  >(null);
 
   const load = useCallback(async () => {
     try {
@@ -139,17 +144,42 @@ export default function Orders() {
                 </View>
 
                 {item.status === "delivered" ? (
-                  <Pressable
-                    testID={`orders-return-link-${item.id}`}
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      router.push(`/order/${item.id}/return`);
-                    }}
-                    style={styles.returnLink}
-                  >
-                    <RefreshCcw size={13} color={colors.primary} />
-                    <Text style={styles.returnLinkText}>Request return</Text>
-                  </Pressable>
+                  <View style={styles.deliveredActions}>
+                    <Pressable
+                      testID={`orders-rate-delivery-${item.id}`}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        setRatingFor({
+                          id: item.id,
+                          stars: item.delivery_rating?.stars || 0,
+                          comment: item.delivery_rating?.comment || "",
+                        });
+                      }}
+                      style={styles.rateLink}
+                    >
+                      <Star
+                        size={13}
+                        color={item.delivery_rating ? "#F59E0B" : colors.primary}
+                        fill={item.delivery_rating ? "#F59E0B" : "transparent"}
+                      />
+                      <Text style={styles.rateLinkText}>
+                        {item.delivery_rating
+                          ? `You rated ${item.delivery_rating.stars}★ · Edit`
+                          : "Rate delivery"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      testID={`orders-return-link-${item.id}`}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        router.push(`/order/${item.id}/return`);
+                      }}
+                      style={styles.returnLink}
+                    >
+                      <RefreshCcw size={13} color={colors.primary} />
+                      <Text style={styles.returnLinkText}>Request return</Text>
+                    </Pressable>
+                  </View>
                 ) : (() => {
                   // Cancel allowed while order is still pre-shipped.
                   const canCancel =
@@ -176,6 +206,20 @@ export default function Orders() {
           }}
         />
       )}
+
+      {ratingFor ? (
+        <DeliveryRatingSheet
+          visible
+          orderId={ratingFor.id}
+          initialStars={ratingFor.stars}
+          initialComment={ratingFor.comment}
+          onClose={() => setRatingFor(null)}
+          onSubmitted={() => {
+            setRatingFor(null);
+            load();
+          }}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -258,4 +302,20 @@ const styles = StyleSheet.create({
   },
   cancelLinkText: { fontSize: 12, color: colors.error, fontWeight: "700" },
   cancelHint: { fontSize: 11, color: colors.textMuted, fontWeight: "600" },
+  deliveredActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    flexWrap: "wrap",
+  },
+  rateLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  rateLinkText: { fontSize: 12, color: colors.primary, fontWeight: "700" },
 });

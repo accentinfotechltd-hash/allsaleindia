@@ -513,3 +513,112 @@ async def reorder_order(order_id: str, current=Depends(get_current_user)):
         added=added,
         skipped=skipped,
     )
+
+
+
+# ---------------------------------------------------------------------------
+# Delivery rating (separate from product reviews — rates the shipping
+# experience: speed, packaging, handling).
+# ---------------------------------------------------------------------------
+from pydantic import BaseModel, Field as PField
+
+
+class DeliveryRatingPayload(BaseModel):
+    stars: int = PField(..., ge=1, le=5)
+    comment: str = PField(default="", max_length=300)
+
+
+@router.post("/orders/{order_id}/delivery-rating")
+async def submit_delivery_rating(
+    order_id: str,
+    body: DeliveryRatingPayload,
+    current=Depends(get_current_user),
+):
+    """Buyer rates the shipping experience for a delivered order.
+
+    Constraints:
+      * Order must belong to the caller.
+      * Order must be in ``delivered`` state.
+      * One rating per order (idempotent — re-submits update).
+
+    Stores ``delivery_rating: {stars, comment, rated_at}`` on the order
+    doc, and increments per-seller aggregates (``delivery_score_sum``,
+    ``delivery_score_count``) used by the new ``ships_well`` badge.
+    """
+    o = await db.orders.find_one(
+        {"id": order_id, "user_id": current["id"]}, {"_id": 0}
+    )
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if o.get("status") != "delivered":
+        raise HTTPException(
+            status_code=400, detail="Order must be delivered before rating"
+        )
+
+    is_resubmit = bool((o.get("delivery_rating") or {}).get("stars"))
+    prev_stars = (
+        int((o.get("delivery_rating") or {}).get("stars") or 0)
+        if is_resubmit
+        else 0
+    )
+
+    rating_doc = {
+        "stars": int(body.stars),
+        "comment": body.comment.strip(),
+        "rated_at": now_utc(),
+    }
+    await db.orders.update_one(
+        {"id": order_id}, {"$set": {"delivery_rating": rating_doc}}
+    )
+
+    # Update per-seller aggregates. One order may touch several sellers, so
+    # we apply the rating to each distinct seller_id in items[].
+    seller_ids = {it.get("seller_id") for it in (o.get("items") or [])}
+    seller_ids.discard(None)
+    for sid in seller_ids:
+        if is_resubmit:
+            # remove the previous contribution before adding the new one
+            await db.sellers.update_one(
+                {"user_id": sid},
+                {
+                    "$inc": {
+                        "delivery_score_sum": int(body.stars) - prev_stars
+                    }
+                },
+            )
+        else:
+            await db.sellers.update_one(
+                {"user_id": sid},
+                {
+                    "$inc": {
+                        "delivery_score_sum": int(body.stars),
+                        "delivery_score_count": 1,
+                    }
+                },
+                upsert=False,
+            )
+
+    return {"order_id": order_id, "delivery_rating": rating_doc}
+
+
+@router.get("/sellers/{seller_id}/delivery-score")
+async def seller_delivery_score(seller_id: str):
+    """Public — average delivery stars + count for a seller. Used by the
+    PDP to render the "Ships well" badge when count >= 5 and avg >= 4.0."""
+    doc = await db.sellers.find_one(
+        {"user_id": seller_id},
+        {
+            "_id": 0,
+            "delivery_score_sum": 1,
+            "delivery_score_count": 1,
+        },
+    )
+    s = int((doc or {}).get("delivery_score_sum") or 0)
+    n = int((doc or {}).get("delivery_score_count") or 0)
+    avg = round(s / n, 2) if n > 0 else None
+    return {
+        "seller_id": seller_id,
+        "avg_stars": avg,
+        "ratings_count": n,
+        "ships_well": bool(n >= 5 and avg is not None and avg >= 4.0),
+    }
