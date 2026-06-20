@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Ticket = {
@@ -39,12 +40,12 @@ type Ticket = {
   updated_at: string;
 };
 
-const STATUS_COLORS: Record<string, { bg: string; fg: string; label: string }> = {
-  open: { bg: "#FEF3C7", fg: "#92400E", label: "Open" },
-  in_progress: { bg: "#DBEAFE", fg: "#1E3A8A", label: "In progress" },
-  awaiting_reply: { bg: "#FFE4D9", fg: "#9A3412", label: "Reply waiting" },
-  resolved: { bg: "#D1FAE5", fg: "#065F46", label: "Resolved" },
-  closed: { bg: "#E5E7EB", fg: "#374151", label: "Closed" },
+const STATUS_COLORS: Record<string, { bg: string; fg: string; tkey: string }> = {
+  open: { bg: "#FEF3C7", fg: "#92400E", tkey: "status_open" },
+  in_progress: { bg: "#DBEAFE", fg: "#1E3A8A", tkey: "status_in_progress" },
+  awaiting_reply: { bg: "#FFE4D9", fg: "#9A3412", tkey: "status_awaiting_reply" },
+  resolved: { bg: "#D1FAE5", fg: "#065F46", tkey: "status_resolved" },
+  closed: { bg: "#E5E7EB", fg: "#374151", tkey: "status_closed" },
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -56,6 +57,7 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 export default function SupportListScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [items, setItems] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -84,7 +86,7 @@ export default function SupportListScreen() {
         <Pressable testID="support-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Support tickets</Text>
+        <Text style={styles.title}>{t("seller_support_index.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -97,9 +99,9 @@ export default function SupportListScreen() {
           <View style={styles.emptyIcon}>
             <HelpCircle size={32} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>No tickets yet</Text>
+          <Text style={styles.emptyTitle}>{t("seller_support_index.no_tickets")}</Text>
           <Text style={styles.emptyBody}>
-            Need help with payments, orders, KYC or anything else? Raise a ticket and our support team will reply.
+            {t("seller_support_index.no_tickets_body")}
           </Text>
         </View>
       ) : (
@@ -136,7 +138,7 @@ export default function SupportListScreen() {
                       { color: STATUS_COLORS[item.status]?.fg || colors.text },
                     ]}
                   >
-                    {STATUS_COLORS[item.status]?.label || item.status}
+                    {STATUS_COLORS[item.status]?.tkey ? t(`seller_support_index.${STATUS_COLORS[item.status].tkey}`) : item.status}
                   </Text>
                 </View>
                 <View
@@ -163,11 +165,15 @@ export default function SupportListScreen() {
                 <Text style={styles.metaText}>{item.category}</Text>
                 <Text style={styles.metaSep}>·</Text>
                 <Clock size={12} color={colors.textMuted} />
-                <Text style={styles.metaText}>{relTime(item.updated_at)}</Text>
+                <Text style={styles.metaText}>{relTime(item.updated_at, t)}</Text>
                 {item.reply_count > 0 ? (
                   <>
                     <Text style={styles.metaSep}>·</Text>
-                    <Text style={styles.metaText}>{item.reply_count} replies</Text>
+                    <Text style={styles.metaText}>
+                      {item.reply_count === 1
+                        ? t("seller_support_index.replies_one")
+                        : t("seller_support_index.replies_other", { count: item.reply_count })}
+                    </Text>
                   </>
                 ) : null}
                 {item.csat_rating ? (
@@ -189,23 +195,23 @@ export default function SupportListScreen() {
           style={({ pressed }) => [styles.fabBtn, pressed && { transform: [{ scale: 0.98 }] }]}
         >
           <Plus size={18} color="#fff" />
-          <Text style={styles.fabText}>Raise a ticket</Text>
+          <Text style={styles.fabText}>{t("seller_support_index.raise_ticket")}</Text>
         </Pressable>
       </SafeAreaView>
     </SafeAreaView>
   );
 }
 
-function relTime(iso: string): string {
+function relTime(iso: string, t: (k: string, v?: any) => string): string {
   const d = new Date(iso);
   const diffMs = Date.now() - d.getTime();
   const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t("seller_support_index.rel_just_now");
+  if (mins < 60) return t("seller_support_index.rel_mins_ago", { count: mins });
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return t("seller_support_index.rel_hrs_ago", { count: hrs });
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t("seller_support_index.rel_days_ago", { count: days });
   return d.toLocaleDateString();
 }
 

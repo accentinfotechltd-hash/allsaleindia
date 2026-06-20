@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { adminApi, AdminForbidden, AdminUnauthorized } from "@/src/lib/adminApi";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Row = {
@@ -52,6 +53,7 @@ const PROGRAM_FILTERS: ("all" | "B2C" | "B2B" | "BOTH")[] = [
 export default function AdminAmbassadorsList() {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useTranslation();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,15 +73,15 @@ export default function AdminAmbassadorsList() {
       setRows(data);
     } catch (e: any) {
       if (e instanceof AdminUnauthorized || e instanceof AdminForbidden) {
-        toast.show({ title: "Admin access required", kind: "error" });
+        toast.show({ title: t("admin_ambassadors_index.admin_required"), kind: "error" });
         router.replace("/admin");
         return;
       }
-      toast.show({ title: "Couldn't load", body: e?.message, kind: "error" });
+      toast.show({ title: t("admin_ambassadors_index.couldnt_load"), body: e?.message, kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, programFilter, unpaidOnly, toast, router]);
+  }, [statusFilter, programFilter, unpaidOnly, toast, router, t]);
 
   useEffect(() => {
     setLoading(true);
@@ -109,7 +111,7 @@ export default function AdminAmbassadorsList() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Ambassadors</Text>
+        <Text style={styles.headerTitle}>{t("admin_ambassadors_index.title")}</Text>
         <Pressable onPress={onRefresh} style={styles.backBtn} testID="admin-amb-refresh">
           <RefreshCw size={18} color={colors.text} />
         </Pressable>
@@ -125,13 +127,13 @@ export default function AdminAmbassadorsList() {
           style={styles.search}
           value={search}
           onChangeText={setSearch}
-          placeholder="Search name, email, code…"
+          placeholder={t("admin_ambassadors_index.search_placeholder")}
           placeholderTextColor={colors.textFaint}
           autoCapitalize="none"
         />
 
         {/* Status filter */}
-        <Text style={styles.filterLabel}>STATUS</Text>
+        <Text style={styles.filterLabel}>{t("admin_ambassadors_index.filter_status_label")}</Text>
         <View style={styles.chipRow}>
           {STATUS_FILTERS.map((s) => (
             <Pressable
@@ -140,13 +142,18 @@ export default function AdminAmbassadorsList() {
               onPress={() => setStatusFilter(s)}
               style={[styles.chip, statusFilter === s && styles.chipActive]}
             >
-              <Text style={[styles.chipText, statusFilter === s && styles.chipTextActive]}>{s}</Text>
+              <Text style={[styles.chipText, statusFilter === s && styles.chipTextActive]}>
+                {s === "all" ? t("admin_ambassadors_index.filter_all")
+                 : s === "active" ? t("admin_ambassadors_index.filter_active")
+                 : s === "dormant" ? t("admin_ambassadors_index.filter_dormant")
+                 : t("admin_ambassadors_index.filter_suspended")}
+              </Text>
             </Pressable>
           ))}
         </View>
 
         {/* Program filter */}
-        <Text style={styles.filterLabel}>PROGRAM</Text>
+        <Text style={styles.filterLabel}>{t("admin_ambassadors_index.filter_program_label")}</Text>
         <View style={styles.chipRow}>
           {PROGRAM_FILTERS.map((p) => (
             <Pressable
@@ -155,7 +162,7 @@ export default function AdminAmbassadorsList() {
               onPress={() => setProgramFilter(p)}
               style={[styles.chip, programFilter === p && styles.chipActive]}
             >
-              <Text style={[styles.chipText, programFilter === p && styles.chipTextActive]}>{p}</Text>
+              <Text style={[styles.chipText, programFilter === p && styles.chipTextActive]}>{p === "all" ? t("admin_ambassadors_index.filter_all") : p}</Text>
             </Pressable>
           ))}
         </View>
@@ -166,7 +173,7 @@ export default function AdminAmbassadorsList() {
           style={[styles.toggle, unpaidOnly && styles.toggleActive]}
         >
           <Text style={[styles.toggleText, unpaidOnly && styles.toggleTextActive]}>
-            {unpaidOnly ? "✓ " : ""}Has unpaid balance only
+            {unpaidOnly ? "✓ " : ""}{t("admin_ambassadors_index.has_unpaid_only")}
           </Text>
         </Pressable>
 
@@ -175,11 +182,15 @@ export default function AdminAmbassadorsList() {
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
             <Sparkles size={28} color={colors.textFaint} />
-            <Text style={styles.emptyText}>No ambassadors match your filters.</Text>
+            <Text style={styles.emptyText}>{t("admin_ambassadors_index.empty")}</Text>
           </View>
         ) : (
           <>
-            <Text style={styles.countLine}>{filtered.length} ambassadors</Text>
+            <Text style={styles.countLine}>
+              {filtered.length === 1
+                ? t("admin_ambassadors_index.count_one")
+                : t("admin_ambassadors_index.count_other", { count: filtered.length })}
+            </Text>
             {filtered.map((r) => (
               <Pressable
                 key={r.id}
@@ -200,15 +211,14 @@ export default function AdminAmbassadorsList() {
                     {r.code}{r.code_b2b ? ` · ${r.code_b2b}` : ""} · {r.country} · {r.program}
                   </Text>
                   <Text style={styles.rowStats}>
-                    {r.lifetime_orders} orders · lifetime {r.payout_currency}{" "}
-                    {r.lifetime_commission.toFixed(2)}
+                    {t("admin_ambassadors_index.orders_lifetime", { orders: r.lifetime_orders, curr: r.payout_currency, amt: r.lifetime_commission.toFixed(2) })}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end", marginRight: 4 }}>
                   <Text style={styles.unpaid}>
                     {r.payout_currency} {r.unpaid_balance.toFixed(2)}
                   </Text>
-                  <Text style={styles.unpaidLabel}>unpaid</Text>
+                  <Text style={styles.unpaidLabel}>{t("admin_ambassadors_index.unpaid_label")}</Text>
                 </View>
                 <ChevronRight size={18} color={colors.textFaint} />
               </Pressable>
