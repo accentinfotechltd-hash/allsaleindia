@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -56,13 +57,13 @@ type Stats = {
 
 type Page = { stats: Stats; referrals: Referral[] };
 
-const STATUS_STYLES: Record<Referral["status"], { label: string; bg: string; fg: string }> = {
-  pending: { label: "Invited", bg: "#FFF7ED", fg: "#9A3412" },
-  signed_up: { label: "Signed up", bg: "#EFF6FF", fg: "#1E40AF" },
-  approved: { label: "Approved", bg: "#F3E8FF", fg: "#6B21A8" },
-  first_sale: { label: "First sale 🎉", bg: "#ECFDF5", fg: "#065F46" },
-  paid_out: { label: "Paid out", bg: "#F1F5F9", fg: "#475569" },
-  expired: { label: "Expired", bg: "#FEF2F2", fg: "#991B1B" },
+const STATUS_STYLES: Record<Referral["status"], { labelKey: string; bg: string; fg: string }> = {
+  pending: { labelKey: "seller_referrals.status_pending", bg: "#FFF7ED", fg: "#9A3412" },
+  signed_up: { labelKey: "seller_referrals.status_signed_up", bg: "#EFF6FF", fg: "#1E40AF" },
+  approved: { labelKey: "seller_referrals.status_approved", bg: "#F3E8FF", fg: "#6B21A8" },
+  first_sale: { labelKey: "seller_referrals.status_first_sale", bg: "#ECFDF5", fg: "#065F46" },
+  paid_out: { labelKey: "seller_referrals.status_paid_out", bg: "#F1F5F9", fg: "#475569" },
+  expired: { labelKey: "seller_referrals.status_expired", bg: "#FEF2F2", fg: "#991B1B" },
 };
 
 function maskEmail(e: string): string {
@@ -83,6 +84,7 @@ function relativeDate(iso?: string | null): string {
 
 export default function ReferralsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const toast = useToast();
   const [page, setPage] = useState<Page | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,11 +98,11 @@ export default function ReferralsScreen() {
       const p = await api<Page>("/seller/me/referrals");
       setPage(p);
     } catch (e: any) {
-      toast.show({ title: "Couldn't load referrals", message: e?.message || "", kind: "error" });
+      toast.show({ title: t("seller_referrals.couldnt_load"), message: e?.message || "", kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, t]);
 
   useEffect(() => {
     load();
@@ -111,8 +113,8 @@ export default function ReferralsScreen() {
   const copyCode = useCallback(async () => {
     if (!page?.stats?.code) return;
     await Clipboard.setStringAsync(page.stats.code);
-    toast.show({ title: "Code copied", kind: "success" });
-  }, [page, toast]);
+    toast.show({ title: t("seller_referrals.code_copied"), kind: "success" });
+  }, [page, toast, t]);
 
   const shareLink = useCallback(async () => {
     if (!page?.stats?.invite_url) return;
@@ -120,21 +122,21 @@ export default function ReferralsScreen() {
       const available = await Sharing.isAvailableAsync();
       if (available) {
         await Sharing.shareAsync(page.stats.invite_url, {
-          dialogTitle: "Invite a business to Allsale",
+          dialogTitle: t("seller_referrals.share_dialog_title"),
         });
       } else {
         await Clipboard.setStringAsync(page.stats.invite_url);
-        toast.show({ title: "Invite link copied", kind: "success" });
+        toast.show({ title: t("seller_referrals.link_copied"), kind: "success" });
       }
     } catch {
       // Silent — user likely cancelled the share sheet
     }
-  }, [page, toast]);
+  }, [page, toast, t]);
 
   const sendInvite = useCallback(async () => {
     const trimmed = email.trim();
     if (!trimmed || !trimmed.includes("@")) {
-      toast.show({ title: "Enter a valid email", kind: "error" });
+      toast.show({ title: t("seller_referrals.invalid_email"), kind: "error" });
       return;
     }
     setSending(true);
@@ -148,8 +150,8 @@ export default function ReferralsScreen() {
         },
       });
       toast.show({
-        title: "Invite sent",
-        message: `${trimmed} will get an email shortly.`,
+        title: t("seller_referrals.invite_sent_title"),
+        message: t("seller_referrals.invite_sent_body", { email: trimmed }),
         kind: "success",
       });
       setEmail("");
@@ -168,11 +170,11 @@ export default function ReferralsScreen() {
           : p,
       );
     } catch (e: any) {
-      toast.show({ title: "Couldn't send invite", message: e?.message || "", kind: "error" });
+      toast.show({ title: t("seller_referrals.couldnt_send"), message: e?.message || "", kind: "error" });
     } finally {
       setSending(false);
     }
-  }, [email, name, note, toast]);
+  }, [email, name, note, toast, t]);
 
   if (loading || !page) {
     return (
@@ -196,7 +198,7 @@ export default function ReferralsScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
             <ChevronLeft size={22} color={colors.text} />
           </Pressable>
-          <Text style={styles.title}>Refer & Earn</Text>
+          <Text style={styles.title}>{t("seller_referrals.title")}</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -209,16 +211,15 @@ export default function ReferralsScreen() {
           <View style={styles.hero}>
             <View style={styles.heroBadge}>
               <Sparkles size={12} color={colors.primary} />
-              <Text style={styles.heroBadgeText}>B2B Referral Programme</Text>
+              <Text style={styles.heroBadgeText}>{t("seller_referrals.hero_badge")}</Text>
             </View>
-            <Text style={styles.heroTitle}>Invite a fellow Indian business</Text>
+            <Text style={styles.heroTitle}>{t("seller_referrals.hero_title")}</Text>
             <Text style={styles.heroSub}>
-              Earn 5 % of platform commission on their first NZ$10,000 of GMV — up to
-              NZ$500 per referral within 12 months.
+              {t("seller_referrals.hero_sub")}
             </Text>
 
             <View style={styles.codeCard}>
-              <Text style={styles.codeLabel}>YOUR REFERRAL CODE</Text>
+              <Text style={styles.codeLabel}>{t("seller_referrals.your_code_label")}</Text>
               <View style={styles.codeRow}>
                 <Text style={styles.codeValue} numberOfLines={1} testID="referrals-code">
                   {stats.code || "—"}
@@ -238,7 +239,7 @@ export default function ReferralsScreen() {
                 testID="referrals-share"
               >
                 <Share2 size={14} color="#fff" />
-                <Text style={styles.shareBtnText}>Share invite link</Text>
+                <Text style={styles.shareBtnText}>{t("seller_referrals.share_invite_btn")}</Text>
               </Pressable>
             </View>
           </View>
@@ -248,34 +249,34 @@ export default function ReferralsScreen() {
             <StatCard
               icon={<UserPlus size={16} color={colors.primary} />}
               value={stats.total_invited}
-              label="Invited"
+              label={t("seller_referrals.stat_invited")}
             />
             <StatCard
               icon={<Users size={16} color={colors.accent} />}
               value={stats.total_signed_up}
-              label="Signed up"
+              label={t("seller_referrals.stat_signed_up")}
             />
             <StatCard
               icon={<CheckCircle2 size={16} color={colors.success} />}
               value={stats.total_first_sale}
-              label="First sale"
+              label={t("seller_referrals.stat_first_sale")}
             />
             <StatCard
               icon={<PiggyBank size={16} color={colors.primary} />}
               value={formatNZD(stats.total_commission_due_nzd)}
-              label="Earned"
+              label={t("seller_referrals.stat_earned")}
             />
           </View>
 
           {/* Invite form */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Invite a business</Text>
+            <Text style={styles.sectionTitle}>{t("seller_referrals.invite_section")}</Text>
             <View style={styles.inputRow}>
               <Mail size={14} color={colors.textMuted} />
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder="business@example.com"
+                placeholder={t("seller_referrals.placeholder_email")}
                 placeholderTextColor={colors.textMuted}
                 style={styles.input}
                 autoCapitalize="none"
@@ -287,7 +288,7 @@ export default function ReferralsScreen() {
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Contact name (optional)"
+                placeholder={t("seller_referrals.placeholder_name")}
                 placeholderTextColor={colors.textMuted}
                 style={styles.input}
                 maxLength={120}
@@ -298,7 +299,7 @@ export default function ReferralsScreen() {
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="Personal note (optional)"
+                placeholder={t("seller_referrals.placeholder_note")}
                 placeholderTextColor={colors.textMuted}
                 style={[styles.input, { minHeight: 60 }]}
                 multiline
@@ -318,20 +319,20 @@ export default function ReferralsScreen() {
               {sending ? (
                 <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Text style={styles.submitText}>Send invite</Text>
+                <Text style={styles.submitText}>{t("seller_referrals.send_invite_btn")}</Text>
               )}
             </Pressable>
           </View>
 
           {/* Referrals list */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Your referrals</Text>
+            <Text style={styles.sectionTitle}>{t("seller_referrals.your_referrals")}</Text>
             {referrals.length === 0 ? (
               <View style={styles.empty}>
                 <TrendingUp size={28} color={colors.textFaint} />
-                <Text style={styles.emptyTitle}>No referrals yet</Text>
+                <Text style={styles.emptyTitle}>{t("seller_referrals.no_referrals_title")}</Text>
                 <Text style={styles.emptySub}>
-                  Invite your first business above to get started — they'll be marked here as they progress.
+                  {t("seller_referrals.no_referrals_sub")}
                 </Text>
               </View>
             ) : (
@@ -344,13 +345,13 @@ export default function ReferralsScreen() {
                         {maskEmail(r.referee_email)}
                       </Text>
                       <Text style={styles.refMeta}>
-                        Invited {relativeDate(r.invited_at)}
-                        {r.first_sale_at ? ` · First sale ${relativeDate(r.first_sale_at)}` : ""}
+                        {t("seller_referrals.invited_on", { date: relativeDate(r.invited_at) })}
+                        {r.first_sale_at ? t("seller_referrals.first_sale_on", { date: relativeDate(r.first_sale_at) }) : ""}
                       </Text>
                       {r.commission_due_nzd > 0 ? (
                         <Text style={styles.refCommission}>
-                          {formatNZD(r.commission_due_nzd)} earned
-                          {r.commission_paid_nzd > 0 ? ` · ${formatNZD(r.commission_paid_nzd)} paid out` : ""}
+                          {t("seller_referrals.earned_amount", { amount: formatNZD(r.commission_due_nzd) })}
+                          {r.commission_paid_nzd > 0 ? t("seller_referrals.paid_out_amount", { amount: formatNZD(r.commission_paid_nzd) }) : ""}
                         </Text>
                       ) : null}
                     </View>
@@ -358,7 +359,7 @@ export default function ReferralsScreen() {
                       style={[styles.statusPill, { backgroundColor: st.bg }]}
                     >
                       <Text style={[styles.statusPillText, { color: st.fg }]}>
-                        {st.label}
+                        {t(st.labelKey)}
                       </Text>
                     </View>
                   </View>
@@ -369,11 +370,11 @@ export default function ReferralsScreen() {
 
           {/* How it works */}
           <View style={[styles.section, { backgroundColor: colors.surface }]}>
-            <Text style={styles.sectionTitle}>How it works</Text>
-            <HowItWorksRow n="1" text="Send your code or invite link to an Indian business owner." />
-            <HowItWorksRow n="2" text="They sign up as a seller using your code." />
-            <HowItWorksRow n="3" text="Once they're verified and make their first sale, you earn 5 % of platform commission on their first NZ$10,000 GMV." />
-            <HowItWorksRow n="4" text="Commission is paid out weekly to your payouts wallet (capped at NZ$500 per referral, 12-month window)." />
+            <Text style={styles.sectionTitle}>{t("seller_referrals.how_section")}</Text>
+            <HowItWorksRow n="1" text={t("seller_referrals.how1")} />
+            <HowItWorksRow n="2" text={t("seller_referrals.how2")} />
+            <HowItWorksRow n="3" text={t("seller_referrals.how3")} />
+            <HowItWorksRow n="4" text={t("seller_referrals.how4")} />
           </View>
           <View style={{ height: spacing.xl }} />
         </ScrollView>

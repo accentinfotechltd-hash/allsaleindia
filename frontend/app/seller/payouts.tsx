@@ -123,7 +123,7 @@ export default function SellerPayoutsScreen() {
   if (loading || !tier || !summary) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => router.back()} title={t("payouts_screen.title")} />
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -132,10 +132,11 @@ export default function SellerPayoutsScreen() {
   }
 
   const TierIcon = TIER_ICON[tier.tier.name] || Award;
+  const reservePct = (tier.tier.reserve_pct * 100).toFixed(0);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header onBack={() => router.back()} />
+      <Header onBack={() => router.back()} title={t("payouts_screen.title")} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -161,7 +162,7 @@ export default function SellerPayoutsScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.stripeBannerTitle}>{t("seller_payouts.earnings_analytics")}</Text>
             <Text style={styles.stripeBannerSub}>
-              Track gross, commission &amp; net by period and category.
+              {t("seller_payouts.earnings_analytics_sub")}
             </Text>
           </View>
           <ChevronRight size={18} color={colors.textMuted} />
@@ -179,7 +180,7 @@ export default function SellerPayoutsScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.stripeBannerTitle}>{t("seller_payouts.stripe_payouts")}</Text>
             <Text style={styles.stripeBannerSub}>
-              Connect or manage your bank account to receive earnings.
+              {t("seller_payouts.stripe_payouts_sub")}
             </Text>
           </View>
           <ChevronRight size={18} color={colors.textMuted} />
@@ -192,15 +193,14 @@ export default function SellerPayoutsScreen() {
             <Text style={styles.tierBadgeText}>{tier.tier.label.toUpperCase()}</Text>
           </View>
           <Text style={styles.tierHeadline}>
-            Payouts arrive <Text style={{ color: tier.tier.color }}>T+{tier.tier.payout_hold_days}</Text>{" "}
-            after delivery
+            {t("seller_payouts.tier_headline_a")}<Text style={{ color: tier.tier.color }}>T+{tier.tier.payout_hold_days}</Text>{t("seller_payouts.tier_headline_b")}
           </Text>
           {tier.tier.reserve_pct > 0 ? (
             <Text style={styles.tierSub}>
-              {(tier.tier.reserve_pct * 100).toFixed(0)}% reserve held for {tier.tier.reserve_hold_days} days against returns.
+              {t("seller_payouts.reserve_held", { pct: reservePct, days: tier.tier.reserve_hold_days })}
             </Text>
           ) : (
-            <Text style={styles.tierSub}>No reserve withheld — you keep 100%.</Text>
+            <Text style={styles.tierSub}>{t("seller_payouts.no_reserve")}</Text>
           )}
 
           <View style={styles.perksRow}>
@@ -218,7 +218,7 @@ export default function SellerPayoutsScreen() {
               <View style={styles.progressHeader}>
                 <TrendingUp size={14} color={colors.primary} />
                 <Text style={styles.progressTitle}>
-                  Next: <Text style={{ color: colors.primary }}>{tier.progress.next_tier_label}</Text>
+                  {t("seller_payouts.next_tier_label")}<Text style={{ color: colors.primary }}>{tier.progress.next_tier_label}</Text>
                 </Text>
                 <View style={{ flex: 1 }} />
                 <Text style={styles.progressPct}>{tier.progress.progress_pct}%</Text>
@@ -233,17 +233,17 @@ export default function SellerPayoutsScreen() {
               </View>
               <View style={styles.progressList}>
                 {tier.progress.orders_needed > 0 ? (
-                  <ProgressItem ok={false} text={`${tier.progress.orders_needed} more delivered orders`} />
+                  <ProgressItem ok={false} text={t("seller_payouts.progress_orders_needed", { n: tier.progress.orders_needed })} />
                 ) : (
-                  <ProgressItem ok text="Order count met" />
+                  <ProgressItem ok text={t("seller_payouts.progress_order_count_met")} />
                 )}
                 <ProgressItem
                   ok={tier.progress.return_rate_ok}
-                  text={tier.progress.return_rate_ok ? "Return rate is healthy" : "Lower your return rate"}
+                  text={tier.progress.return_rate_ok ? t("seller_payouts.progress_return_rate_healthy") : t("seller_payouts.progress_lower_return_rate")}
                 />
                 <ProgressItem
                   ok={tier.progress.rating_ok}
-                  text={tier.progress.rating_ok ? "Rating threshold met" : "Improve your seller rating"}
+                  text={tier.progress.rating_ok ? t("seller_payouts.progress_rating_met") : t("seller_payouts.progress_improve_rating")}
                 />
               </View>
             </View>
@@ -251,7 +251,7 @@ export default function SellerPayoutsScreen() {
             <View style={[styles.progressBlock, { backgroundColor: "#FEF3C7" }]}>
               <Crown size={16} color="#92400E" />
               <Text style={[styles.progressTitle, { color: "#92400E" }]}>
-                You&apos;re already at the top tier
+                {t("seller_payouts.at_top_tier")}
               </Text>
             </View>
           )}
@@ -261,26 +261,26 @@ export default function SellerPayoutsScreen() {
         <View style={styles.row2}>
           <StatCard
             icon={<Wallet size={16} color={colors.success} />}
-            label="Available"
+            label={t("seller_payouts.stat_available")}
             value={formatNZD(summary.available_nzd)}
             color={colors.success}
             highlight
           />
           <StatCard
             icon={<Clock size={16} color={colors.textMuted} />}
-            label="Held"
+            label={t("seller_payouts.stat_held")}
             value={formatNZD(summary.held_nzd)}
           />
         </View>
         <View style={styles.row2}>
           <StatCard
             icon={<Shield size={16} color="#F59E0B" />}
-            label="Reserve"
+            label={t("seller_payouts.stat_reserve")}
             value={formatNZD(summary.reserve_held_nzd)}
           />
           <StatCard
             icon={<Coins size={16} color={colors.text} />}
-            label="Paid out"
+            label={t("seller_payouts.stat_paid_out")}
             value={formatNZD(summary.paid_out_nzd)}
           />
         </View>
@@ -289,7 +289,7 @@ export default function SellerPayoutsScreen() {
           <View style={styles.nextRelease}>
             <Clock size={14} color={colors.primary} />
             <Text style={styles.nextReleaseText}>
-              Next release: {new Date(summary.next_release_at).toLocaleDateString()}
+              {t("seller_payouts.next_release_date", { date: new Date(summary.next_release_at).toLocaleDateString() })}
             </Text>
           </View>
         ) : null}
@@ -304,9 +304,9 @@ export default function SellerPayoutsScreen() {
             <HandCoins size={18} color="#fff" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.financingTitle}>Need money sooner?</Text>
+            <Text style={styles.financingTitle}>{t("seller_payouts.financing_title")}</Text>
             <Text style={styles.financingSub}>
-              Get 70–90% advance on confirmed orders via NBFC partners.
+              {t("seller_payouts.financing_sub")}
             </Text>
           </View>
           <ChevronRight size={18} color="#fff" />
@@ -318,7 +318,7 @@ export default function SellerPayoutsScreen() {
           <View style={styles.empty}>
             <Wallet size={28} color={colors.textFaint} />
             <Text style={styles.emptyText}>
-              No payouts yet — they&apos;ll appear once orders are delivered.
+              {t("seller_payouts.empty_payouts")}
             </Text>
           </View>
         ) : (
@@ -327,20 +327,23 @@ export default function SellerPayoutsScreen() {
               <View style={{ flex: 1 }}>
                 <View style={styles.payoutTop}>
                   <Text style={styles.payoutOrder}>
-                    Order #{p.order_id.replace("order_", "").slice(0, 8).toUpperCase()}
+                    {t("seller_payouts.order_prefix")}{p.order_id.replace("order_", "").slice(0, 8).toUpperCase()}
                   </Text>
-                  <PayoutBadge status={p.status} />
+                  <PayoutBadge status={p.status} t={t} />
                 </View>
                 <Text style={styles.payoutMeta}>
-                  {p.items_count} item{p.items_count > 1 ? "s" : ""} ·{" "}
+                  {p.items_count === 1
+                    ? t("seller_payouts.items_one", { n: p.items_count })
+                    : t("seller_payouts.items_other", { n: p.items_count })}
+                  {" · "}
                   {new Date(p.created_at).toLocaleDateString()}
-                  {p.reserve_nzd > 0 ? ` · ${formatNZD(p.reserve_nzd)} reserve` : ""}
+                  {p.reserve_nzd > 0 ? t("seller_payouts.reserve_amount_suffix", { amount: formatNZD(p.reserve_nzd) }) : ""}
                 </Text>
                 {p.release_at && p.status !== "paid_out" ? (
                   <Text style={styles.payoutEta}>
                     {p.status === "reserve_held" && p.reserve_release_at
-                      ? `Reserve releases ${new Date(p.reserve_release_at).toLocaleDateString()}`
-                      : `Releases ${new Date(p.release_at).toLocaleDateString()}`}
+                      ? t("seller_payouts.reserve_releases_on", { date: new Date(p.reserve_release_at).toLocaleDateString() })
+                      : t("seller_payouts.releases_on", { date: new Date(p.release_at).toLocaleDateString() })}
                   </Text>
                 ) : null}
               </View>
@@ -356,13 +359,13 @@ export default function SellerPayoutsScreen() {
             <Text style={styles.infoTitle}>{t("seller_payouts.how_it_works")}</Text>
           </View>
           <Text style={styles.infoBody}>
-            1. Buyer pays via Stripe → your earnings are recorded as <Text style={{ fontWeight: "800" }}>Held</Text>.{"\n"}
-            2. Order is marked delivered by Shiprocket → release timer starts.{"\n"}
-            3. After T+{tier.tier.payout_hold_days} days, your money moves to <Text style={{ fontWeight: "800" }}>Available</Text>.{"\n"}
+            {t("seller_payouts.how_step1")}<Text style={{ fontWeight: "800" }}>{t("seller_payouts.how_step1_held")}</Text>{t("seller_payouts.how_step1_suffix")}
+            {t("seller_payouts.how_step2")}
+            {t("seller_payouts.how_step3_a")}{tier.tier.payout_hold_days}{t("seller_payouts.how_step3_b")}<Text style={{ fontWeight: "800" }}>{t("seller_payouts.how_step3_avail")}</Text>{t("seller_payouts.how_step3_suffix")}
             {tier.tier.reserve_pct > 0
-              ? `4. ${(tier.tier.reserve_pct * 100).toFixed(0)}% reserve unlocks after ${tier.tier.reserve_hold_days} more days.\n`
+              ? t("seller_payouts.how_step4_reserve", { pct: reservePct, days: tier.tier.reserve_hold_days })
               : ""}
-            {tier.tier.reserve_pct > 0 ? "5." : "4."} Admin disburses via Stripe → status becomes <Text style={{ fontWeight: "800" }}>Paid out</Text>.
+            {t("seller_payouts.how_step_final_a", { n: tier.tier.reserve_pct > 0 ? 5 : 4 })}<Text style={{ fontWeight: "800" }}>{t("seller_payouts.how_step_final_paid")}</Text>{t("seller_payouts.how_step_final_suffix")}
           </Text>
         </View>
 
@@ -372,20 +375,20 @@ export default function SellerPayoutsScreen() {
   );
 }
 
-function PayoutBadge({ status }: { status: string }) {
+function PayoutBadge({ status, t }: { status: string; t: (k: string, opts?: Record<string, unknown>) => string }) {
   const s = (() => {
     switch (status) {
       case "held":
       case "pending":
-        return { bg: "#FEF3C7", fg: "#92400E", label: "Held" };
+        return { bg: "#FEF3C7", fg: "#92400E", label: t("seller_payouts.badge_held") };
       case "reserve_held":
-        return { bg: "#FFE4D9", fg: "#9A3412", label: "Reserve" };
+        return { bg: "#FFE4D9", fg: "#9A3412", label: t("seller_payouts.badge_reserve") };
       case "available":
-        return { bg: "#D1FAE5", fg: "#065F46", label: "Available" };
+        return { bg: "#D1FAE5", fg: "#065F46", label: t("seller_payouts.badge_available") };
       case "paid_out":
-        return { bg: "#DBEAFE", fg: "#1E3A8A", label: "Paid out" };
+        return { bg: "#DBEAFE", fg: "#1E3A8A", label: t("seller_payouts.badge_paid_out") };
       case "cancelled":
-        return { bg: "#FEE2E2", fg: "#991B1B", label: "Cancelled" };
+        return { bg: "#FEE2E2", fg: "#991B1B", label: t("seller_payouts.badge_cancelled") };
       default:
         return { bg: colors.surface, fg: colors.text, label: status };
     }
@@ -430,13 +433,13 @@ function StatCard({
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <View style={styles.topBar}>
       <Pressable testID="payouts-back" onPress={onBack} style={styles.backBtn}>
         <ChevronLeft size={22} color={colors.text} />
       </Pressable>
-      <Text style={styles.title}>{t("payouts_screen.title")}</Text>
+      <Text style={styles.title}>{title}</Text>
       <View style={{ width: 40 }} />
     </View>
   );

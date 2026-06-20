@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -80,11 +81,11 @@ type Timeline = {
   avg_daily_net_nzd: number;
 };
 
-const PERIODS: { value: Period; label: string }[] = [
-  { value: "7d", label: "7 days" },
-  { value: "30d", label: "30 days" },
-  { value: "90d", label: "90 days" },
-  { value: "365d", label: "1 year" },
+const PERIODS: { value: Period; labelKey: string }[] = [
+  { value: "7d", labelKey: "seller_earnings.period_7d" },
+  { value: "30d", labelKey: "seller_earnings.period_30d" },
+  { value: "90d", labelKey: "seller_earnings.period_90d" },
+  { value: "365d", labelKey: "seller_earnings.period_365d" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -92,6 +93,7 @@ const PERIODS: { value: Period; label: string }[] = [
 // ---------------------------------------------------------------------------
 export default function SellerEarningsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>("30d");
   const [summary, setSummary] = useState<Summary | null>(null);
   const [categories, setCategories] = useState<CategoryResponse | null>(null);
@@ -132,7 +134,7 @@ export default function SellerEarningsScreen() {
   if (loading || !summary || !categories || !timeline) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => router.back()} title={t("seller_earnings.title")} />
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -142,7 +144,7 @@ export default function SellerEarningsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header onBack={() => router.back()} />
+      <Header onBack={() => router.back()} title={t("seller_earnings.title")} />
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -177,7 +179,7 @@ export default function SellerEarningsScreen() {
                     active && styles.periodChipTextActive,
                   ]}
                 >
-                  {p.label}
+                  {t(p.labelKey)}
                 </Text>
               </Pressable>
             );
@@ -188,20 +190,20 @@ export default function SellerEarningsScreen() {
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
             <PiggyBank size={14} color="#fff" />
-            <Text style={styles.heroBadgeText}>NET EARNINGS</Text>
+            <Text style={styles.heroBadgeText}>{t("seller_earnings.net_earnings_badge")}</Text>
           </View>
           <Text style={styles.heroAmount}>{formatNZD(summary.net_earnings_nzd)}</Text>
           <Text style={styles.heroCaption}>
-            {summary.total_orders} orders · {summary.total_units} units sold
+            {t("seller_earnings.orders_units_caption", { orders: summary.total_orders, units: summary.total_units })}
           </Text>
           <View style={styles.heroBreakdown}>
             <View style={styles.heroLine}>
-              <Text style={styles.heroLineLabel}>Gross sales</Text>
+              <Text style={styles.heroLineLabel}>{t("seller_earnings.gross_sales")}</Text>
               <Text style={styles.heroLineValue}>{formatNZD(summary.gross_nzd)}</Text>
             </View>
             <View style={styles.heroLine}>
               <Text style={[styles.heroLineLabel, { color: "#fed7aa" }]}>
-                Platform fee ({summary.effective_take_rate_pct}%)
+                {t("seller_earnings.platform_fee", { pct: summary.effective_take_rate_pct })}
               </Text>
               <Text style={[styles.heroLineValue, { color: "#fed7aa" }]}>
                 − {formatNZD(summary.commission_paid_nzd)}
@@ -210,7 +212,7 @@ export default function SellerEarningsScreen() {
             <View style={styles.heroDivider} />
             <View style={styles.heroLine}>
               <Text style={[styles.heroLineLabel, { color: "#fff", fontWeight: "700" }]}>
-                Net to you
+                {t("seller_earnings.net_to_you")}
               </Text>
               <Text style={[styles.heroLineValue, { color: "#fff", fontWeight: "800" }]}>
                 {formatNZD(summary.net_earnings_nzd)}
@@ -223,22 +225,22 @@ export default function SellerEarningsScreen() {
         <View style={styles.kpiGrid}>
           <KpiCard
             icon={<HandCoins size={18} color={colors.primary} />}
-            label="Avg order value"
+            label={t("seller_earnings.kpi_aov")}
             value={formatNZD(summary.avg_order_value_nzd)}
           />
           <KpiCard
             icon={<TrendingUp size={18} color="#10b981" />}
-            label="Daily avg (net)"
+            label={t("seller_earnings.kpi_daily_net")}
             value={formatNZD(timeline.avg_daily_net_nzd)}
           />
           <KpiCard
             icon={<Coins size={18} color="#f59e0b" />}
-            label="Take rate"
+            label={t("seller_earnings.kpi_take_rate")}
             value={`${summary.effective_take_rate_pct}%`}
           />
           <KpiCard
             icon={<Calendar size={18} color="#6366f1" />}
-            label="Best day"
+            label={t("seller_earnings.kpi_best_day")}
             value={
               timeline.peak_day
                 ? formatNZD(timeline.peak_day.net_earnings_nzd)
@@ -256,16 +258,16 @@ export default function SellerEarningsScreen() {
         </View>
 
         {/* Timeline bar chart */}
-        <SectionTitle icon={<BarChart3 size={16} color={colors.primary} />} text="Daily net earnings" />
+        <SectionTitle icon={<BarChart3 size={16} color={colors.primary} />} text={t("seller_earnings.section_daily_net")} />
         <View style={styles.chartCard}>
-          <TimelineChart buckets={timeline.buckets} />
+          <TimelineChart buckets={timeline.buckets} t={t} />
         </View>
 
         {/* Category breakdown */}
-        <SectionTitle icon={<ArrowDownToLine size={16} color={colors.primary} />} text="By category" />
+        <SectionTitle icon={<ArrowDownToLine size={16} color={colors.primary} />} text={t("seller_earnings.section_by_category")} />
         {categories.categories.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>No sales in this period yet.</Text>
+            <Text style={styles.emptyText}>{t("seller_earnings.empty_period")}</Text>
           </View>
         ) : (
           <View style={styles.catCard}>
@@ -287,7 +289,7 @@ export default function SellerEarningsScreen() {
                     </View>
                   </View>
                   <Text style={styles.catMeta}>
-                    {c.orders} orders · {c.units} units
+                    {t("seller_earnings.cat_meta", { orders: c.orders, units: c.units })}
                   </Text>
                   <View style={styles.shareTrack}>
                     <View
@@ -301,7 +303,7 @@ export default function SellerEarningsScreen() {
                 <View style={styles.catRight}>
                   <Text style={styles.catNet}>{formatNZD(c.net_earnings_nzd)}</Text>
                   <Text style={styles.catFee}>
-                    fee {formatNZD(c.commission_paid_nzd)}
+                    {t("seller_earnings.cat_fee_prefix")}{formatNZD(c.commission_paid_nzd)}
                   </Text>
                 </View>
               </View>
@@ -313,12 +315,7 @@ export default function SellerEarningsScreen() {
         <View style={styles.footerCard}>
           <Info size={14} color={colors.textMuted} style={{ marginTop: 2 }} />
           <Text style={styles.footerText}>
-            Platform fees are tiered: <Text style={styles.bold}>8%</Text> for
-            electronics, <Text style={styles.bold}>12%</Text> for most categories,{" "}
-            <Text style={styles.bold}>15%</Text> for jewellery. Net earnings shown
-            here represent your share before payout-tier holds & reserves —
-            see <Text style={styles.bold}>Payouts</Text> for the actual release
-            schedule.
+            {t("seller_earnings.footer_a")}<Text style={styles.bold}>{t("seller_earnings.footer_8")}</Text>{t("seller_earnings.footer_b")}<Text style={styles.bold}>{t("seller_earnings.footer_12")}</Text>{t("seller_earnings.footer_c")}<Text style={styles.bold}>{t("seller_earnings.footer_15")}</Text>{t("seller_earnings.footer_d")}<Text style={styles.bold}>{t("seller_earnings.footer_payouts")}</Text>{t("seller_earnings.footer_e")}
           </Text>
         </View>
 
@@ -328,7 +325,7 @@ export default function SellerEarningsScreen() {
           onPress={() => router.push("/seller/payouts")}
           style={({ pressed }) => [styles.cta, pressed && { opacity: 0.9 }]}
         >
-          <Text style={styles.ctaText}>View payout schedule →</Text>
+          <Text style={styles.ctaText}>{t("seller_earnings.view_schedule")}</Text>
         </Pressable>
 
         <View style={{ height: 32 }} />
@@ -340,7 +337,7 @@ export default function SellerEarningsScreen() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
-function Header({ onBack }: { onBack: () => void }) {
+function Header({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <View style={styles.header}>
       <Pressable
@@ -350,7 +347,7 @@ function Header({ onBack }: { onBack: () => void }) {
       >
         <ChevronLeft size={22} color={colors.text} />
       </Pressable>
-      <Text style={styles.headerTitle}>Earnings</Text>
+      <Text style={styles.headerTitle}>{title}</Text>
       <View style={{ width: 22 }} />
     </View>
   );
@@ -386,7 +383,7 @@ function KpiCard({
   );
 }
 
-function TimelineChart({ buckets }: { buckets: TimelineBucket[] }) {
+function TimelineChart({ buckets, t }: { buckets: TimelineBucket[]; t: (k: string) => string }) {
   // Group very-long timelines down into ~30 bars so each bar stays
   // visible.  The grouping is by index buckets, not real-world weeks,
   // which keeps the math simple.
@@ -425,7 +422,7 @@ function TimelineChart({ buckets }: { buckets: TimelineBucket[] }) {
   if (allZero) {
     return (
       <View style={styles.chartEmpty}>
-        <Text style={styles.chartEmptyText}>No sales in this window yet.</Text>
+        <Text style={styles.chartEmptyText}>{t("seller_earnings.empty_window")}</Text>
       </View>
     );
   }
