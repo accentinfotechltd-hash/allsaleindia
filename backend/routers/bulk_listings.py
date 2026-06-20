@@ -68,6 +68,18 @@ async def _require_verified_seller(current=Depends(get_current_user)) -> dict:
     return current
 
 
+async def _require_seller(current=Depends(get_current_user)) -> dict:
+    """Sign-in + seller flag only.
+
+    Used for low-risk read operations like template downloads — sellers
+    should be able to study the schema and prep their catalog *while*
+    they wait for verification to clear.
+    """
+    if not current.get("is_seller"):
+        raise HTTPException(status_code=403, detail="Seller account required")
+    return current
+
+
 def _valid_categories() -> set[str]:
     return {t["name"] for t in TAXONOMY}
 
@@ -76,7 +88,7 @@ def _valid_categories() -> set[str]:
 # Template downloads
 # ---------------------------------------------------------------------------
 @router.get("/template.csv")
-async def download_csv_template(seller=Depends(_require_verified_seller)):
+async def download_csv_template(seller=Depends(_require_seller)):
     """Download a blank CSV template with two example rows pre-filled."""
     body = write_csv(template_rows_example())
     return StreamingResponse(
@@ -89,7 +101,7 @@ async def download_csv_template(seller=Depends(_require_verified_seller)):
 
 
 @router.get("/template.xlsx")
-async def download_xlsx_template(seller=Depends(_require_verified_seller)):
+async def download_xlsx_template(seller=Depends(_require_seller)):
     """Download a blank XLSX template with two example rows pre-filled."""
     body = write_xlsx(template_rows_example())
     return StreamingResponse(

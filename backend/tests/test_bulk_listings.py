@@ -49,7 +49,29 @@ def seller_session():
     r = requests.post(f"{BASE_URL}/api/seller/register", json=body)
     assert r.status_code == 200, r.text
     token = r.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Fast-forward verification — admin manually approves in real life;
+    # for tests we flip the seller_verification_status straight to
+    # "approved" on the user document and the seller's profile so the
+    # full upload/import suite can run end-to-end.
+    user_id = r.json()["user"]["id"]
+    try:
+        from pymongo import MongoClient
+        cli = MongoClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
+        db_sync = cli[os.environ.get("DB_NAME", "allsale_database")]
+        db_sync.users.update_one(
+            {"id": user_id},
+            {"$set": {"seller_verification_status": "approved"}},
+        )
+        db_sync.sellers.update_one(
+            {"user_id": user_id},
+            {"$set": {"verification_status": "approved"}},
+        )
+    except Exception:
+        pass
+
+    return headers
 
 
 def test_csv_template_download(seller_session):

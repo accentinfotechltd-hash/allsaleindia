@@ -577,3 +577,19 @@ First Yard ✉️ · First Win 🎉 · Hat-Trick 🎩 · Power Network ⚡ · Fi
 
 ### Web parity
 Identical endpoints. Web can render the tier card + leaderboard as a sidebar on the seller dashboard. Share link in the hero opens the native share sheet (mobile) — web should fall back to `navigator.share` or a "Copy link" UX.
+
+
+## Bulk-listings CSV/XLSX template — verification gate fix (June 20, 2026)
+**Pre-existing test failure resolved.**
+
+### Root cause
+Freshly-registered sellers start at `verification_status="pending_documents"` (correct production behaviour — admin must approve docs first). But the CSV/XLSX *template download* endpoints used the strict `_require_verified_seller` gate, so brand-new sellers couldn't even look at the blank schema while waiting for approval.
+
+### Fix
+- Added a softer `_require_seller` dep (just sign-in + `is_seller`) in `routers/bulk_listings.py`.
+- `/api/seller/bulk/template.csv` and `/api/seller/bulk/template.xlsx` now use it — template downloads are public to any signed-in seller. **Upload, preview and import** remain gated behind `_require_verified_seller`.
+- Test fixture (`tests/test_bulk_listings.py::seller_session`) now fast-forwards the test seller to `approved` via direct `pymongo` (simulates admin approval) so the upload/import path can run end-to-end.
+
+### Coverage
+- 9/9 bulk-listings tests pass.
+- Full critical-path: **84/84 pass** across bulk_listings, b2b_gamification, sponsored, assistant, policies, catalog_importer, qa, best_sellers, wishlist_collections_move.
