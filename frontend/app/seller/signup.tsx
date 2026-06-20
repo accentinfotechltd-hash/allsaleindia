@@ -16,12 +16,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BusinessFields, useBusinessForm } from "@/src/components/BusinessFields";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { api, setToken } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function SellerSignup() {
   const router = useRouter();
   const { refresh } = useAuth();
+  const { t } = useTranslation();
   const { form, set, setType } = useBusinessForm();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +34,7 @@ export default function SellerSignup() {
   const submit = async () => {
     setErr("");
     if (!email.trim() || !password) {
-      setErr("Email and password are required");
+      setErr(t("seller_signup.email_password_required"));
       return;
     }
     setBusy(true);
@@ -59,7 +61,7 @@ export default function SellerSignup() {
       await refresh();
       router.replace("/seller/dashboard");
     } catch (e: any) {
-      setErr(e?.message || "Could not create seller account");
+      setErr(e?.message || t("seller_signup.could_not_create"));
     } finally {
       setBusy(false);
     }
@@ -71,7 +73,7 @@ export default function SellerSignup() {
         <Pressable testID="seller-signup-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Seller signup</Text>
+        <Text style={styles.title}>{t("seller_signup.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -79,7 +81,7 @@ export default function SellerSignup() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <Text style={styles.section}>ACCOUNT</Text>
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t("seller_signup.email_label")}</Text>
             <TextInput
               testID="seller-signup-email"
               value={email}
@@ -92,12 +94,12 @@ export default function SellerSignup() {
             />
           </View>
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t("seller_signup.password_label")}</Text>
             <TextInput
               testID="seller-signup-password"
               value={password}
               onChangeText={setPassword}
-              placeholder="At least 6 characters"
+              placeholder={t("seller_signup.password_placeholder")}
               placeholderTextColor={colors.textFaint}
               secureTextEntry
               style={styles.input}
@@ -112,26 +114,26 @@ export default function SellerSignup() {
           <View style={styles.referralCard} testID="seller-signup-referral-card">
             <View style={styles.referralHeader}>
               <Sparkles size={16} color={colors.primary} />
-              <Text style={styles.referralTitle}>Referred by an Ambassador?</Text>
+              <Text style={styles.referralTitle}>{t("seller_signup.referral_title")}</Text>
             </View>
             <Text style={styles.referralSub}>
-              Enter their code to get{" "}
-              <Text style={styles.referralHighlight}>3 months Pro free</Text>
-              {" "}— they earn a bounty once you ship 5 orders.
+              {t("seller_signup.referral_sub_pre")}
+              <Text style={styles.referralHighlight}>{t("seller_signup.referral_highlight")}</Text>
+              {t("seller_signup.referral_sub_post")}
             </Text>
             <TextInput
               testID="seller-signup-referral-code"
               style={styles.referralInput}
               value={referralCode}
               onChangeText={setReferralCode}
-              placeholder="e.g. RAJESHBIZ"
+              placeholder={t("seller_signup.referral_placeholder")}
               placeholderTextColor={colors.textFaint}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={40}
             />
             <Text style={styles.referralHint}>
-              Optional — leave blank if you don&apos;t have a code.
+              {t("seller_signup.referral_hint")}
             </Text>
           </View>
 
@@ -143,12 +145,11 @@ export default function SellerSignup() {
             onPress={submit}
             style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }, busy && { opacity: 0.7 }]}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>Create seller account</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.ctaText}>{t("seller_signup.submit")}</Text>}
           </Pressable>
 
           <Text style={styles.terms}>
-            By continuing, you confirm your business is registered in India and you are authorized to list its
-            products on Allsale.
+            {t("seller_signup.terms")}
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

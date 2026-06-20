@@ -17,11 +17,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 
 type DocSlot = "id_proof" | "business_proof";
 
 export default function SellerDocumentsScreen() {
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [idProof, setIdProof] = useState<string | null>(null);
   const [bizProof, setBizProof] = useState<string | null>(null);
@@ -42,7 +44,7 @@ export default function SellerDocumentsScreen() {
   const pick = useCallback(async (slot: DocSlot) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      show({ title: "Permission needed", message: "We need access to your photos to upload your documents.", kind: "error" });
+      show({ title: t("seller_documents.permission_needed"), body: t("seller_documents.permission_needed_body"), kind: "error" });
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -57,15 +59,15 @@ export default function SellerDocumentsScreen() {
     const dataUri = `data:${mime};base64,${result.assets[0].base64}`;
     if (slot === "id_proof") setIdProof(dataUri);
     else setBizProof(dataUri);
-  }, []);
+  }, [show, t]);
 
   const submit = useCallback(async () => {
     if (!idProof || !bizProof) {
-      show({ title: "Both documents required", message: "Please upload your photo ID and business proof to continue.", kind: "error" });
+      show({ title: t("seller_documents.both_required"), body: t("seller_documents.both_required_body"), kind: "error" });
       return;
     }
     if (!agreePolicy) {
-      show({ title: "Seller Policy required", message: "Please read and accept the Seller Policy, Payment Hold Policy, and Return Policy to submit.", kind: "error" });
+      show({ title: t("seller_documents.policy_required"), body: t("seller_documents.policy_required_body"), kind: "error" });
       return;
     }
     setSubmitting(true);
@@ -77,25 +79,25 @@ export default function SellerDocumentsScreen() {
           business_proof_url: bizProof,
         },
       });
-      toast.show({
-        title: "Documents submitted ✓",
-        body: "Your application is under review. We'll respond within 7 business days.",
+      show({
+        title: t("seller_documents.submitted"),
+        body: t("seller_documents.submitted_body"),
         kind: "success",
       });
       router.replace("/seller/dashboard");
     } catch (e: any) {
-      show({ title: "Upload failed", message: e?.message || "Please try again.", kind: "error" });
+      show({ title: t("seller_documents.upload_failed"), body: e?.message || t("seller_documents.try_again"), kind: "error" });
     } finally {
       setSubmitting(false);
     }
-  }, [idProof, bizProof, router]);
+  }, [idProof, bizProof, agreePolicy, router, show, t]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <ShieldCheck size={24} color={colors.primary} />
-          <Text style={styles.title}>Verify your business</Text>
+          <Text style={styles.title}>{t("seller_documents.title")}</Text>
           <Text style={styles.subtitle}>
             Allsale only lists products from verified Indian businesses. Please upload the
             two documents below — our team reviews within 7 business days.
@@ -104,7 +106,7 @@ export default function SellerDocumentsScreen() {
 
         {currentStatus === "rejected" && rejectionReason ? (
           <View style={styles.rejectBanner}>
-            <Text style={styles.rejectTitle}>Previously rejected</Text>
+            <Text style={styles.rejectTitle}>{t("seller_documents.previously_rejected")}</Text>
             <Text style={styles.rejectText}>{rejectionReason}</Text>
           </View>
         ) : null}
@@ -112,8 +114,8 @@ export default function SellerDocumentsScreen() {
         <DocSlotCard
           testID="upload-id-proof"
           icon="id"
-          label="Photo ID"
-          hint="Aadhaar, PAN card, Driving licence or Passport"
+          label={t("seller_documents.photo_id_label")}
+          hint={t("seller_documents.photo_id_hint")}
           value={idProof}
           onPick={() => pick("id_proof")}
         />
@@ -121,14 +123,14 @@ export default function SellerDocumentsScreen() {
         <DocSlotCard
           testID="upload-business-proof"
           icon="biz"
-          label="Business proof"
+          label={t("seller_documents.business_proof_label")}
           hint="GST certificate, Shop & Establishment licence, or MSME / Udyam certificate"
           value={bizProof}
           onPick={() => pick("business_proof")}
         />
 
         <View style={styles.privacyBox}>
-          <Text style={styles.privacyTitle}>How we use your documents</Text>
+          <Text style={styles.privacyTitle}>{t("seller_documents.privacy_title")}</Text>
           <Text style={styles.privacyText}>
             • Stored securely on Cloudinary{"\n"}
             • Only reviewed by Allsale&apos;s compliance team{"\n"}
@@ -148,19 +150,19 @@ export default function SellerDocumentsScreen() {
           <Text style={styles.policyText}>
             I have read and accept Allsale&apos;s{" "}
             <Link href="/help/seller-policy" asChild>
-              <Text style={styles.policyLink}>Seller Policy</Text>
+              <Text style={styles.policyLink}>{t("seller_documents.seller_policy")}</Text>
             </Link>
             {", "}
             <Link href="/help/payment-policy" asChild>
-              <Text style={styles.policyLink}>Payment Hold Policy</Text>
+              <Text style={styles.policyLink}>{t("seller_documents.payment_hold_policy")}</Text>
             </Link>
             {", "}
             <Link href="/help/return-policy" asChild>
-              <Text style={styles.policyLink}>Return Policy</Text>
+              <Text style={styles.policyLink}>{t("seller_documents.return_policy")}</Text>
             </Link>
             {", and "}
             <Link href="/help/cancellation-policy" asChild>
-              <Text style={styles.policyLink}>Cancellation Policy</Text>
+              <Text style={styles.policyLink}>{t("seller_documents.cancellation_policy")}</Text>
             </Link>
             . Payments are held until the return window closes (typically 14 days post-delivery).
           </Text>
@@ -181,7 +183,7 @@ export default function SellerDocumentsScreen() {
           ) : (
             <>
               <Upload size={18} color="#fff" />
-              <Text style={styles.submitText}>Submit for review</Text>
+              <Text style={styles.submitText}>{t("seller_documents.submit")}</Text>
             </>
           )}
         </Pressable>
@@ -210,6 +212,7 @@ function DocSlotCard({
   value: string | null;
   onPick: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Pressable
       testID={testID}
@@ -228,12 +231,12 @@ function DocSlotCard({
       {value ? (
         <View style={styles.previewRow}>
           <Image source={{ uri: value }} style={styles.previewImg} resizeMode="cover" />
-          <Text style={styles.replaceText}>Tap to replace</Text>
+          <Text style={styles.replaceText}>{t("seller_documents.tap_replace")}</Text>
         </View>
       ) : (
         <View style={styles.uploadCta}>
           <Upload size={16} color={colors.primary} />
-          <Text style={styles.uploadCtaText}>Choose photo from gallery</Text>
+          <Text style={styles.uploadCtaText}>{t("seller_documents.choose_photo")}</Text>
         </View>
       )}
     </Pressable>

@@ -22,6 +22,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AdminUnauthorized, adminApi } from "@/src/lib/adminApi";
 import { colors, radius, spacing } from "@/src/lib/theme";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 
 type Status = {
   sdk_installed: boolean;
@@ -33,6 +34,7 @@ type Status = {
 
 export default function AdminEmailScreen() {
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,12 +50,12 @@ export default function AdminEmailScreen() {
       if (e instanceof AdminUnauthorized) {
         router.replace("/admin");
       } else {
-        show({ title: "Failed", message: e?.message || "Try again.", kind: "error" });
+        show({ title: t("admin_email_diag.failed"), body: e?.message || t("admin_email_diag.try_again"), kind: "error" });
       }
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, show, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -63,7 +65,7 @@ export default function AdminEmailScreen() {
 
   const send = useCallback(async () => {
     if (!to.includes("@")) {
-      show({ title: "Enter a valid email", message: "e.g. you@example.com", kind: "error" });
+      show({ title: t("admin_email_diag.invalid_email"), body: t("admin_email_diag.invalid_email_eg"), kind: "error" });
       return;
     }
     setSending(true);
@@ -73,16 +75,16 @@ export default function AdminEmailScreen() {
         { method: "POST", body: { to } },
       );
       if (r.sent) {
-        show({ title: "✅ Sent!", message: `Resend ID: ${r.id || "—"}\nCheck the inbox of ${to}.`, kind: "error" });
+        show({ title: "✅ Sent!", body: `Resend ID: ${r.id || "—"}\nCheck the inbox of ${to}.`, kind: "success" });
       } else if (r.skipped) {
-        show({ title: "Skipped", message: `Resend not ready: ${r.reason}\nCheck API key + from email.`, kind: "error" });
+        show({ title: t("admin_email_diag.skipped"), body: t("admin_email_diag.not_ready_reason", { reason: r.reason }), kind: "error" });
       }
     } catch (e: any) {
-      show({ title: "Send failed", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("admin_email_diag.send_failed"), body: e?.message || t("admin_email_diag.try_again"), kind: "error" });
     } finally {
       setSending(false);
     }
-  }, [to]);
+  }, [to, show, t]);
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -92,7 +94,7 @@ export default function AdminEmailScreen() {
         </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <Mail size={18} color={colors.primary} />
-          <Text style={styles.title}>Email diagnostics</Text>
+          <Text style={styles.title}>{t("admin_email_diag.title")}</Text>
         </View>
         <Pressable testID="email-refresh" onPress={load} style={styles.backBtn}>
           <RefreshCw size={18} color={colors.text} />
@@ -121,7 +123,7 @@ export default function AdminEmailScreen() {
                   { color: status.ready ? "#065F46" : "#991B1B" },
                 ]}
               >
-                {status.ready ? "Ready to send" : "Not ready"}
+                {status.ready ? t("admin_email_diag.ready") : t("admin_email_diag.not_ready")}
               </Text>
             </View>
 
@@ -133,13 +135,13 @@ export default function AdminEmailScreen() {
                 value={status.api_key_preview || undefined}
               />
               <Detail
-                label="From address"
+                label={t("admin_email_diag.from_address")}
                 ok={!!status.from_address}
                 value={status.from_address || undefined}
               />
             </View>
 
-            <Text style={styles.section}>Send test email</Text>
+            <Text style={styles.section}>{t("admin_email_diag.section")}</Text>
             <TextInput
               testID="test-email-to"
               value={to}
@@ -165,7 +167,7 @@ export default function AdminEmailScreen() {
               ) : (
                 <>
                   <Send size={16} color="#fff" />
-                  <Text style={styles.sendText}>Send test email</Text>
+                  <Text style={styles.sendText}>{t("admin_email_diag.send_btn")}</Text>
                 </>
               )}
             </Pressable>
