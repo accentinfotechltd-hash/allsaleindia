@@ -61,7 +61,10 @@ async def validate_coupon(
 @router.get("/coupons/active", response_model=List[CouponPublic])
 async def list_active_coupons(current=Depends(get_current_user)):
     """Public coupons (scope=all + sitewide sellers/categories) that the
-    buyer can browse and tap to apply. We exclude expired/inactive ones.
+    buyer can browse and tap to apply. We exclude expired/inactive ones
+    AND personal ambassador-issued codes (those are 1:1 referrals, not
+    public sitewide promos — they're surfaced via the ambassador share
+    sheet instead).
     """
     now = datetime.now(timezone.utc)
     docs = []
@@ -72,6 +75,12 @@ async def list_active_coupons(current=Depends(get_current_user)):
         },
         {"_id": 0},
     ).sort("created_at", -1):
+        # Skip personal / ambassador-issued codes — they have either no
+        # description (auto-generated) or a non-public owner attribution.
+        if not c.get("description"):
+            continue
+        if c.get("id", "").startswith("cpn_amb_") or c.get("ambassador_id"):
+            continue
         # Region filter
         countries = c.get("countries") or []
         if countries:

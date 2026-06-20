@@ -1,0 +1,26 @@
+{
+  "summary": "Retest of iteration 46 P0 bug (GET /api/coupons/active 500). VERIFIED FIXED end-to-end. Backend: endpoint returns 200 for authenticated buyer buyer@example.com with a clean list of exactly the 2 seeded sitewide promos (WELCOME10 10% off, FREESHIP free shipping > $75). No cpn_amb_* coupons and no null-description entries leak through. Regression suite /app/backend/tests/test_coupons_active_regression.py passes 5/5 (ambassador exclusion, sitewide present, inactive excluded, expired excluded, auth required). Frontend: logged-in /deals now renders the purple 'Coupons for you' horizontal strip with both WELCOME10 + FREESHIP cards visible; tapping the WELCOME10 copy button writes 'WELCOME10' to the clipboard and shows the 'Copied \"WELCOME10\"' toast. Anonymous /deals correctly hides the Coupons section. Flash Sales + 'More deals · 10%+ off' sections still render. All 5 acceptance criteria PASS.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_coupons_active_regression.py",
+    "/app/test_reports/pytest/iter47_coupons_regression.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "routers/coupons.py:list_active_coupons now defensively filters by `description` truthiness AND by id prefix `cpn_amb_` OR `ambassador_id` field. Belt-and-braces approach is good — survives both ambassador-data backfills (where description gets populated later) and rogue future test pollution.",
+    "Consider adding an idempotent post-startup data-cleanup hook (or a periodic background job) so future test pollution of personal/referral coupons is auto-pruned from `db.coupons`, rather than relying on a one-off manual cleanup of 302 leftover rows."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "5/5 (100%)", "frontend": "5/5 acceptance criteria PASS"},
+  "seed_data_creation": "None. Used existing WELCOME10 + FREESHIP seeded coupons and the buyer@example.com / Buyer2026! test account.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iteration-46 P0 (500 on /api/coupons/active) is closed. The endpoint correctly filters: (a) description=None/empty, (b) id starts with cpn_amb_, (c) ambassador_id set. Buyer-facing 'Coupons for you' strip on /deals renders WELCOME10 + FREESHIP and the Copy button writes to clipboard + fires the success toast. Regression file is /app/backend/tests/test_coupons_active_regression.py (5 tests). Future work: add a periodic ambassador-coupon cleanup job to prevent re-pollution.",
+  "rca_of_issue": "Previously fixed by E1. Confirmed working: routers/coupons.py:list_active_coupons skips docs where (1) `description` is falsy, (2) `id` starts with `cpn_amb_`, or (3) `ambassador_id` is set. Additionally 302 leftover ambassador/test coupons were purged from the live DB. Net effect: serializer never sees a None description and pydantic CouponPublic no longer raises ValidationError → 200 OK with clean payload."
+}
