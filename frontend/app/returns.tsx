@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
@@ -43,24 +44,25 @@ type ReturnRequest = {
   decision_note?: string | null;
 };
 
-const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
-  pending_seller: { bg: "#FEF3C7", fg: "#92400E", label: "Awaiting seller" },
-  approved:       { bg: "#DBEAFE", fg: "#1E40AF", label: "Approved" },
-  refunded:       { bg: "#D1FAE5", fg: "#065F46", label: "Refunded" },
-  rejected:       { bg: "#FEE2E2", fg: "#991B1B", label: "Declined" },
-  cancelled:      { bg: "#E5E7EB", fg: "#374151", label: "Cancelled" },
+const STATUS_PILL: Record<string, { bg: string; fg: string; labelKey: string }> = {
+  pending_seller: { bg: "#FEF3C7", fg: "#92400E", labelKey: "buyer_returns.status_pending_seller" },
+  approved:       { bg: "#DBEAFE", fg: "#1E40AF", labelKey: "buyer_returns.status_approved" },
+  refunded:       { bg: "#D1FAE5", fg: "#065F46", labelKey: "buyer_returns.status_refunded" },
+  rejected:       { bg: "#FEE2E2", fg: "#991B1B", labelKey: "buyer_returns.status_rejected" },
+  cancelled:      { bg: "#E5E7EB", fg: "#374151", labelKey: "buyer_returns.status_cancelled" },
 };
 
-const REASON_LABEL: Record<string, string> = {
-  damaged_on_arrival: "Damaged on arrival",
-  wrong_item: "Wrong item received",
-  not_as_described: "Not as described",
-  defective: "Defective",
-  changed_my_mind: "Changed my mind",
+const REASON_KEY: Record<string, string> = {
+  damaged_on_arrival: "buyer_returns.reason_damaged",
+  wrong_item: "buyer_returns.reason_wrong",
+  not_as_described: "buyer_returns.reason_not_described",
+  defective: "buyer_returns.reason_defective",
+  changed_my_mind: "buyer_returns.reason_changed_mind",
 };
 
 export default function MyReturnsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -82,7 +84,7 @@ export default function MyReturnsScreen() {
         <Pressable testID="myreturns-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>My returns</Text>
+        <Text style={styles.title}>{t("buyer_returns.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -95,17 +97,16 @@ export default function MyReturnsScreen() {
           <View style={styles.emptyIcon}>
             <RefreshCcw size={28} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>No returns yet</Text>
+          <Text style={styles.emptyTitle}>{t("buyer_returns.empty_title")}</Text>
           <Text style={styles.emptyText}>
-            You have 7 days from delivery to request a return. Once you do, it
-            will appear here with its approval status.
+            {t("buyer_returns.empty_body")}
           </Text>
           <Pressable
             testID="myreturns-orders-link"
             onPress={() => router.push("/orders")}
             style={styles.ordersBtn}
           >
-            <Text style={styles.ordersBtnText}>Go to my orders</Text>
+            <Text style={styles.ordersBtnText}>{t("buyer_returns.go_orders_btn")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -125,18 +126,18 @@ export default function MyReturnsScreen() {
               >
                 <View style={styles.rowHead}>
                   <View>
-                    <Text style={styles.orderId}>Order #{orderShort}</Text>
+                    <Text style={styles.orderId}>{t("buyer_returns.order_prefix")}{orderShort}</Text>
                     <Text style={styles.dateText}>
                       {date.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" })}
                     </Text>
                   </View>
                   <View style={[styles.statusPill, { backgroundColor: pill.bg }]}>
-                    <Text style={[styles.statusText, { color: pill.fg }]}>{pill.label}</Text>
+                    <Text style={[styles.statusText, { color: pill.fg }]}>{t(pill.labelKey)}</Text>
                   </View>
                 </View>
 
                 <Text style={styles.reason}>
-                  Reason: <Text style={{ fontWeight: "700", color: colors.text }}>{REASON_LABEL[item.reason] || item.reason}</Text>
+                  {t("buyer_returns.reason_prefix")}<Text style={{ fontWeight: "700", color: colors.text }}>{REASON_KEY[item.reason] ? t(REASON_KEY[item.reason]) : item.reason}</Text>
                 </Text>
 
                 <View style={styles.thumbRow}>
@@ -152,15 +153,15 @@ export default function MyReturnsScreen() {
 
                 <View style={styles.refundRow}>
                   <Text style={styles.refundLabel}>
-                    Refund {item.status === "refunded" ? "issued" : item.status === "rejected" ? "estimated" : "pending"}
+                    {t(item.status === "refunded" ? "buyer_returns.refund_issued" : item.status === "rejected" ? "buyer_returns.refund_estimated" : "buyer_returns.refund_pending")}
                   </Text>
                   <Text style={styles.refundAmount}>{formatNZD(item.refund_amount_nzd)}</Text>
                 </View>
                 {item.restocking_fee_nzd > 0 ? (
-                  <Text style={styles.restock}>15% restocking fee: {formatNZD(item.restocking_fee_nzd)}</Text>
+                  <Text style={styles.restock}>{t("buyer_returns.restock_fee", { amount: formatNZD(item.restocking_fee_nzd) })}</Text>
                 ) : null}
                 {item.decision_note ? (
-                  <Text style={styles.note}>Seller note: {item.decision_note}</Text>
+                  <Text style={styles.note}>{t("buyer_returns.seller_note", { note: item.decision_note })}</Text>
                 ) : null}
               </Pressable>
             );

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -34,17 +35,18 @@ type Page = {
   items: Entry[];
 };
 
-const REASON_LABEL: Record<string, string> = {
-  signup_bonus: "Welcome bonus",
-  order_earn: "Order earn",
-  review_earn: "Review reward",
-  order_redeem: "Used on order",
-  manual: "Adjustment",
-  expired: "Expired",
+const REASON_KEY: Record<string, string> = {
+  signup_bonus: "buyer_points.reason_signup",
+  order_earn: "buyer_points.reason_order_earn",
+  review_earn: "buyer_points.reason_review",
+  order_redeem: "buyer_points.reason_order_redeem",
+  manual: "buyer_points.reason_manual",
+  expired: "buyer_points.reason_expired",
 };
 
 export default function PointsHistoryScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [page, setPage] = useState<Page | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -73,7 +75,7 @@ export default function PointsHistoryScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Allsale Points</Text>
+        <Text style={styles.title}>{t("buyer_points.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -91,32 +93,32 @@ export default function PointsHistoryScreen() {
                 </View>
                 <View>
                   <Text style={styles.heroBalance}>
-                    {page.balance.balance.toLocaleString()} pts
+                    {page.balance.balance.toLocaleString()}{t("buyer_points.pts_suffix")}
                   </Text>
                   <Text style={styles.heroValue}>
-                    ≈ ${page.balance.monetary_value_nzd.toFixed(2)} NZD
+                    {t("buyer_points.nzd_estimate", { amount: page.balance.monetary_value_nzd.toFixed(2) })}
                   </Text>
                 </View>
               </View>
               {page.balance.expiring_soon > 0 ? (
                 <View style={styles.expBanner}>
                   <Text style={styles.expText}>
-                    ⚠️ {page.balance.expiring_soon} pts expiring in the next 30 days
+                    {t("buyer_points.expiring_soon", { n: page.balance.expiring_soon })}
                   </Text>
                 </View>
               ) : null}
               <View style={styles.ratesCard}>
                 <Text style={styles.rateRow}>
-                  💰 Earn <Text style={styles.bold}>{page.balance.earn_rate_per_nzd} pt</Text> per $1 NZD
+                  {t("buyer_points.rate_earn_a")}<Text style={styles.bold}>{page.balance.earn_rate_per_nzd}</Text>{t("buyer_points.rate_earn_b")}
                 </Text>
                 <Text style={styles.rateRow}>
-                  💸 Redeem <Text style={styles.bold}>{page.balance.redeem_rate_per_nzd} pts = $1 NZD</Text>
+                  {t("buyer_points.rate_redeem_a")}<Text style={styles.bold}>{t("buyer_points.rate_redeem_b", { rate: page.balance.redeem_rate_per_nzd })}</Text>
                 </Text>
-                <Text style={styles.rateRow}>⭐ +50 pts for every verified review</Text>
-                <Text style={styles.rateRow}>🎁 +{page.balance.welcome_bonus} pts welcome bonus (once)</Text>
-                <Text style={styles.rateRow}>📦 Up to 50% of cart can be paid with points</Text>
+                <Text style={styles.rateRow}>{t("buyer_points.rate_review")}</Text>
+                <Text style={styles.rateRow}>{t("buyer_points.rate_welcome", { n: page.balance.welcome_bonus })}</Text>
+                <Text style={styles.rateRow}>{t("buyer_points.rate_cap")}</Text>
               </View>
-              <Text style={styles.histTitle}>History</Text>
+              <Text style={styles.histTitle}>{t("buyer_points.history_section")}</Text>
             </View>
           }
           data={page.items}
@@ -134,7 +136,7 @@ export default function PointsHistoryScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyText}>
-                No activity yet. Place an order or write a review to start earning! ✨
+                {t("buyer_points.empty_text")}
               </Text>
             </View>
           }
@@ -142,7 +144,7 @@ export default function PointsHistoryScreen() {
             <View style={styles.row} testID={`points-entry-${item.id}`}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowReason}>
-                  {REASON_LABEL[item.reason] || item.reason}
+                  {REASON_KEY[item.reason] ? t(REASON_KEY[item.reason]) : item.reason}
                 </Text>
                 <Text style={styles.rowDate}>
                   {new Date(item.created_at).toLocaleDateString(undefined, {

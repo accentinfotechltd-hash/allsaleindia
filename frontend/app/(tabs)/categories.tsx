@@ -11,18 +11,20 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTranslation } from "@/src/i18n";
 import { fetchTaxonomy, TaxonomyNode, TRUST_POINTS } from "@/src/lib/nz";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Categories() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [nodes, setNodes] = useState<TaxonomyNode[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const t = await fetchTaxonomy();
-      setNodes(t);
+      const tax = await fetchTaxonomy();
+      setNodes(tax);
     } finally {
       setLoading(false);
     }
@@ -33,8 +35,8 @@ export default function Categories() {
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Categories</Text>
-        <Text style={styles.subtitle}>India → New Zealand · 7-12 days courier</Text>
+        <Text style={styles.title}>{t("buyer_categories.title")}</Text>
+        <Text style={styles.subtitle}>{t("buyer_categories.subtitle")}</Text>
       </View>
 
       {loading ? (
@@ -63,8 +65,7 @@ export default function Categories() {
                 <Text style={styles.rowTitle}>{item.name}</Text>
                 <Text style={styles.rowBlurb} numberOfLines={2}>{item.blurb}</Text>
                 <Text style={styles.rowMeta}>
-                  {item.subcategories.length} subcategories · {item.subcategories.slice(0, 3).join(", ")}
-                  {item.subcategories.length > 3 ? "…" : ""}
+                  {t(item.subcategories.length > 3 ? "buyer_categories.subcats_more" : "buyer_categories.subcats_with_examples", { count: item.subcategories.length, examples: item.subcategories.slice(0, 3).join(", ") })}
                 </Text>
               </View>
               <ChevronRight size={20} color={colors.textMuted} />
