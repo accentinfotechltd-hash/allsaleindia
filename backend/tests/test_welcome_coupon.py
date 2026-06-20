@@ -163,3 +163,148 @@ def test_get_welcome_coupon_for_user_returns_none_after_redemption():
     after = _run(get_welcome_coupon_for_user(user))
     assert after is None
     _cleanup(uid)
+
+
+# ---------------------------------------------------------------------------
+# Regression — payouts honour the proportional-discount-sharing contract
+# ---------------------------------------------------------------------------
+# WHY: services/payouts.py used to compute seller commission from the
+# pre-coupon listed price, so the platform absorbed 100% of every coupon
+# discount. After fixing the math we share the discount proportionally
+# with sellers (matching Amazon/Etsy/eBay/Flipkart). This test locks the
+# behaviour in so a future refactor can't silently re-introduce the bug.
+#
+# The acid-test: a 50%-off coupon should halve the seller's commission base
+# (and therefore halve the platform's commission take) — same as if the
+# seller had listed the item at half the price to begin with.
+def test_payouts_halve_commission_when_50pct_coupon(monkeypatch):
+    from services import payouts as payouts_svc
+
+    uid = f"user_stub_{uuid.uuid4().hex[:8]}"
+    sid = f"seller_stub_{uuid.uuid4().hex[:8]}"
+    pid = f"prod_stub_{uuid.uuid4().hex[:8]}"
+    oid = f"order_stub_{uuid.uuid4().hex[:8]}"
+
+    # Seed a product in the "Decor" category which carries a 15% commission
+    # (1500 bps) — see services/stripe_connect_svc.get_commission_bps_for_product.
+    _db.products.insert_one(
+        {"id": pid, "category": "Decor", "tags": [], "price_nzd": 100.0}
+    )
+
+    # Order with a $100 listed item, a 50% ($50) coupon — buyer effectively
+    # pays $50. Pre-fix the seller would've received commission against $100;
+    # post-fix they should receive against $50.
+    _db.orders.insert_one(
+        {
+            "id": oid,
+            "user_id": uid,
+            "items": [
+                {
+                    "product_id": pid,
+                    "seller_id": sid,
+                    "seller_name": "Stub Seller",
+                    "name": "Test Decor",
+                    "image": "x",
+                    "price_nzd": 100.0,
+                    "quantity": 1,
+                }
+            ],
+            "subtotal_nzd": 100.0,
+            "discount_nzd": 50.0,          # ← the 50% coupon
+            "points_discount_nzd": 0.0,
+            "shipping_nzd": 0.0,
+            "total_nzd": 50.0,
+            "status": "paid",
+            "payment_status": "paid",
+            "created_at": datetime.now(tz=timezone.utc),
+        }
+    )
+
+    # Stub seller-tier resolution (returns the default Starter tier) so we
+    # don't depend on the sellers collection layout for this test.
+    class _Tier:
+        name = "starter"
+        reserve_pct = 0.0
+
+    async def _fake_tier(seller_id: str):
+        return _Tier()
+
+    monkeypatch.setattr(payouts_svc, "_tier_for", _fake_tier)
+
+    # Invoke the service and inspect the payout it writes.
+    try:
+        run_async(payouts_svc.create_payouts_for_order(oid))
+        payout = _db.payouts.find_one({"order_id": oid, "seller_id": sid})
+        assert payout is not None, "payout row was not created"
+        # On a $100 line with a 50% coupon, the discounted line gross = $50.
+        # At 12% commission (Decor category default), the platform takes $6
+        # and the seller's net payable is $50 − $6 = $44.
+        assert payout["gross_nzd"] == 50.0, payout
+        assert payout["commission_nzd"] == 6.0, payout
+        assert payout["net_payable_nzd"] == 44.0, payout
+    finally:
+        _db.products.delete_one({"id": pid})
+        _db.orders.delete_one({"id": oid})
+        _db.payouts.delete_many({"order_id": oid})
+
+
+def test_payouts_unchanged_when_no_coupon(monkeypatch):
+    """Sanity counterpart: zero discount → seller gets full pre-fix commission
+    base. Guards against accidental scaling on non-discounted orders."""
+    from services import payouts as payouts_svc
+
+    uid = f"user_stub_{uuid.uuid4().hex[:8]}"
+    sid = f"seller_stub_{uuid.uuid4().hex[:8]}"
+    pid = f"prod_stub_{uuid.uuid4().hex[:8]}"
+    oid = f"order_stub_{uuid.uuid4().hex[:8]}"
+
+    _db.products.insert_one(
+        {"id": pid, "category": "Decor", "tags": [], "price_nzd": 80.0}
+    )
+    _db.orders.insert_one(
+        {
+            "id": oid,
+            "user_id": uid,
+            "items": [
+                {
+                    "product_id": pid,
+                    "seller_id": sid,
+                    "seller_name": "Stub Seller",
+                    "name": "Test Decor",
+                    "image": "x",
+                    "price_nzd": 80.0,
+                    "quantity": 1,
+                }
+            ],
+            "subtotal_nzd": 80.0,
+            "discount_nzd": 0.0,
+            "points_discount_nzd": 0.0,
+            "shipping_nzd": 0.0,
+            "total_nzd": 80.0,
+            "status": "paid",
+            "payment_status": "paid",
+            "created_at": datetime.now(tz=timezone.utc),
+        }
+    )
+
+    class _Tier:
+        name = "starter"
+        reserve_pct = 0.0
+
+    async def _fake_tier(seller_id: str):
+        return _Tier()
+
+    monkeypatch.setattr(payouts_svc, "_tier_for", _fake_tier)
+
+    try:
+        run_async(payouts_svc.create_payouts_for_order(oid))
+        payout = _db.payouts.find_one({"order_id": oid, "seller_id": sid})
+        assert payout is not None
+        # $80 × 12% (Decor) = $9.60 commission · $70.40 net payable
+        assert payout["gross_nzd"] == 80.0
+        assert payout["commission_nzd"] == 9.6
+        assert payout["net_payable_nzd"] == 70.4
+    finally:
+        _db.products.delete_one({"id": pid})
+        _db.orders.delete_one({"id": oid})
+        _db.payouts.delete_many({"order_id": oid})
