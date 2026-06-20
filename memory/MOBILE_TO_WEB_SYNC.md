@@ -385,3 +385,43 @@ The previous monolithic `routers/products.py` (~830 lines) has been split:
 
 ## Backend tests
 Critical-path suites: **102/102 pass** across qa, best_sellers, frequently_bought_together, wishlist_collections_move, subcategory_and_facets, delivery_rating, notification_prefs, analytics_low_stock.
+
+
+## Seller Catalog Importer — Amazon / Flipkart / CSV (June 20, 2026)
+**Major onboarding accelerator** — sellers can bring their existing Amazon Seller Central or Flipkart Seller Hub catalog into Allsale with one upload. Auto-mapping + AI clean-up via Claude Sonnet 4.5.
+
+### Endpoints (seller-only — verified or auto_verified)
+- `POST /api/seller/import/preview` (multipart) — body: `file` (xlsx/xlsm/xls/csv, ≤25 MB) + optional `source_hint` (`amazon|flipkart|csv`). Returns `{preview_token, source, total_rows, ready_count, needs_attention_count, fx_inr_to_nzd, warnings, rows[]}` where each row has `{row_index, product (mapped Allsale schema), issues[], ready}`. **No DB writes.** Preview cached 2 h.
+- `POST /api/seller/import/commit` (JSON) — body: `{preview_token, rows: [{row_index, publish, overrides?}], margin_pct, enrich_with_ai}`. Returns `{created, updated, skipped, failed, failed_details[]}`. Updates existing products by `(seller_id, sku)`, inserts new ones with fresh `pdt_*` ids.
+
+### Field mapping highlights
+- Amazon SKU/Item Name/Brand/Bullet Points × 5/Main Image URL/Other Image URL × 8/Color/Size/HSN → mapped to Allsale schema.
+- Flipkart Seller SKU ID/MRP/Selling Price (INR)/Stock/Brand+Model/Main Image/Other Images × 4/HSN/EAN/Country Of Origin/L×B×H/Weight (KG) → mapped 1:1.
+- Category auto-detected: Amazon `product_type` (HAIR_CONDITIONER → Beauty & Health/Hair Care) + Flipkart sheet name (`saree` → Ethnic Fashion/Sarees).
+- INR → NZD auto-conversion using `INR_PER_NZD` (config-controlled, default 51).
+- Optional global margin % uplift applied at commit time.
+
+### Tier 2: AI Enrichment (Claude Sonnet 4.5 via Emergent LLM Key)
+- Detects Hindi/Devanagari/Hinglish in descriptions → translates to natural English.
+- If <3 bullet points and description >80 chars → generates 5 bullet points.
+- Runs only when seller opts in. Failures degrade gracefully (no rejection).
+- Each enriched product carries `ai_enrichment: ["translated_description", "generated_bullets"]`.
+
+### Mobile UI
+`/seller/import.tsx` — 5-step wizard: Source → Upload → Preview/select rows → Settings (margin + AI toggle) → Success. Linked from `/seller/dashboard` as **"Import Amazon / Flipkart"** quick card.
+
+### Tests
+- `backend/tests/test_catalog_importer.py` — 11 cases (mapping helpers, detect heuristics, Amazon/Flipkart/CSV parsers with synthetic fixtures). All pass.
+- Live E2E verified: Hindi description `पारंपरिक कांचीपुरम सिल्क साड़ी, मंदिर बॉर्डर के साथ।` translated automatically to `Traditional Kanchipuram silk saree with temple border.` ✨
+
+### Web parity
+Web agent should mirror the same flow at `/seller/import`. Backend endpoints are platform-agnostic — same payloads work for both. Upload uses `multipart/form-data` with `file` field + optional `source_hint`.
+
+### New collections
+- `catalog_import_previews`: `{preview_token, seller_id, source, filename, rows[], expires_at, created_at}` — TTL-style cleanup happens on commit; orphans expire after 2 h naturally (no cron yet).
+
+### New fields on `products`
+- `sku`, `brand`, `bullets[]`, `hsn_code`, `ean_upc`, `manufacturer`, `importer`, `ingredients`, `imported_from`, `imported_at`, `ai_enrichment[]`.
+
+### Env
+- `EMERGENT_LLM_KEY` added to `backend/.env` (required for AI enrichment; everything else still works without it).

@@ -231,6 +231,17 @@ export default function SellerDashboard() {
                   <Text style={styles.quickSubtitle}>{t("seller.bulk_upload_sub")}</Text>
                 </Pressable>
                 <Pressable
+                  testID="seller-catalog-import-link"
+                  onPress={() => router.push("/seller/import")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <Sparkles size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Import Amazon / Flipkart</Text>
+                  <Text style={styles.quickSubtitle}>Drop your catalog file — AI does the rest.</Text>
+                </Pressable>
+                <Pressable
                   testID="seller-coupons-link"
                   onPress={() => router.push("/seller/coupons")}
                   style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}

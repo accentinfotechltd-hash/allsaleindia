@@ -62,6 +62,7 @@ from routers import (
     reviews,
     search,
     seller,
+    seller_import,
     sellers_public,
     stock_waitlist,
     shiprocket,
@@ -104,6 +105,7 @@ api.include_router(product_extras.router)
 api.include_router(qa.router)
 api.include_router(cart.router)
 api.include_router(seller.router)
+api.include_router(seller_import.router)
 api.include_router(size_guide.router)
 api.include_router(bulk_listings.router)
 api.include_router(orders.router)
