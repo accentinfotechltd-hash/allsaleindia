@@ -46,7 +46,8 @@ async def list_wishlist(
     Optionally scope to a single ``collection_id`` (omit to see all saved items)."""
     rows: list[WishlistItem] = []
     base_filter: dict = {"user_id": current["id"]}
-    if collection_id is not None:
+    # Treat empty string the same as omitted ⇒ "All saved" (no filter)
+    if collection_id:
         base_filter["collection_id"] = collection_id
     async for w in db.wishlists.find(base_filter, {"_id": 0}).sort(
         "added_at", -1

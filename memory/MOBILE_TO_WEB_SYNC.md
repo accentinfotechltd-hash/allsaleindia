@@ -346,3 +346,27 @@ Web should build a public read-only page at `/w/<token>` consuming `/api/wishlis
 
 ### Verified live
 mint → 200 token `qRJksyln02L58iGc` · public view → 200 (1 item) · revoke → 200 · public view after revoke → 404 ✓
+
+
+## Wishlist Collections — Bulk Move (June 20, 2026)
+Buyers can now bulk-move multiple wishlist items between named collections.
+
+### Endpoints (all already existed; verified end-to-end)
+- `PATCH /api/wishlist/items/{product_id}` body `{collection_id: string | null}`
+  - 200 → moves the item to the target collection (or back to "All saved" when `null`)
+  - 404 → product not in wishlist
+  - 404 → `collection_id` does not exist for this user
+- `GET /api/wishlist?collection_id=<id>` → filters list to a single collection
+- `GET /api/wishlist?collection_id=` (empty string) **now treated as omitted → returns all** (June 20 fix in `routers/wishlist.py:49`).
+- `GET /api/wishlist/collections` → `{all_saved_count, collections:[{id, name, item_count}]}`
+
+### Mobile UX
+- Selection mode in `/app/frontend/app/wishlist.tsx` gained a third "Move to list (N)" action between Remove and Move-to-cart.
+- New `moveListOpen` modal renders "All saved (no list)" + every existing collection. Tapping a target fires `PATCH` in parallel for every selected product, then refreshes both the list and collection counts.
+- Toast confirms: e.g. "Moved 2 items to Diwali".
+
+### Web suggestion
+Mirror the same UX inside the saved-items / wishlist surface: multi-select + a "Move to list" picker that calls the same PATCH per item. The empty-string fix means web can safely pass through query strings without normalising.
+
+### Tests
+- `backend/tests/test_wishlist_collections_move.py` — 13 cases, all pass.
