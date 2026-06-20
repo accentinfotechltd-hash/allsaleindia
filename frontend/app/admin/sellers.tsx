@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { colors, radius, spacing } from "@/src/lib/theme";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 
 type PendingSeller = {
   user_id: string;
@@ -54,6 +55,7 @@ async function adminFetch<T>(
 
 export default function AdminSellersScreen() {
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [secret, setSecret] = useState("");
   const [sellers, setSellers] = useState<PendingSeller[] | null>(null);
@@ -70,12 +72,12 @@ export default function AdminSellersScreen() {
       );
       setSellers(data.sellers || []);
     } catch (e: any) {
-      show({ title: "Failed", message: e.message, kind: "error" });
+      show({ title: t("admin_sellers.failed"), body: e.message, kind: "error" });
       setSellers([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [show, t]);
 
   useEffect(() => {
     if (secret) refresh(secret);
@@ -89,21 +91,21 @@ export default function AdminSellersScreen() {
           method: "POST",
         });
         await refresh(secret);
-        show({ title: "Approved", message: `${s.company_name || s.email} can now list products.`, kind: "error" });
+        show({ title: t("admin_sellers.approved"), body: t("admin_sellers.approved_body", { name: s.company_name || s.email }), kind: "success" });
       } catch (e: any) {
-        show({ title: "Failed", message: e.message, kind: "error" });
+        show({ title: t("admin_sellers.failed"), body: e.message, kind: "error" });
       } finally {
         setBusyId(null);
       }
     },
-    [secret, refresh],
+    [secret, refresh, show, t],
   );
 
   const reject = useCallback(
     (s: PendingSeller) => {
       Alert.prompt?.(
-        "Reject seller",
-        "Reason (shown to seller):",
+        t("admin_sellers.reject_title"),
+        t("admin_sellers.reject_msg"),
         async (reason) => {
           if (!reason || !reason.trim()) return;
           setBusyId(s.user_id);
@@ -113,9 +115,9 @@ export default function AdminSellersScreen() {
               body: { reason: reason.trim() },
             });
             await refresh(secret);
-            show({ title: "Rejected", message: `Reason sent to ${s.company_name || s.email}.`, kind: "error" });
+            show({ title: t("admin_sellers.rejected"), body: t("admin_sellers.rejected_body", { name: s.company_name || s.email }), kind: "success" });
           } catch (e: any) {
-            show({ title: "Failed", message: e.message, kind: "error" });
+            show({ title: t("admin_sellers.failed"), body: e.message, kind: "error" });
           } finally {
             setBusyId(null);
           }
@@ -124,22 +126,22 @@ export default function AdminSellersScreen() {
       );
       // Fallback for Android (no Alert.prompt) — use a generic reason
       if (!(Alert as any).prompt) {
-        show({ title: "Provide reason on iOS", message: "Web/Android prompt not supported here — please use the iOS Admin app for rejection with reason.", kind: "error" });
+        show({ title: t("admin_sellers.prompt_only_ios_title"), body: t("admin_sellers.prompt_only_ios_body"), kind: "error" });
       }
     },
-    [secret, refresh],
+    [secret, refresh, show, t],
   );
 
   if (!secret) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
         <View style={styles.gate}>
-          <Text style={styles.gateTitle}>Admin: pending sellers</Text>
-          <Text style={styles.gateHint}>Enter admin secret to continue</Text>
+          <Text style={styles.gateTitle}>{t("admin_sellers.gate_title")}</Text>
+          <Text style={styles.gateHint}>{t("admin_sellers.gate_hint")}</Text>
           <TextInput
             testID="admin-secret-input"
             style={styles.input}
-            placeholder="x-admin-secret"
+            placeholder={t("admin_sellers.secret_placeholder")}
             placeholderTextColor={colors.textMuted}
             secureTextEntry
             onSubmitEditing={(e) => setSecret(e.nativeEvent.text.trim())}
@@ -155,7 +157,7 @@ export default function AdminSellersScreen() {
         <Pressable onPress={() => router.back()} style={styles.iconBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Pending sellers</Text>
+        <Text style={styles.title}>{t("admin_sellers.header_title")}</Text>
         <Pressable onPress={() => refresh(secret)} style={styles.iconBtn}>
           <RefreshCw size={18} color={colors.text} />
         </Pressable>
@@ -168,7 +170,7 @@ export default function AdminSellersScreen() {
       ) : sellers && sellers.length === 0 ? (
         <View style={styles.emptyWrap}>
           <CheckCircle2 size={48} color={colors.success} />
-          <Text style={styles.emptyText}>No pending sellers — all caught up!</Text>
+          <Text style={styles.emptyText}>{t("admin_sellers.no_pending")}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
@@ -184,18 +186,18 @@ export default function AdminSellersScreen() {
                 {s.overdue ? (
                   <View style={styles.overduePill}>
                     <AlertTriangle size={12} color={colors.danger} />
-                    <Text style={styles.overdueText}>OVERDUE</Text>
+                    <Text style={styles.overdueText}>{t("admin_sellers.overdue")}</Text>
                   </View>
                 ) : (
                   <View style={styles.slaPill}>
-                    <Text style={styles.slaText}>{s.sla_days_remaining}d left</Text>
+                    <Text style={styles.slaText}>{t("admin_sellers.sla_left", { days: s.sla_days_remaining })}</Text>
                   </View>
                 )}
               </View>
 
               <View style={styles.docRow}>
-                <Text style={styles.field}>GSTIN: {s.gstin || "—"}</Text>
-                <Text style={styles.field}>PAN: {s.pan || "—"}</Text>
+                <Text style={styles.field}>{t("admin_sellers.gstin", { value: s.gstin || "—" })}</Text>
+                <Text style={styles.field}>{t("admin_sellers.pan", { value: s.pan || "—" })}</Text>
               </View>
 
               <View style={styles.docsRow}>
@@ -204,9 +206,9 @@ export default function AdminSellersScreen() {
                     {s.id_proof_url.startsWith("http") || s.id_proof_url.startsWith("data:") ? (
                       <Image source={{ uri: s.id_proof_url }} style={styles.docImg} resizeMode="cover" />
                     ) : (
-                      <Text style={styles.docLink}>View ID</Text>
+                      <Text style={styles.docLink}>{t("admin_sellers.view_id")}</Text>
                     )}
-                    <Text style={styles.docLabel}>Photo ID</Text>
+                    <Text style={styles.docLabel}>{t("admin_sellers.photo_id")}</Text>
                   </Pressable>
                 ) : null}
                 {s.business_proof_url ? (
@@ -214,9 +216,9 @@ export default function AdminSellersScreen() {
                     {s.business_proof_url.startsWith("http") || s.business_proof_url.startsWith("data:") ? (
                       <Image source={{ uri: s.business_proof_url }} style={styles.docImg} resizeMode="cover" />
                     ) : (
-                      <Text style={styles.docLink}>View Biz</Text>
+                      <Text style={styles.docLink}>{t("admin_sellers.view_biz")}</Text>
                     )}
-                    <Text style={styles.docLabel}>Business proof</Text>
+                    <Text style={styles.docLabel}>{t("admin_sellers.business_proof")}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -229,7 +231,7 @@ export default function AdminSellersScreen() {
                   style={({ pressed }) => [styles.actionBtn, styles.rejectBtn, pressed && { opacity: 0.85 }]}
                 >
                   <XCircle size={16} color={colors.danger} />
-                  <Text style={[styles.actionText, { color: colors.danger }]}>Reject</Text>
+                  <Text style={[styles.actionText, { color: colors.danger }]}>{t("admin_sellers.reject_btn")}</Text>
                 </Pressable>
                 <Pressable
                   testID={`approve-${s.user_id}`}
@@ -242,7 +244,7 @@ export default function AdminSellersScreen() {
                   ) : (
                     <>
                       <CheckCircle2 size={16} color="#fff" />
-                      <Text style={[styles.actionText, { color: "#fff" }]}>Approve</Text>
+                      <Text style={[styles.actionText, { color: "#fff" }]}>{t("admin_sellers.approve_btn")}</Text>
                     </>
                   )}
                 </Pressable>

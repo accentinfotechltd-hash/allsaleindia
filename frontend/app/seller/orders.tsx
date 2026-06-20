@@ -1,5 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { ChevronLeft, Download, MapPin, Package } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
@@ -43,6 +44,7 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 
 export default function SellerOrders() {
   const toast = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,12 +94,12 @@ export default function SellerOrders() {
       const path = `${FileSystem.cacheDirectory}allsale-orders-${Date.now()}.csv`;
       await FileSystem.writeAsStringAsync(path, text, { encoding: FileSystem.EncodingType.UTF8 });
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: "Save orders CSV" });
+        await Sharing.shareAsync(path, { mimeType: "text/csv", dialogTitle: t("seller_orders_screen.save_csv_dialog") });
       } else {
         await Linking.openURL(path);
       }
     } catch (e: any) {
-      toast.show({ title: "Couldn't download", body: e?.message || "Please try again.", kind: "error" });
+      toast.show({ title: t("seller_orders_screen.couldnt_download"), body: e?.message || t("seller_orders_screen.please_try_again"), kind: "error" });
     }
   }, []);
 
@@ -107,7 +109,7 @@ export default function SellerOrders() {
         <Pressable testID="seller-orders-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Orders</Text>
+        <Text style={styles.title}>{t("seller_orders_screen.title")}</Text>
         <Pressable
           testID="seller-orders-csv-btn"
           onPress={downloadCsv}
@@ -127,8 +129,8 @@ export default function SellerOrders() {
           <View style={styles.emptyIcon}>
             <Package size={28} color={colors.primary} />
           </View>
-          <Text style={styles.emptyTitle}>No orders yet</Text>
-          <Text style={styles.emptyText}>When buyers purchase your listings, they&apos;ll appear here.</Text>
+          <Text style={styles.emptyTitle}>{t("seller_orders_screen.no_orders_yet")}</Text>
+          <Text style={styles.emptyText}>{t("seller_orders_screen.no_orders_body")}</Text>
         </View>
       ) : (
         <FlatList
@@ -162,14 +164,14 @@ export default function SellerOrders() {
                     <Image source={{ uri: it.image }} style={styles.itemImg} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.itemName} numberOfLines={2}>{it.name}</Text>
-                      <Text style={styles.itemMeta}>Qty {it.quantity}</Text>
+                      <Text style={styles.itemMeta}>{t("seller_orders_screen.qty", { count: it.quantity })}</Text>
                     </View>
                     <Text style={styles.itemPrice}>{formatNZD(it.price_nzd * it.quantity)}</Text>
                   </View>
                 ))}
 
                 <View style={styles.rowFoot}>
-                  <Text style={styles.deliveryText}>Est. delivery: {item.estimated_delivery}</Text>
+                  <Text style={styles.deliveryText}>{t("seller_orders_screen.est_delivery", { date: item.estimated_delivery })}</Text>
                   <Text style={styles.totalText}>{formatNZD(item.seller_subtotal_nzd)}</Text>
                 </View>
 

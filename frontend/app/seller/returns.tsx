@@ -1,5 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import * as Linking from "expo-linking";
 import { Check, ChevronLeft, Film, Play, RefreshCcw, X } from "lucide-react-native";
 import { useCallback, useState } from "react";
@@ -47,15 +48,16 @@ type Return = {
 };
 
 const REASON_LABEL: Record<string, string> = {
-  damaged_on_arrival: "Damaged on arrival",
-  wrong_item: "Wrong item received",
-  not_as_described: "Not as described",
-  defective: "Defective / not working",
-  changed_my_mind: "Changed mind",
+  damaged_on_arrival: "reason_damaged",
+  wrong_item: "reason_wrong",
+  not_as_described: "reason_not_described",
+  defective: "reason_defective",
+  changed_my_mind: "reason_changed",
 };
 
 export default function SellerReturnsScreen() {
   const toast = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [returns, setReturns] = useState<Return[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,14 +94,14 @@ export default function SellerReturnsScreen() {
       setPending(null);
       setNote("");
       toast.show({
-        title: action === "approve" ? "Return approved" : "Return declined",
+        title: action === "approve" ? t("seller_returns_screen.return_approved") : t("seller_returns_screen.return_declined"),
         body: action === "approve"
-          ? `A refund of ${formatNZD(updated.refund_amount_nzd)} has been initiated to the buyer.`
-          : "The buyer has been notified.",
+          ? t("seller_returns_screen.return_approved_body", { amount: formatNZD(updated.refund_amount_nzd) })
+          : t("seller_returns_screen.return_declined_body"),
         kind: "success",
       });
     } catch (e: any) {
-      toast.show({ title: "Couldn't update", body: e?.message || "Please try again.", kind: "error" });
+      toast.show({ title: t("seller_returns_screen.couldnt_update"), body: e?.message || t("seller_orders_screen.please_try_again"), kind: "error" });
     } finally {
       setBusyId(null);
     }
@@ -115,7 +117,7 @@ export default function SellerReturnsScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Return requests</Text>
+        <Text style={styles.title}>{t("seller_returns_screen.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -126,9 +128,9 @@ export default function SellerReturnsScreen() {
       ) : returns.length === 0 ? (
         <View style={styles.center}>
           <RefreshCcw size={36} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>No return requests yet</Text>
+          <Text style={styles.emptyTitle}>{t("seller_returns_screen.no_returns_yet")}</Text>
           <Text style={styles.emptySub}>
-            Buyers can request a return within 7 days of delivery.
+            {t("seller_returns_screen.no_returns_body")}
           </Text>
         </View>
       ) : (
@@ -143,13 +145,13 @@ export default function SellerReturnsScreen() {
               <View style={styles.card} testID={`seller-rtn-${item.id}`}>
                 <View style={styles.cardTopRow}>
                   <Text style={styles.cardOrder}>
-                    Order #{item.order_id.replace("order_", "").slice(0, 8).toUpperCase()}
+                    {t("seller_returns_screen.order_label", { id: item.order_id.replace("order_", "").slice(0, 8).toUpperCase() })}
                   </Text>
                   <View style={[styles.pill, pillStyle(item.status)]}>
-                    <Text style={styles.pillText}>{prettyStatus(item.status)}</Text>
+                    <Text style={styles.pillText}>{t(`seller_returns_screen.${prettyStatusKey(item.status)}`)}</Text>
                   </View>
                 </View>
-                <Text style={styles.reason}>{REASON_LABEL[item.reason] || item.reason}</Text>
+                <Text style={styles.reason}>{REASON_LABEL[item.reason] ? t(`seller_returns_screen.${REASON_LABEL[item.reason]}`) : item.reason}</Text>
                 {item.note ? <Text style={styles.note}>“{item.note}”</Text> : null}
 
                 <View style={styles.itemsRow}>
@@ -159,14 +161,14 @@ export default function SellerReturnsScreen() {
                       <Text numberOfLines={1} style={styles.itemName}>
                         {it.name}
                       </Text>
-                      <Text style={styles.itemQty}>Qty {it.quantity}</Text>
+                      <Text style={styles.itemQty}>{t("seller_returns_screen.qty", { count: it.quantity })}</Text>
                     </View>
                   ))}
                 </View>
 
                 {(item.photos && item.photos.length > 0) || (item.videos && item.videos.length > 0) ? (
                   <View style={styles.proofWrap}>
-                    <Text style={styles.proofLabel}>Buyer&apos;s proof</Text>
+                    <Text style={styles.proofLabel}>{t("seller_returns_screen.buyers_proof")}</Text>
                     <View style={styles.proofRow}>
                       {(item.photos || []).map((url, idx) => (
                         <Pressable
@@ -197,19 +199,19 @@ export default function SellerReturnsScreen() {
 
                 <View style={styles.summary}>
                   <Text style={styles.summaryRow}>
-                    Refund amount:{" "}
+                    {t("seller_returns_screen.refund_amount")}{" "}
                     <Text style={styles.summaryBold}>{formatNZD(item.refund_amount_nzd)}</Text>
                   </Text>
                   {item.restocking_fee_nzd > 0 ? (
                     <Text style={styles.summaryRow}>
-                      Restocking fee (15%):{" "}
+                      {t("seller_returns_screen.restocking_fee")}{" "}
                       <Text style={styles.summaryBold}>{formatNZD(item.restocking_fee_nzd)}</Text>
                     </Text>
                   ) : null}
                   <Text style={styles.summaryRow}>
-                    Return shipping:{" "}
+                    {t("seller_returns_screen.return_shipping")}{" "}
                     <Text style={styles.summaryBold}>
-                      {item.buyer_pays_shipping ? "Buyer pays" : "You pay (prepaid label)"}
+                      {item.buyer_pays_shipping ? t("seller_returns_screen.buyer_pays") : t("seller_returns_screen.you_pay")}
                     </Text>
                   </Text>
                 </View>
@@ -230,7 +232,7 @@ export default function SellerReturnsScreen() {
                       ]}
                     >
                       <X size={16} color={colors.error} />
-                      <Text style={styles.btnSecondaryText}>Decline</Text>
+                      <Text style={styles.btnSecondaryText}>{t("seller_returns_screen.decline")}</Text>
                     </Pressable>
                     <Pressable
                       testID={`seller-rtn-approve-${item.id}`}
@@ -250,7 +252,7 @@ export default function SellerReturnsScreen() {
                       ) : (
                         <>
                           <Check size={16} color="#fff" />
-                          <Text style={styles.btnPrimaryText}>Approve & refund</Text>
+                          <Text style={styles.btnPrimaryText}>{t("seller_returns_screen.approve_refund")}</Text>
                         </>
                       )}
                     </Pressable>
@@ -275,15 +277,15 @@ export default function SellerReturnsScreen() {
           <Pressable style={styles.modalBackdrop} onPress={() => setPending(null)} />
           <View style={styles.modalCard} testID="seller-rtn-modal">
             <Text style={styles.modalTitle}>
-              {pending?.action === "approve" ? "Approve return?" : "Decline return?"}
+              {pending?.action === "approve" ? t("seller_returns_screen.approve_title") : t("seller_returns_screen.decline_title")}
             </Text>
             <Text style={styles.modalBody}>
               {pending?.action === "approve"
-                ? `A refund of ${formatNZD(pending?.rtn.refund_amount_nzd || 0)} will be initiated to the buyer in NZD. They'll receive an in-app notification immediately.`
-                : "The buyer will be notified your decision. Provide a brief reason so they understand."}
+                ? t("seller_returns_screen.approve_body", { amount: formatNZD(pending?.rtn.refund_amount_nzd || 0) })
+                : t("seller_returns_screen.decline_body")}
             </Text>
             <Text style={styles.modalLabel}>
-              {pending?.action === "approve" ? "Note (optional)" : "Reason for declining"}
+              {pending?.action === "approve" ? t("seller_returns_screen.note_optional") : t("seller_returns_screen.reason_decline")}
             </Text>
             <TextInput
               testID="seller-rtn-modal-note"
@@ -291,8 +293,8 @@ export default function SellerReturnsScreen() {
               onChangeText={setNote}
               placeholder={
                 pending?.action === "approve"
-                  ? "Anything to add for the buyer..."
-                  : "Item is in non-returnable condition..."
+                  ? t("seller_returns_screen.approve_placeholder")
+                  : t("seller_returns_screen.decline_placeholder")
               }
               placeholderTextColor={colors.textFaint}
               maxLength={300}
@@ -306,7 +308,7 @@ export default function SellerReturnsScreen() {
                 style={({ pressed }) => [styles.modalSecondary, pressed && { opacity: 0.85 }]}
                 disabled={busyId !== null}
               >
-                <Text style={styles.modalSecondaryText}>Cancel</Text>
+                <Text style={styles.modalSecondaryText}>{t("seller_returns_screen.cancel_btn")}</Text>
               </Pressable>
               <Pressable
                 testID="seller-rtn-modal-confirm"
@@ -323,7 +325,7 @@ export default function SellerReturnsScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={styles.modalPrimaryText}>
-                    {pending?.action === "approve" ? "Approve & refund" : "Decline"}
+                    {pending?.action === "approve" ? t("seller_returns_screen.approve_refund") : t("seller_returns_screen.decline")}
                   </Text>
                 )}
               </Pressable>
@@ -335,23 +337,23 @@ export default function SellerReturnsScreen() {
       <VideoPreviewModal
         visible={videoUrl !== null}
         url={videoUrl}
-        title="Buyer's proof video"
+        title={t("seller_returns_screen.buyer_proof_video")}
         onClose={() => setVideoUrl(null)}
       />
     </SafeAreaView>
   );
 }
 
-function prettyStatus(s: string) {
+function prettyStatusKey(s: string): string {
   switch (s) {
     case "pending_seller":
-      return "Action needed";
+      return "status_action_needed";
     case "approved":
-      return "Approved";
+      return "status_approved";
     case "refunded":
-      return "Refunded";
+      return "status_refunded";
     case "rejected":
-      return "Declined";
+      return "status_declined";
     default:
       return s;
   }
