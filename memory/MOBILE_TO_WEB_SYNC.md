@@ -513,3 +513,36 @@ Web should mirror this hub at `/help`. Endpoints are platform-agnostic.
 ### Files added/changed
 - New: `frontend/app/help/index.tsx`, `frontend/app/help/contact.tsx`, `frontend/app/help/my-tickets.tsx`, `frontend/app/help/ticket/[id].tsx`.
 - Updated: `frontend/app/(tabs)/account.tsx` (+ Help Center row, HelpCircle import), `memory/MOBILE_TO_WEB_SYNC.md`.
+
+
+## Sponsored Placements for Sellers (June 20, 2026)
+**Revenue lever live.** Sellers pay per click (CPC) to boost listings into "Sponsored" slots on home/category/search/PDP placements. Post-paid invoicing (monthly bill) — Stripe topup deferred to next sprint.
+
+### Backend
+- `routers/sponsored.py` — 8 endpoints:
+  - Seller: `POST /api/seller/sponsored/campaigns`, `GET /api/seller/sponsored/campaigns`, `GET /api/seller/sponsored/campaigns/{id}`, `PATCH /api/seller/sponsored/campaigns/{id}`, `DELETE /api/seller/sponsored/campaigns/{id}`.
+  - Public: `GET /api/sponsored/slots?placement={home|category|search|pdp}&category=&limit=4` — budget-weighted random slot selection.
+  - Tracking: `POST /api/sponsored/track/impression`, `POST /api/sponsored/track/click` (click deducts CPC from `spent_today` + `spent_total`).
+- Auto-paces: when `spent_today >= daily_budget_nzd` → status flips to `out_of_budget`. Resets at UTC midnight (lazy reset on next read).
+- Refuses duplicate campaigns for same (seller, product) — 409 conflict.
+
+### Storage
+- `sponsored_campaigns`: `{id, seller_id, product_id, daily_budget_nzd, cpc_nzd, placements[], status, impressions, clicks, spent_today, spent_total, last_reset_date, created_at, updated_at}`.
+
+### Mobile UI
+- `app/seller/sponsored.tsx` — list + create-modal in one screen. Stats row (spent today/month/active campaigns), per-campaign card with progress bar (% of daily budget spent), CTR, impressions, clicks, pause/play + delete buttons.
+- Seller dashboard now links to "Sponsored placements" alongside Catalog Import.
+
+### Tests
+- `backend/tests/test_sponsored.py` — 4 cases (full lifecycle + duplicate refusal + slot serving + paused exclusion, budget validation, auth, bad placement). All pass.
+
+### Live verified (anonymous slot serving)
+- Create $10/day · $0.50 CPC for "Banaras Weaves Tangail Banarasi Silk" → slot serves it on /home → 1 click bills $0.50 → CTR 100% → pause hides it → delete cleanly.
+
+### Web parity
+Same endpoints. Web should render a "Sponsored" badge on slot cards (small grey label, not intrusive) and POST tracking beacons on view + click.
+
+### Next iteration (deferred)
+- Stripe Checkout topup for prepaid wallet model (replaces post-paid invoicing).
+- Monthly invoice generator for current post-paid model.
+- A/B-tested copy: should the sponsored badge say "Sponsored" or "Ad"?

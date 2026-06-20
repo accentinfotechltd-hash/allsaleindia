@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, PiggyBank, Plus, RefreshCcw, Settings, Sparkles, Store, Tag, Trash2, Upload, Wallet, Zap } from "lucide-react-native";
+import { BarChart3, CheckCircle2, ChevronLeft, ClipboardList, LifeBuoy, Package, Pencil, PiggyBank, Plus, RefreshCcw, Settings, Sparkles, Store, Tag, Trash2, TrendingUp, Upload, Wallet, Zap } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -240,6 +240,17 @@ export default function SellerDashboard() {
                   </View>
                   <Text style={styles.quickTitle}>Import Amazon / Flipkart</Text>
                   <Text style={styles.quickSubtitle}>Drop your catalog file — AI does the rest.</Text>
+                </Pressable>
+                <Pressable
+                  testID="seller-sponsored-link"
+                  onPress={() => router.push("/seller/sponsored")}
+                  style={({ pressed }) => [styles.quickCard, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={styles.quickIcon}>
+                    <TrendingUp size={18} color={colors.primary} />
+                  </View>
+                  <Text style={styles.quickTitle}>Sponsored placements</Text>
+                  <Text style={styles.quickSubtitle}>Boost a listing · pay per click</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-coupons-link"
