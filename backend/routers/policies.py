@@ -27,7 +27,7 @@ from pydantic import BaseModel
 
 router = APIRouter(tags=["policies"])
 
-LAST_UPDATED = "2026-06-16"
+LAST_UPDATED = "2026-06-20"
 EFFECTIVE = "June 2026"
 SUPPORT_EMAIL = "support@allsale.co.nz"
 SELLER_EMAIL = "sellers@allsale.co.nz"
@@ -354,6 +354,62 @@ POLICIES: dict = {
         ],
     },
     # -----------------------------------------------------------------------
+    "shipping": {
+        "title": "Shipping Policy",
+        "description": "How cross-border shipping works, transit times, customs and tracking.",
+        "intro": (
+            "Allsale ships from sellers in India to buyers in New Zealand, "
+            "Australia, the United States, the United Kingdom and Canada. "
+            "We use Shiprocket X — a regulated, IATA-licensed cross-border "
+            "courier network — for every international shipment."
+        ),
+        "contact_email": SUPPORT_EMAIL,
+        "sections": [
+            {"heading": "1. Origin & destinations", "bullets": [
+                "All orders dispatch from a verified seller's location in India.",
+                "We deliver to New Zealand, Australia, the United States, the United Kingdom and Canada. (Add more on request.)",
+                "PO Box and APO/FPO addresses are not currently supported; please provide a residential or business street address.",
+            ]},
+            {"heading": "2. Transit times", "bullets": [
+                "New Zealand & Australia: 7–14 business days (Standard) · 4–7 days (Express).",
+                "United States & Canada: 8–16 business days (Standard) · 5–9 days (Express).",
+                "United Kingdom: 7–14 business days (Standard) · 4–8 days (Express).",
+                "Estimates start once the seller hands the parcel to Shiprocket X. They exclude weekends, Indian/destination public holidays, and customs hold periods.",
+            ]},
+            {"heading": "3. Shipping fees", "bullets": [
+                "Shipping is calculated at checkout based on parcel weight, dimensions and destination — never marked up.",
+                "Free shipping is offered on selected orders (look for the green tag on the product page) and during sitewide promotions.",
+                "Multi-item orders from the same seller ship as a single consolidated parcel where possible.",
+            ]},
+            {"heading": "4. Customs duties & taxes", "bullets": [
+                "Some orders may incur destination-country customs duty or import GST. We estimate this on the product page (look for the \"Duty: $X est.\" line).",
+                "Where applicable, you pay duty + GST at checkout under \"Delivered Duty Paid\" so the courier delivers without surprise fees.",
+                "For low-value orders below the de-minimis threshold (NZ: $1000, AU: $1000, US: $800, GB: £135, CA: CA$20), no duty is charged.",
+            ]},
+            {"heading": "5. Tracking", "bullets": [
+                "Every order gets a Shiprocket X tracking number within 24 hours of seller dispatch.",
+                "Track in-app at Account → Orders → Track, or via the link in your shipment email.",
+                "You'll also receive milestone push/email updates: Shipped · In Transit · Out for Delivery · Delivered.",
+            ]},
+            {"heading": "6. Lost, delayed or damaged parcels", "bullets": [
+                "If your parcel hasn't moved for 7 days, message us and we'll escalate with Shiprocket X within 24 hours.",
+                "Parcels declared lost (after a courier-initiated investigation) are refunded in full or re-shipped at our cost.",
+                "Damaged-in-transit items: send a photo within 48 hours of delivery and we'll arrange a replacement or refund per the Return Policy.",
+            ]},
+            {"heading": "7. Wrong address or refused delivery", "bullets": [
+                "If the courier returns a parcel because the address is wrong, the recipient was unavailable, or delivery was refused, return-shipping is at your cost.",
+                "Re-shipping requires a new shipping fee. We'll waive it for genuine courier errors.",
+            ]},
+            {"heading": "8. Restricted & prohibited items", "bullets": [
+                "Each destination has its own biosecurity, agriculture and IP rules. Items prohibited at any border are refunded immediately — see the Prohibited Items policy.",
+                "New Zealand has the strictest biosecurity controls; certain food, seeds and plant-based products cannot be shipped.",
+            ]},
+            {"heading": "9. Contact", "bullets": [
+                f"For any shipping query reach us at {SUPPORT_EMAIL}. We reply within 1 business day.",
+            ]},
+        ],
+    },
+    # -----------------------------------------------------------------------
     "prohibited": {
         "title": "Prohibited Items",
         "description": "What we won't ship to New Zealand — biosecurity, customs and IP rules.",
@@ -513,8 +569,7 @@ async def get_policy(slug: str):
         # Friendly aliases requested by the web frontend
         "refunds": "return",
         "refund-policy": "return",
-        "shipping": "return",        # shipping content is bundled into return
-        "shipping-policy": "return",
+        "shipping-policy": "shipping",
     }
     key = aliases.get(key, key)
     policy = POLICIES.get(key)

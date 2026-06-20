@@ -454,3 +454,35 @@ Same endpoints work on web — agent should mirror the UX (FAB on landing + PDP,
 
 ### Env
 - Requires `EMERGENT_LLM_KEY` (already added during catalog importer work).
+
+
+## Legal & Policies — Shipping Policy + Hub (June 20, 2026)
+**App Store launch blocker resolved.** Added the missing Shipping Policy and a navigable hub that lists every policy in one place.
+
+### Backend
+- New `POLICIES["shipping"]` in `routers/policies.py` — 9 sections covering Origin/Destinations, Transit Times (NZ/AU 7–14d, US/CA 8–16d, GB 7–14d), Fees, Customs Duties & GST, Tracking (Shiprocket X), Lost/Damaged Parcels, Wrong Address, Prohibited Items, Contact.
+- Alias map fixed: `shipping`/`shipping-policy` now resolve to the real Shipping Policy (previously bundled into Returns).
+- Total live policies: **9** (terms, privacy, return, payment, cancellation, shipping, seller, prohibited, cookies).
+- `LAST_UPDATED` bumped to `2026-06-20`.
+
+### Mobile UI
+- New `app/legal/index.tsx` — **Legal & Policies hub** with hero card, 9 colour-coded tiles (each with lucide icon, description, last-updated stamp), pull-to-refresh, error retry.
+- Account tab → "Policies & help" now leads with a "Legal & Policies" master row → hub; old direct links re-pointed at `/legal/{slug}` so the legacy `/help/*` shims can be removed in a future cleanup pass.
+
+### Tests
+- New `backend/tests/test_policies.py` — 5 cases (list returns 9 slugs, every slug resolves, shipping has the App-Store keywords, 404 cleanly, common aliases still work). All pass.
+
+### Web parity
+- Web should mirror `/legal` hub and link from the footer.
+- Endpoints unchanged: `GET /api/policies`, `GET /api/policies/{slug}`. Both return JSON shaped {slug, title, intro, sections[], markdown}.
+
+### App Store readiness for the legal axis
+- ✅ Terms, Privacy, Shipping, Returns, Cancellation, Payment, Cookies, Seller, Prohibited — all present, accessible from one screen.
+- ✅ Account deletion already wired (`/auth/me` DELETE + `/account/privacy.tsx`).
+- ✅ Effective date + last-updated stamps on every policy.
+
+### Files changed
+- `backend/routers/policies.py` (+Shipping Policy, alias fix, LAST_UPDATED bump)
+- `backend/tests/test_policies.py` (new)
+- `frontend/app/legal/index.tsx` (new hub)
+- `frontend/app/(tabs)/account.tsx` (new "Legal & Policies" entry + CreditCard icon import + /legal/* links)

@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Bell, BadgeCheck, ChevronRight, FileText, Gift, Globe2, Heart, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
+import { Bell, BadgeCheck, ChevronRight, CreditCard, FileText, Gift, Globe2, Heart, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -284,24 +284,31 @@ export default function Account() {
         <Text style={styles.groupLabel}>Policies & help</Text>
         <View style={styles.menuGroup}>
           <Row
-            icon={<FileText size={18} color={colors.text} />}
+            icon={<FileText size={18} color={colors.primary} />}
+            label="Legal & Policies"
+            subtitle="Terms, Privacy, Shipping, Returns, Cookies…"
+            onPress={() => router.push("/legal")}
+            testID="account-legal-hub-btn"
+          />
+          <Row
+            icon={<CreditCard size={18} color={colors.text} />}
             label="Payment policy"
             subtitle="How we charge, taxes, refunds"
-            onPress={() => router.push("/help/payment-policy")}
+            onPress={() => router.push("/legal/payment")}
             testID="account-payment-policy-btn"
           />
           <Row
             icon={<RefreshCcw size={18} color={colors.text} />}
             label="Return policy"
             subtitle="7-day window · cross-border returns"
-            onPress={() => router.push("/help/return-policy")}
+            onPress={() => router.push("/legal/return")}
             testID="account-return-policy-btn"
           />
           <Row
             icon={<XCircle size={18} color={colors.text} />}
             label="Cancellation policy"
             subtitle="Free cancel within 12 hours"
-            onPress={() => router.push("/help/cancellation-policy")}
+            onPress={() => router.push("/legal/cancellation")}
             testID="account-cancellation-policy-btn"
           />
         </View>
