@@ -486,3 +486,30 @@ Same endpoints work on web — agent should mirror the UX (FAB on landing + PDP,
 - `backend/tests/test_policies.py` (new)
 - `frontend/app/legal/index.tsx` (new hub)
 - `frontend/app/(tabs)/account.tsx` (new "Legal & Policies" entry + CreditCard icon import + /legal/* links)
+
+
+## Help Center + Contact + My Tickets (June 20, 2026)
+Buyer-facing help surface built on the **pre-existing** `routers/support.py` ticket system and `/api/site/faq` FAQ catalog. Reuses the seller-side ticket detail screen via Redirect so we maintain one chat-thread UI.
+
+### Endpoints used (none new)
+- `GET  /api/site/faq` — FAQ catalog (6 categories, 19 questions).
+- `GET  /api/site/faq/search?q=…` — server-side search.
+- `POST /api/support/tickets` — create ticket. Categories: orders · shipping · returns · payments · account · kyc · listings · other.
+- `GET  /api/support/tickets` — list signed-in user's tickets.
+- `GET/POST /api/support/tickets/{id}/...` — detail + reply + rate + close.
+
+### Mobile UI (new)
+- `app/help/index.tsx` — Help Center hub: hero search bar, 4 quick-link tiles (Contact, My tickets, Can I import this?, Legal & policies), Popular Questions preview (6 FAQs from `/api/site/faq`), inline search results overlay + "no match → contact" CTA.
+- `app/help/contact.tsx` — Buyer Contact Form: 6 category chips (orders/shipping/returns/payments/account/other), Subject, optional Order ID (auto-shown for orders/shipping/returns), 2000-char Message, success state with link to My tickets, sign-in nudge for anonymous users.
+- `app/help/my-tickets.tsx` — Buyer ticket list (status badges, priority dots, SLA breach pill, CSAT star, relative time, replies count, FAB to new ticket).
+- `app/help/ticket/[id].tsx` — Redirect to the existing `/seller/support/[id]` detail screen (same backend, same UI works for buyer or seller).
+
+### Account tab
+- New "Help Center" row above "Legal & Policies" with HelpCircle icon — subtitle "FAQs · Contact support · My tickets".
+
+### Web parity
+Web should mirror this hub at `/help`. Endpoints are platform-agnostic.
+
+### Files added/changed
+- New: `frontend/app/help/index.tsx`, `frontend/app/help/contact.tsx`, `frontend/app/help/my-tickets.tsx`, `frontend/app/help/ticket/[id].tsx`.
+- Updated: `frontend/app/(tabs)/account.tsx` (+ Help Center row, HelpCircle import), `memory/MOBILE_TO_WEB_SYNC.md`.

@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Bell, BadgeCheck, ChevronRight, CreditCard, FileText, Gift, Globe2, Heart, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
+import { Bell, BadgeCheck, ChevronRight, CreditCard, FileText, Gift, Globe2, Heart, HelpCircle, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -283,6 +283,13 @@ export default function Account() {
 
         <Text style={styles.groupLabel}>Policies & help</Text>
         <View style={styles.menuGroup}>
+          <Row
+            icon={<HelpCircle size={18} color={colors.primary} />}
+            label="Help Center"
+            subtitle="FAQs · Contact support · My tickets"
+            onPress={() => router.push("/help")}
+            testID="account-help-center-btn"
+          />
           <Row
             icon={<FileText size={18} color={colors.primary} />}
             label="Legal & Policies"
