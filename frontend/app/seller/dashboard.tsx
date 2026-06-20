@@ -433,15 +433,17 @@ const styles = StyleSheet.create({
   quickActions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    // The 8px row-gap is explicit because some RN-Web Metro versions
+    // ignore `gap` on wrapped flex containers and the 2-col layout collapses.
+    columnGap: 8,
+    rowGap: 8,
     marginTop: spacing.md,
   },
   quickCard: {
-    // Aim for ~4 tiles per row on wide screens; the minWidth forces wrap
-    // to 2-col on phones (≤ 380px) so each tile stays legible.
-    flexGrow: 1,
-    flexBasis: "22%",
-    minWidth: 140,
+    // Deterministic 2-col layout on phones (≤ 480px). Each card is exactly
+    // 48% wide → two columns + 4% gap. On tablets we'd ideally want more
+    // columns, but this matches Amazon/Flipkart and never collapses.
+    width: "48%",
     padding: spacing.md,
     borderRadius: radius.lg,
     borderWidth: 1,
