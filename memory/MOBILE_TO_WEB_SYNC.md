@@ -6,6 +6,17 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 20, 2026 — Wishlist Collections (named lists)**:
+> - NEW endpoints on `/api/wishlist`:
+>   - `GET /collections` → `{all_saved_count, collections: [{id, name, item_count, created_at}]}`
+>   - `POST /collections` `{name}` (1-40 chars) → creates a named list
+>   - `PATCH /collections/{id}` `{name}` → rename
+>   - `DELETE /collections/{id}` → deletes the list; items inside get `collection_id=null` and reappear under "All saved" (we never destroy saved items)
+>   - `PATCH /items/{product_id}` `{collection_id}` → move an item between lists (or back to All saved with `null`)
+> - `GET /wishlist?collection_id=...` now filters to one collection.
+> - Mobile renders horizontal collection chips on `/wishlist` (All saved · Diwali · Wedding · + New list); tapping refilters; "+ New list" opens a name prompt.
+> - Web parity recommended for lists-as-shareable-gift-registries.
+
 > **June 20, 2026 — Order delivery rating + Ships well badge**:
 > - NEW: `POST /api/orders/{id}/delivery-rating` (auth, body: `{stars: 1-5, comment?: str≤300}`). Buyer of a delivered order rates the SHIPPING experience (not the product itself). Idempotent — re-submits update the existing rating without double-counting.
 > - NEW: `GET /api/sellers/{id}/delivery-score` (public) → `{avg_stars, ratings_count, ships_well}`. `ships_well=true` only when count≥5 AND avg≥4.0.

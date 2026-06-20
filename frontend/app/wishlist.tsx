@@ -21,8 +21,10 @@ import {
   Modal,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -73,11 +75,36 @@ export default function WishlistScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [sort, setSort] = useState<SortKey>("recent");
   const [sortOpen, setSortOpen] = useState(false);
+  // Collections (Amazon-style named wishlists)
+  type Collection = { id: string; name: string; item_count: number };
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [allSavedCount, setAllSavedCount] = useState<number>(0);
+  const [activeCollection, setActiveCollection] = useState<string | null>(null); // null = All saved
+  const [newListOpen, setNewListOpen] = useState(false);
+  const [newListName, setNewListName] = useState("");
 
   // Selection mode
   const [selectionMode, setSelectionMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
+
+  const loadCollections = useCallback(async () => {
+    if (!user) {
+      setCollections([]);
+      setAllSavedCount(0);
+      return;
+    }
+    try {
+      const d = await api<{
+        all_saved_count: number;
+        collections: Collection[];
+      }>("/wishlist/collections");
+      setCollections(d.collections || []);
+      setAllSavedCount(d.all_saved_count || 0);
+    } catch {
+      setCollections([]);
+    }
+  }, [user]);
 
   const load = useCallback(async () => {
     if (!user) {
@@ -87,7 +114,13 @@ export default function WishlistScreen() {
       return;
     }
     try {
-      const data = await api<WishItem[]>(`/wishlist?sort=${sort}`);
+      const colParam =
+        activeCollection !== null
+          ? `&collection_id=${encodeURIComponent(activeCollection)}`
+          : "";
+      const data = await api<WishItem[]>(
+        `/wishlist?sort=${sort}${colParam}`
+      );
       setItems(data || []);
     } catch {
       setItems([]);
@@ -95,11 +128,31 @@ export default function WishlistScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user, sort]);
+  }, [user, sort, activeCollection]);
 
   useEffect(() => {
     load();
-  }, [load]);
+    loadCollections();
+  }, [load, loadCollections]);
+
+  const createCollection = useCallback(async () => {
+    const name = newListName.trim();
+    if (!name) return;
+    try {
+      await api("/wishlist/collections", {
+        method: "POST",
+        body: { name },
+      });
+      toast.show({ title: `Created "${name}"`, kind: "success" });
+      setNewListName("");
+      setNewListOpen(false);
+      loadCollections();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't create list";
+      toast.show({ title: msg, kind: "error" });
+    }
+  }, [newListName, toast, loadCollections]);
+
 
   const onPullRefresh = () => {
     if (!user) return;
@@ -446,6 +499,66 @@ export default function WishlistScreen() {
             styles.list,
             selectionMode && { paddingBottom: 140 },
           ]}
+          ListHeaderComponent={
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.collectionChipsRow}
+            >
+              <Pressable
+                testID="wishlist-collection-all"
+                onPress={() => setActiveCollection(null)}
+                style={[
+                  styles.collectionChip,
+                  activeCollection === null && styles.collectionChipActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.collectionChipText,
+                    activeCollection === null && styles.collectionChipTextActive,
+                  ]}
+                >
+                  All saved · {allSavedCount}
+                </Text>
+              </Pressable>
+              {collections.map((c) => (
+                <Pressable
+                  key={c.id}
+                  testID={`wishlist-collection-${c.id}`}
+                  onPress={() => setActiveCollection(c.id)}
+                  style={[
+                    styles.collectionChip,
+                    activeCollection === c.id && styles.collectionChipActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.collectionChipText,
+                      activeCollection === c.id &&
+                        styles.collectionChipTextActive,
+                    ]}
+                  >
+                    {c.name} · {c.item_count}
+                  </Text>
+                </Pressable>
+              ))}
+              <Pressable
+                testID="wishlist-new-list"
+                onPress={() => setNewListOpen(true)}
+                style={[styles.collectionChip, styles.collectionChipAdd]}
+              >
+                <Text
+                  style={[
+                    styles.collectionChipText,
+                    { color: colors.primary },
+                  ]}
+                >
+                  + New list
+                </Text>
+              </Pressable>
+            </ScrollView>
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} />
           }
@@ -618,6 +731,61 @@ export default function WishlistScreen() {
                 Select all in-stock items
               </Text>
             </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* New list modal */}
+      <Modal
+        visible={newListOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNewListOpen(false)}
+      >
+        <Pressable
+          style={styles.newListBackdrop}
+          onPress={() => setNewListOpen(false)}
+        >
+          <Pressable
+            style={styles.newListCard}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.newListTitle}>Create a new list</Text>
+            <Text style={styles.newListHint}>
+              e.g. Diwali · Wedding · Kids&apos; toys
+            </Text>
+            <TextInput
+              testID="wishlist-new-list-input"
+              value={newListName}
+              onChangeText={setNewListName}
+              placeholder="List name"
+              placeholderTextColor={colors.textMuted}
+              maxLength={40}
+              autoFocus
+              style={styles.newListInput}
+            />
+            <View style={styles.newListFooter}>
+              <Pressable
+                onPress={() => {
+                  setNewListOpen(false);
+                  setNewListName("");
+                }}
+                style={styles.newListCancel}
+              >
+                <Text style={styles.newListCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                testID="wishlist-new-list-create"
+                disabled={!newListName.trim()}
+                onPress={createCollection}
+                style={[
+                  styles.newListCreate,
+                  !newListName.trim() && { opacity: 0.4 },
+                ]}
+              >
+                <Text style={styles.newListCreateText}>Create</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       </Modal>
@@ -804,4 +972,53 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   quickActionText: { color: colors.primary, fontWeight: "700", fontSize: 13 },
+  // Collections
+  collectionChipsRow: {
+    gap: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    paddingBottom: 12,
+  },
+  collectionChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  collectionChipActive: { backgroundColor: colors.text, borderColor: colors.text },
+  collectionChipAdd: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  collectionChipText: { fontSize: 12, color: colors.text, fontWeight: "700" },
+  collectionChipTextActive: { color: "#fff" },
+  // New list modal
+  newListBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  newListCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+  },
+  newListTitle: { fontSize: 18, fontWeight: "800", color: colors.text },
+  newListHint: { fontSize: 12, color: colors.textMuted, marginTop: 4, marginBottom: 12 },
+  newListInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+  },
+  newListFooter: { flexDirection: "row", gap: 8, marginTop: 16 },
+  newListCancel: { flex: 1, padding: 12, borderRadius: 10, backgroundColor: colors.surface, alignItems: "center" },
+  newListCancelText: { color: colors.text, fontWeight: "700" },
+  newListCreate: { flex: 2, padding: 12, borderRadius: 10, backgroundColor: colors.primary, alignItems: "center" },
+  newListCreateText: { color: "#fff", fontWeight: "800" },
 });

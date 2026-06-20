@@ -39,11 +39,16 @@ SortKey = Literal["recent", "price_asc", "price_desc", "name"]
 @router.get("", response_model=List[WishlistItem])
 async def list_wishlist(
     sort: SortKey = Query("recent"),
+    collection_id: Optional[str] = Query(None),
     current=Depends(get_current_user),
 ):
-    """List saved products. Sort by `recent` (default), `price_asc`, `price_desc`, `name`."""
+    """List saved products. Sort by `recent` (default), `price_asc`, `price_desc`, `name`.
+    Optionally scope to a single ``collection_id`` (omit to see all saved items)."""
     rows: list[WishlistItem] = []
-    async for w in db.wishlists.find({"user_id": current["id"]}, {"_id": 0}).sort(
+    base_filter: dict = {"user_id": current["id"]}
+    if collection_id is not None:
+        base_filter["collection_id"] = collection_id
+    async for w in db.wishlists.find(base_filter, {"_id": 0}).sort(
         "added_at", -1
     ):
         prod = await db.products.find_one(
@@ -298,6 +303,148 @@ async def public_wishlist_view(token: str):
 
 
 # ---------------------------------------------------------------------------
+# Collections — Amazon-style named wishlists ("Diwali", "Wedding"…).
+#
+# Storage: a separate `wishlist_collections` collection with documents
+# ``{id, user_id, name, created_at}``. Wishlist items are linked via an
+# optional ``collection_id`` field on the existing `wishlists` doc;
+# legacy/unsorted items keep ``collection_id=None`` and appear in the
+# implicit "All saved" view.
+#
+# REGISTERED BEFORE the dynamic /{product_id} routes so paths like
+# "/collections" don't get matched as a product_id.
+# ---------------------------------------------------------------------------
+import uuid as _wlc_uuid
+
+from db import db as _wlc_db
+
+
+class CollectionCreate(BaseModel):
+    name: str
+
+
+class CollectionRename(BaseModel):
+    name: str
+
+
+class MoveItemRequest(BaseModel):
+    collection_id: Optional[str] = None  # null = move back to "All saved"
+
+
+@router.get("/collections")
+async def list_collections(current=Depends(get_current_user)):
+    """List the buyer's collections + the implicit 'All saved' bucket with counts."""
+    cols: list[dict] = []
+    async for c in _wlc_db.wishlist_collections.find(
+        {"user_id": current["id"]}, {"_id": 0}
+    ).sort("created_at", -1):
+        count = await _wlc_db.wishlists.count_documents(
+            {"user_id": current["id"], "collection_id": c["id"]}
+        )
+        cols.append(
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "item_count": count,
+                "created_at": c["created_at"].isoformat()
+                if hasattr(c.get("created_at"), "isoformat")
+                else c.get("created_at"),
+            }
+        )
+    total = await _wlc_db.wishlists.count_documents({"user_id": current["id"]})
+    return {"all_saved_count": total, "collections": cols}
+
+
+@router.post("/collections", status_code=201)
+async def create_collection(
+    body: CollectionCreate, current=Depends(get_current_user)
+):
+    name = body.name.strip()
+    if not (1 <= len(name) <= 40):
+        raise HTTPException(
+            status_code=422, detail="Collection name must be 1-40 chars"
+        )
+    cid = f"wlc_{_wlc_uuid.uuid4().hex[:12]}"
+    doc = {
+        "id": cid,
+        "user_id": current["id"],
+        "name": name,
+        "created_at": now_utc(),
+    }
+    await _wlc_db.wishlist_collections.insert_one(doc)
+    return {
+        "id": cid,
+        "name": name,
+        "item_count": 0,
+        "created_at": doc["created_at"].isoformat(),
+    }
+
+
+@router.patch("/collections/{collection_id}")
+async def rename_collection(
+    collection_id: str,
+    body: CollectionRename,
+    current=Depends(get_current_user),
+):
+    name = body.name.strip()
+    if not (1 <= len(name) <= 40):
+        raise HTTPException(
+            status_code=422, detail="Collection name must be 1-40 chars"
+        )
+    res = await _wlc_db.wishlist_collections.update_one(
+        {"id": collection_id, "user_id": current["id"]},
+        {"$set": {"name": name}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    return {"id": collection_id, "name": name}
+
+
+@router.delete("/collections/{collection_id}")
+async def delete_collection(
+    collection_id: str, current=Depends(get_current_user)
+):
+    """Deletes a collection. Items in it are NOT removed from the wishlist —
+    their ``collection_id`` is reset so they appear under 'All saved'."""
+    res = await _wlc_db.wishlist_collections.delete_one(
+        {"id": collection_id, "user_id": current["id"]}
+    )
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Collection not found")
+    await _wlc_db.wishlists.update_many(
+        {"user_id": current["id"], "collection_id": collection_id},
+        {"$set": {"collection_id": None}},
+    )
+    return {"deleted": collection_id}
+
+
+@router.patch("/items/{product_id}")
+async def move_item_to_collection(
+    product_id: str,
+    body: MoveItemRequest,
+    current=Depends(get_current_user),
+):
+    """Move a saved item into another collection (or back to None=All saved)."""
+    if body.collection_id is not None:
+        owner = await _wlc_db.wishlist_collections.find_one(
+            {"id": body.collection_id, "user_id": current["id"]},
+            {"_id": 0, "id": 1},
+        )
+        if not owner:
+            raise HTTPException(status_code=404, detail="Collection not found")
+
+    res = await _wlc_db.wishlists.update_one(
+        {"user_id": current["id"], "product_id": product_id},
+        {"$set": {"collection_id": body.collection_id}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(
+            status_code=404, detail="Item not in your wishlist"
+        )
+    return {"product_id": product_id, "collection_id": body.collection_id}
+
+
+# ---------------------------------------------------------------------------
 # Single-item dynamic routes — registered LAST so the static routes above win.
 # ---------------------------------------------------------------------------
 @router.post("/{product_id}", status_code=201)
@@ -330,3 +477,4 @@ async def remove_from_wishlist(product_id: str, current=Depends(get_current_user
     )
     count = await db.wishlists.count_documents({"user_id": current["id"]})
     return {"removed": True, "wishlist_count": count}
+
