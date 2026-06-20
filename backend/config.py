@@ -60,8 +60,11 @@ SUPPORTED_COUNTRIES: list[dict] = [
     {"code": "US", "name": "United States", "currency": "USD", "symbol": "US$","flag": "🇺🇸"},
     {"code": "GB", "name": "United Kingdom","currency": "GBP", "symbol": "£",  "flag": "🇬🇧"},
     {"code": "CA", "name": "Canada",        "currency": "CAD", "symbol": "C$", "flag": "🇨🇦"},
-    # Pacific neighbour — large Indian-origin diaspora.
-    {"code": "FJ", "name": "Fiji",          "currency": "FJD", "symbol": "FJ$","flag": "🇫🇯"},
+    # Pacific neighbours — large Indian-origin diaspora across these markets.
+    {"code": "FJ", "name": "Fiji",            "currency": "FJD", "symbol": "FJ$","flag": "🇫🇯"},
+    {"code": "WS", "name": "Samoa",           "currency": "WST", "symbol": "WS$","flag": "🇼🇸"},
+    {"code": "TO", "name": "Tonga",           "currency": "TOP", "symbol": "T$", "flag": "🇹🇴"},
+    {"code": "PG", "name": "Papua New Guinea","currency": "PGK", "symbol": "K",  "flag": "🇵🇬"},
 ]
 COUNTRY_CODES = {c["code"] for c in SUPPORTED_COUNTRIES}
 DEFAULT_COUNTRY = "NZ"
@@ -74,9 +77,12 @@ FX_RATES_FROM_NZD: dict[str, float] = {
     "USD": 0.61,
     "GBP": 0.48,
     "CAD": 0.83,
-    # 1 NZD ≈ 1.32 FJD (mid-2026). Frankfurter doesn't track FJD so we use
-    # this hardcoded value as the source of truth.
+    # Pacific fallback values (mid-2026). Live updates flow in via
+    # open.er-api.com — these are only used if both providers fail.
     "FJD": 1.32,
+    "WST": 1.65,
+    "TOP": 1.45,
+    "PGK": 2.30,
 }
 
 # Order cancellation window: buyers can cancel within 12 hours of payment.

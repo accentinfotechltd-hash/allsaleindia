@@ -36,6 +36,7 @@ import ml from "./locales/ml";
 import pa from "./locales/pa";
 import or_ from "./locales/or";
 import as_ from "./locales/as";
+import tpi from "./locales/tpi";
 
 const LANG_KEY = "allsale_lang";
 export const SUPPORTED = [
@@ -44,6 +45,7 @@ export const SUPPORTED = [
   { code: "sm", label: "Samoan", native: "Gagana Sāmoa", flag: "🇼🇸" },
   { code: "to", label: "Tongan", native: "Lea Faka-Tonga", flag: "🇹🇴" },
   { code: "fj", label: "Fijian", native: "Vosa Vakaviti", flag: "🇫🇯" },
+  { code: "tpi", label: "Tok Pisin", native: "Tok Pisin", flag: "🇵🇬" },
   { code: "hi", label: "Hindi", native: "हिन्दी", flag: "🇮🇳" },
   { code: "bn", label: "Bengali", native: "বাংলা", flag: "🇮🇳" },
   { code: "te", label: "Telugu", native: "తెలుగు", flag: "🇮🇳" },
@@ -69,7 +71,7 @@ export const SUPPORTED = [
   { code: "ru", label: "Russian", native: "Русский", flag: "🇷🇺" },
 ] as const;
 
-export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi, sm, to, fj, te, mr, ur, gu, kn, ml, pa, or: or_, as: as_ });
+export const i18n = new I18n({ en, hi, es, ar, zh, "zh-TW": zhTW, pt, fr, de, ja, ko, bn, ta, id, ru, mi, sm, to, fj, tpi, te, mr, ur, gu, kn, ml, pa, or: or_, as: as_ });
 i18n.enableFallback = true;
 i18n.defaultLocale = "en";
 

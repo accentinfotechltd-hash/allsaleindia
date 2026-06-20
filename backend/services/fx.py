@@ -30,7 +30,7 @@ _FRANKFURTER_URL = "https://api.frankfurter.dev/v1/latest"
 # TOP, PGK. Tolerated to be slightly less precise than ECB (best-effort).
 _OPEN_ER_API_URL = "https://open.er-api.com/v6/latest/NZD"
 # Pacific currencies sourced from open.er-api.com (not ECB-tracked).
-_OPEN_ER_CCYS = ("FJD",)
+_OPEN_ER_CCYS = ("FJD", "WST", "TOP", "PGK")
 
 # In-process cache.
 _rates: dict[str, float] = dict(FX_RATES_FROM_NZD)
