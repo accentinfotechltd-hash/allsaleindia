@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -19,6 +19,7 @@ from models import (
 )
 from services.cart import hydrate_cart
 from services.coupons import find_coupon, validate_for_cart
+from services.welcome_coupon import get_welcome_coupon_for_user
 from utils import now_utc
 
 router = APIRouter(tags=["coupons"])
@@ -93,6 +94,23 @@ async def list_active_coupons(current=Depends(get_current_user)):
             continue
         docs.append(c)
     return [CouponPublic(**{k: d.get(k) for k in CouponPublic.model_fields.keys()}) for d in docs]
+
+
+@router.get("/coupons/welcome", response_model=Optional[CouponPublic])
+async def get_my_welcome_coupon(current=Depends(get_current_user)):
+    """Return the active first-order welcome coupon for the current user,
+    or null if they're not eligible (already placed a paid order, or
+    already redeemed). Used by the home-tab Welcome banner."""
+    coupon = await get_welcome_coupon_for_user(current)
+    if not coupon:
+        return None
+    # Don't surface to ineligible regions either.
+    countries = coupon.get("countries") or []
+    if countries:
+        cc = (current.get("country") or "").upper()
+        if cc not in {c.upper() for c in countries}:
+            return None
+    return CouponPublic(**{k: coupon.get(k) for k in CouponPublic.model_fields.keys()})
 
 
 # ---------------------------------------------------------------------------

@@ -469,6 +469,10 @@ class Coupon(BaseModel):
     owner_id: Optional[str] = None  # seller_id or "admin"
     owner_name: Optional[str] = None
     active: bool = True
+    # When True, the coupon is only redeemable by users who have NEVER paid
+    # for an order before (their first-ever purchase). Used to power the
+    # `WELCOME` activation lever shown to brand-new accounts.
+    first_order_only: bool = False
     created_at: Optional[datetime] = None
 
 
@@ -496,6 +500,7 @@ class CouponPublic(BaseModel):
     scope: str = "all"
     owner_name: Optional[str] = None
     valid_to: Optional[datetime] = None
+    first_order_only: bool = False
 
 
 # ---------------------------------------------------------------------------

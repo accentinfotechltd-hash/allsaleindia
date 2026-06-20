@@ -24,6 +24,7 @@ import RecentlyViewedRail from "@/src/components/RecentlyViewedRail";
 import AmbassadorWelcomeBanner from "@/src/components/AmbassadorWelcomeBanner";
 import AssistantFab from "@/src/components/AssistantFab";
 import SponsoredCarousel from "@/src/components/SponsoredCarousel";
+import { WelcomeCouponBanner } from "@/src/components/WelcomeCouponBanner";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -187,6 +188,10 @@ export default function Home() {
 
             {/* Ambassador welcome banner — auto-hides when no ref captured */}
             <AmbassadorWelcomeBanner />
+
+            {/* First-purchase welcome coupon (activation lever) — auto-hides
+                when ineligible or already redeemed/dismissed. */}
+            <WelcomeCouponBanner />
 
             {/* Search — tap-to-open full search screen */}
             <Pressable

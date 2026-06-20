@@ -208,6 +208,15 @@ async def on_startup() -> None:
     await seed_owner_admin()
     from routers.search import ensure_product_text_index
     await ensure_product_text_index()
+    # Seed/refresh the sitewide first-order welcome coupon (activation lever).
+    from services.welcome_coupon import ensure_welcome_coupon
+    try:
+        await ensure_welcome_coupon()
+    except Exception as e:  # pragma: no cover — never block startup
+        import logging
+        logging.getLogger("allsale").warning(
+            "[welcome_coupon] failed to ensure on startup: %s", e
+        )
     from services.scheduler import init_scheduler
     init_scheduler()
 

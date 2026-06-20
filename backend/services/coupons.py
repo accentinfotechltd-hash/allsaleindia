@@ -116,6 +116,22 @@ async def validate_for_cart(
             result["error"] = "You've already used this coupon"
             return coupon, result
 
+        # First-order-only coupons (welcome / activation lever) require the
+        # buyer to have NO previously-paid orders. We treat any "paid",
+        # "shipped", "out_for_delivery", "delivered", "refunded" or
+        # "cancelled" order as "they've already bought once" so a buyer
+        # can't game it by cancelling their first order.
+        if coupon.get("first_order_only"):
+            existing_paid_orders = await db.orders.count_documents(
+                {
+                    "user_id": user["id"],
+                    "payment_status": {"$in": ["paid", "refunded", "refund_pending"]},
+                }
+            )
+            if existing_paid_orders > 0:
+                result["error"] = "This welcome offer is only for your first order"
+                return coupon, result
+
     # Eligible items
     eligible = _eligible_items(coupon, items)
     if not eligible:
