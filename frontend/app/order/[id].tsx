@@ -20,6 +20,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api, getAuthToken } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { useRegion } from "@/src/contexts/RegionContext";
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import OrderTrackingTimeline from "@/src/components/OrderTrackingTimeline";
@@ -115,6 +116,7 @@ export default function OrderDetail() {
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
+  const { t } = useTranslation();
   const [order, setOrder] = useState<Order | null>(null);
   const [shipment, setShipment] = useState<Shipment | null>(null);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
@@ -489,7 +491,7 @@ export default function OrderDetail() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.refundTitle}>
-                  {order.refund_id ? "Refund on the way" : "Cancellation received"}
+                  {order.refund_id ? t("order_detail.refund_on_way") : t("order_detail.cancel_received")}
                 </Text>
                 <Text style={styles.refundSubtitle}>
                   Order #{order.id.replace("order_", "").slice(0, 8).toUpperCase()}
@@ -501,18 +503,18 @@ export default function OrderDetail() {
             </View>
 
             <View style={styles.refundRow}>
-              <Text style={styles.refundLabel}>Status</Text>
+              <Text style={styles.refundLabel}>{t("order_detail.status")}</Text>
               <View style={styles.refundStatusPill}>
                 <View style={styles.refundDot} />
                 <Text style={styles.refundStatusText}>
-                  {order.refund_id ? "Issued to your card" : "Pending — issuing now"}
+                  {order.refund_id ? t("order_detail.status_issued") : t("order_detail.status_pending")}
                 </Text>
               </View>
             </View>
 
             {order.refund_expected_by ? (
               <View style={styles.refundRow}>
-                <Text style={styles.refundLabel}>Expected by</Text>
+                <Text style={styles.refundLabel}>{t("order_detail.expected_by")}</Text>
                 <Text style={styles.refundValue}>
                   {new Date(order.refund_expected_by).toLocaleDateString("en-NZ", {
                     weekday: "short",
@@ -524,13 +526,13 @@ export default function OrderDetail() {
             ) : null}
 
             <View style={styles.refundRow}>
-              <Text style={styles.refundLabel}>Method</Text>
-              <Text style={styles.refundValue}>Back to original card</Text>
+              <Text style={styles.refundLabel}>{t("order_detail.method")}</Text>
+              <Text style={styles.refundValue}>{t("order_detail.method_card")}</Text>
             </View>
 
             {order.refund_id ? (
               <View style={styles.refundRow}>
-                <Text style={styles.refundLabel}>Reference</Text>
+                <Text style={styles.refundLabel}>{t("order_detail.reference")}</Text>
                 <Text style={styles.refundValueMono} numberOfLines={1}>
                   {order.refund_id}
                 </Text>
@@ -539,7 +541,7 @@ export default function OrderDetail() {
 
             {order.cancel_reason || order.cancel_reason_code ? (
               <View style={styles.refundRow}>
-                <Text style={styles.refundLabel}>Reason</Text>
+                <Text style={styles.refundLabel}>{t("order_detail.reason")}</Text>
                 <Text style={styles.refundValue} numberOfLines={2}>
                   {order.cancel_reason || _cancelLabelFor(order.cancel_reason_code)}
                 </Text>
@@ -574,7 +576,7 @@ export default function OrderDetail() {
               style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.85 }]}
             >
               <XCircle size={16} color={colors.error} />
-              <Text style={styles.cancelBtnText}>Cancel this order</Text>
+              <Text style={styles.cancelBtnText}>{t("order_detail.cancel_this_order")}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -862,7 +864,7 @@ export default function OrderDetail() {
         >
           <Pressable style={styles.modalBackdrop} onPress={() => setShowCancel(false)} />
           <View style={styles.modalCard} testID="order-cancel-modal">
-            <Text style={styles.modalTitle}>Why are you cancelling?</Text>
+            <Text style={styles.modalTitle}>{t("order_detail.cancel_modal_title")}</Text>
             <Text style={styles.modalBody}>
               We&apos;ll refund {formatNZD(order.total_nzd)} to your card. Picking a
               reason helps us improve the experience for everyone.
@@ -919,7 +921,7 @@ export default function OrderDetail() {
               return (
                 <>
                   <Text style={styles.modalLabel}>
-                    {required ? "Tell us more (required)" : "Add a note (optional)"}
+                    {required ? t("order_detail.note_required") : t("order_detail.note_optional")}
                   </Text>
                   <TextInput
                     testID="order-cancel-reason-input"
@@ -946,7 +948,7 @@ export default function OrderDetail() {
                 style={({ pressed }) => [styles.modalSecondary, pressed && { opacity: 0.85 }]}
                 disabled={cancelling}
               >
-                <Text style={styles.modalSecondaryText}>Keep order</Text>
+                <Text style={styles.modalSecondaryText}>{t("order_detail.keep_order")}</Text>
               </Pressable>
               <Pressable
                 testID="order-cancel-modal-confirm"
@@ -961,7 +963,7 @@ export default function OrderDetail() {
                 {cancelling ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.modalPrimaryText}>Confirm cancel</Text>
+                  <Text style={styles.modalPrimaryText}>{t("order_detail.confirm_cancel")}</Text>
                 )}
               </Pressable>
             </View>
