@@ -27,6 +27,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -74,6 +75,7 @@ type Period = "all" | "month" | "week";
 
 export default function GamificationScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
   const [me, setMe] = useState<GamificationMe | null>(null);
   const [period, setPeriod] = useState<Period>("all");
@@ -107,14 +109,12 @@ export default function GamificationScreen() {
   const onShare = useCallback(async () => {
     try {
       const url = "https://allsale.co.nz/seller/join?ref=ALLSALE-BIZ";
-      const message =
-        "I'm growing my business with Allsale — Indian sellers can earn 15% lifetime commission. " +
-        `Join with my link: ${url}`;
+      const message = t("seller_referrals_game.share_message", { url });
       await Share.share({ message });
     } catch {
-      show({ title: "Couldn't open share sheet", kind: "error" });
+      show({ title: t("seller_referrals_game.couldnt_share"), kind: "error" });
     }
-  }, [show]);
+  }, [show, t]);
 
   if (loading || !me) {
     return (
@@ -136,7 +136,7 @@ export default function GamificationScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Referral rewards</Text>
+        <Text style={styles.title}>{t("seller_referrals_game.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -144,36 +144,37 @@ export default function GamificationScreen() {
         <TierHero
           me={me}
           onShare={onShare}
+          t={t}
         />
 
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{me.stats.approved}</Text>
-            <Text style={styles.statLabel}>Approved</Text>
+            <Text style={styles.statLabel}>{t("seller_referrals_game.stat_approved")}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{me.stats.signed_up}</Text>
-            <Text style={styles.statLabel}>Signed up</Text>
+            <Text style={styles.statLabel}>{t("seller_referrals_game.stat_signed_up")}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>
               ${me.stats.commission_total_nzd.toFixed(0)}
             </Text>
-            <Text style={styles.statLabel}>Earned</Text>
+            <Text style={styles.statLabel}>{t("seller_referrals_game.stat_earned")}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statValue}>
               {me.rank_all_time ? `#${me.rank_all_time}` : "—"}
             </Text>
-            <Text style={styles.statLabel}>Rank</Text>
+            <Text style={styles.statLabel}>{t("seller_referrals_game.stat_rank")}</Text>
           </View>
         </View>
 
         {/* Badges */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Badges</Text>
+          <Text style={styles.sectionTitle}>{t("seller_referrals_game.section_badges")}</Text>
           <Text style={styles.sectionMeta}>
-            {me.unlocked_count} of {me.badges.length}
+            {t("seller_referrals_game.badges_count", { unlocked: me.unlocked_count, total: me.badges.length })}
           </Text>
         </View>
         <View style={styles.badgeGrid}>
@@ -201,7 +202,7 @@ export default function GamificationScreen() {
 
         {/* Leaderboard */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Leaderboard</Text>
+          <Text style={styles.sectionTitle}>{t("seller_referrals_game.section_leaderboard")}</Text>
           <View style={styles.periodPills}>
             {(["week", "month", "all"] as Period[]).map((p) => (
               <Pressable
@@ -219,7 +220,7 @@ export default function GamificationScreen() {
                     period === p && { color: "#fff" },
                   ]}
                 >
-                  {p === "all" ? "All time" : p}
+                  {p === "all" ? t("seller_referrals_game.period_all") : p === "week" ? t("seller_referrals_game.period_week") : t("seller_referrals_game.period_month")}
                 </Text>
               </Pressable>
             ))}
@@ -243,7 +244,7 @@ export default function GamificationScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.boardName} numberOfLines={1}>
                     {row.display_name}
-                    {row.is_me ? "  · You" : ""}
+                    {row.is_me ? t("seller_referrals_game.you_suffix") : ""}
                   </Text>
                   <Text style={styles.boardMeta} numberOfLines={1}>
                     {row.tier.emoji} {row.tier.label}
@@ -263,11 +264,10 @@ export default function GamificationScreen() {
           <View style={styles.emptyBoard}>
             <Trophy size={28} color={colors.textMuted} />
             <Text style={styles.emptyBoardTitle}>
-              Be the first on the leaderboard
+              {t("seller_referrals_game.empty_first_title")}
             </Text>
             <Text style={styles.emptyBoardBody}>
-              Invite one verified seller this {period === "all" ? "year" : period} to
-              jump straight to #1.
+              {t("seller_referrals_game.empty_first_body", { period: period === "all" ? t("seller_referrals_game.empty_period_year") : period === "week" ? t("seller_referrals_game.period_week") : t("seller_referrals_game.period_month") })}
             </Text>
           </View>
         )}
@@ -275,8 +275,7 @@ export default function GamificationScreen() {
         <View style={styles.footerHint}>
           <HelpCircle size={14} color={colors.textMuted} />
           <Text style={styles.footerHintText}>
-            We approve a referee once they pass business verification. You earn
-            15% of platform fees on their first 12 months of orders.
+            {t("seller_referrals_game.footer_hint")}
           </Text>
         </View>
       </ScrollView>
@@ -288,15 +287,17 @@ export default function GamificationScreen() {
 function TierHero({
   me,
   onShare,
+  t,
 }: {
   me: GamificationMe;
   onShare: () => void;
+  t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
   const ribbon = me.tier.color;
   const progressLabel = useMemo(() => {
-    if (!me.next_tier) return "Max tier reached 🎉";
-    return `${me.next_tier.needed} more to ${me.next_tier.label} ${me.next_tier.emoji}`;
-  }, [me.next_tier]);
+    if (!me.next_tier) return t("seller_referrals_game.max_tier");
+    return t("seller_referrals_game.more_to_tier", { n: me.next_tier.needed, tier: me.next_tier.label, emoji: me.next_tier.emoji });
+  }, [me.next_tier, t]);
   return (
     <View style={[styles.tierHero, { borderColor: ribbon }]}>
       <View style={[styles.tierRibbon, { backgroundColor: ribbon }]}>
@@ -322,12 +323,12 @@ function TierHero({
         ]}
       >
         <Share2 size={16} color="#fff" />
-        <Text style={styles.shareBtnText}>Share my invite link</Text>
+        <Text style={styles.shareBtnText}>{t("seller_referrals_game.share_btn")}</Text>
       </Pressable>
       {me.stats.kingmaker ? (
         <View style={styles.kingmakerPill}>
           <Crown size={12} color="#92400E" />
-          <Text style={styles.kingmakerText}>Kingmaker</Text>
+          <Text style={styles.kingmakerText}>{t("seller_referrals_game.kingmaker")}</Text>
         </View>
       ) : null}
     </View>

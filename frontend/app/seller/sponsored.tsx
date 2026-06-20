@@ -41,6 +41,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -69,16 +70,17 @@ type SellerProduct = {
 
 const STATUS_META: Record<
   Campaign["status"],
-  { bg: string; fg: string; label: string }
+  { bg: string; fg: string; labelKey: string }
 > = {
-  active: { bg: "#DCFCE7", fg: "#166534", label: "Active" },
-  paused: { bg: "#FEF3C7", fg: "#92400E", label: "Paused" },
-  out_of_budget: { bg: "#FFE4D9", fg: "#9A3412", label: "Out of budget" },
-  deleted: { bg: "#E5E7EB", fg: "#374151", label: "Deleted" },
+  active: { bg: "#DCFCE7", fg: "#166534", labelKey: "seller_sponsored.status_active" },
+  paused: { bg: "#FEF3C7", fg: "#92400E", labelKey: "seller_sponsored.status_paused" },
+  out_of_budget: { bg: "#FFE4D9", fg: "#9A3412", labelKey: "seller_sponsored.status_out_of_budget" },
+  deleted: { bg: "#E5E7EB", fg: "#374151", labelKey: "seller_sponsored.status_deleted" },
 };
 
 export default function SponsoredScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
   const [items, setItems] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,10 +113,10 @@ export default function SponsoredScreen() {
         );
         setItems((prev) => prev.map((p) => (p.id === u.id ? u : p)));
       } catch (e: any) {
-        show({ title: "Couldn't update", body: e?.message || "", kind: "error" });
+        show({ title: t("seller_sponsored.couldnt_update"), body: e?.message || "", kind: "error" });
       }
     },
-    [show]
+    [show, t]
   );
 
   const remove = useCallback(
@@ -123,25 +125,25 @@ export default function SponsoredScreen() {
         try {
           await api(`/seller/sponsored/campaigns/${c.id}`, { method: "DELETE" });
           setItems((prev) => prev.filter((p) => p.id !== c.id));
-          show({ title: "Campaign deleted", kind: "success" });
+          show({ title: t("seller_sponsored.deleted_toast"), kind: "success" });
         } catch (e: any) {
-          show({ title: "Couldn't delete", body: e?.message || "", kind: "error" });
+          show({ title: t("seller_sponsored.couldnt_delete"), body: e?.message || "", kind: "error" });
         }
       };
       if (Platform.OS === "web") {
-        if (window.confirm(`Delete the campaign for ${c.product_name}?`)) doIt();
+        if (window.confirm(t("seller_sponsored.delete_web_confirm", { name: c.product_name }))) doIt();
       } else {
         Alert.alert(
-          "Delete campaign?",
-          `This stops promotion for ${c.product_name}. Stats are kept for billing.`,
+          t("seller_sponsored.delete_title"),
+          t("seller_sponsored.delete_msg", { name: c.product_name }),
           [
-            { text: "Cancel", style: "cancel" },
-            { text: "Delete", style: "destructive", onPress: doIt },
+            { text: t("seller_sponsored.cancel"), style: "cancel" },
+            { text: t("seller_sponsored.delete_btn"), style: "destructive", onPress: doIt },
           ]
         );
       }
     },
-    [show]
+    [show, t]
   );
 
   const totalSpentToday = useMemo(
@@ -163,7 +165,7 @@ export default function SponsoredScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Sponsored placements</Text>
+        <Text style={styles.title}>{t("seller_sponsored.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -173,28 +175,27 @@ export default function SponsoredScreen() {
             <Sparkles size={20} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroTitle}>Boost what you want sold</Text>
+            <Text style={styles.heroTitle}>{t("seller_sponsored.hero_title")}</Text>
             <Text style={styles.heroSub}>
-              Pay-per-click. Top up your wallet, set a daily budget, pause
-              anytime.
+              {t("seller_sponsored.hero_sub")}
             </Text>
           </View>
         </View>
 
-        <WalletCard show={show} />
+        <WalletCard show={show} t={t} />
 
         {items.length > 0 ? (
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Spent today</Text>
+              <Text style={styles.statLabel}>{t("seller_sponsored.spent_today_label")}</Text>
               <Text style={styles.statValue}>${totalSpentToday.toFixed(2)}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>This month</Text>
+              <Text style={styles.statLabel}>{t("seller_sponsored.this_month_label")}</Text>
               <Text style={styles.statValue}>${totalSpentMonth.toFixed(2)}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Campaigns</Text>
+              <Text style={styles.statLabel}>{t("seller_sponsored.campaigns_label")}</Text>
               <Text style={styles.statValue}>{items.length}</Text>
             </View>
           </View>
@@ -206,10 +207,9 @@ export default function SponsoredScreen() {
           </View>
         ) : items.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No campaigns yet</Text>
+            <Text style={styles.emptyTitle}>{t("seller_sponsored.empty_title")}</Text>
             <Text style={styles.emptyBody}>
-              Promote a listing into the home, category and search pages.
-              You set the daily budget and pay only when shoppers click.
+              {t("seller_sponsored.empty_body")}
             </Text>
           </View>
         ) : (
@@ -240,7 +240,7 @@ export default function SponsoredScreen() {
                       style={[styles.statusPill, { backgroundColor: s.bg }]}
                     >
                       <Text style={[styles.statusText, { color: s.fg }]}>
-                        {s.label}
+                        {t(s.labelKey)}
                       </Text>
                     </View>
                   </View>
@@ -248,9 +248,9 @@ export default function SponsoredScreen() {
 
                 <View style={styles.budgetRow}>
                   <Text style={styles.budgetText}>
-                    ${c.spent_today.toFixed(2)} / ${c.daily_budget_nzd.toFixed(2)} today
+                    ${c.spent_today.toFixed(2)} / ${c.daily_budget_nzd.toFixed(2)}{t("seller_sponsored.budget_today_suffix")}
                   </Text>
-                  <Text style={styles.cpcText}>${c.cpc_nzd.toFixed(2)} CPC</Text>
+                  <Text style={styles.cpcText}>${c.cpc_nzd.toFixed(2)}{t("seller_sponsored.cpc_suffix")}</Text>
                 </View>
                 <View style={styles.progressTrack}>
                   <View
@@ -322,7 +322,7 @@ export default function SponsoredScreen() {
           ]}
         >
           <Plus size={18} color="#fff" />
-          <Text style={styles.fabText}>Promote a product</Text>
+          <Text style={styles.fabText}>{t("seller_sponsored.promote_btn")}</Text>
         </Pressable>
       </SafeAreaView>
 
@@ -332,7 +332,7 @@ export default function SponsoredScreen() {
         onCreated={(c) => {
           setItems((prev) => [c, ...prev]);
           setShowCreate(false);
-          show({ title: "Campaign live", kind: "success" });
+          show({ title: t("seller_sponsored.campaign_live"), kind: "success" });
         }}
       />
     </SafeAreaView>
@@ -351,6 +351,7 @@ function CreateCampaignModal({
   onClose: () => void;
   onCreated: (c: Campaign) => void;
 }) {
+  const { t } = useTranslation();
   const { show } = useToast();
   const [products, setProducts] = useState<SellerProduct[]>([]);
   const [loadingProds, setLoadingProds] = useState(false);
@@ -397,21 +398,21 @@ function CreateCampaignModal({
       setCpc("0.50");
     } catch (e: any) {
       show({
-        title: "Couldn't create campaign",
+        title: t("seller_sponsored.couldnt_create"),
         body: e?.message || "",
         kind: "error",
       });
     } finally {
       setSubmitting(false);
     }
-  }, [canSubmit, pid, budget, cpc, onCreated, show]);
+  }, [canSubmit, pid, budget, cpc, onCreated, show, t]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.modalBackdrop}>
         <View style={styles.modalSheet}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Promote a product</Text>
+            <Text style={styles.modalTitle}>{t("seller_sponsored.modal_title")}</Text>
             <Pressable
               testID="sponsored-new-close"
               onPress={onClose}
@@ -421,7 +422,7 @@ function CreateCampaignModal({
             </Pressable>
           </View>
 
-          <Text style={styles.label}>Pick a listing</Text>
+          <Text style={styles.label}>{t("seller_sponsored.pick_listing")}</Text>
           {loadingProds ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
@@ -457,7 +458,7 @@ function CreateCampaignModal({
 
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Daily budget (NZD)</Text>
+              <Text style={styles.label}>{t("seller_sponsored.daily_budget")}</Text>
               <TextInput
                 testID="sponsored-budget-input"
                 value={budget}
@@ -468,7 +469,7 @@ function CreateCampaignModal({
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Cost per click</Text>
+              <Text style={styles.label}>{t("seller_sponsored.cost_per_click")}</Text>
               <TextInput
                 testID="sponsored-cpc-input"
                 value={cpc}
@@ -483,9 +484,7 @@ function CreateCampaignModal({
           <View style={styles.hintBox}>
             <AlertCircle size={14} color="#92400E" />
             <Text style={styles.hintText}>
-              Estimated reach: {Math.round(parseFloat(budget || "0") / Math.max(parseFloat(cpc || "0.5"), 0.1))}{" "}
-              clicks/day. We&apos;ll auto-pause when the daily budget is spent
-              and resume tomorrow.
+              {t("seller_sponsored.hint_estimate", { clicks: Math.round(parseFloat(budget || "0") / Math.max(parseFloat(cpc || "0.5"), 0.1)) })}
             </Text>
           </View>
 
@@ -498,7 +497,7 @@ function CreateCampaignModal({
             {submitting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryBtnText}>Launch campaign</Text>
+              <Text style={styles.primaryBtnText}>{t("seller_sponsored.launch_btn")}</Text>
             )}
           </Pressable>
         </View>
@@ -510,7 +509,7 @@ function CreateCampaignModal({
 // ---------------------------------------------------------------------------
 // Wallet card — balance + topup
 // ---------------------------------------------------------------------------
-function WalletCard({ show }: { show: (o: any) => void }) {
+function WalletCard({ show, t }: { show: (o: any) => void; t: (k: string, opts?: Record<string, unknown>) => string }) {
   const [wallet, setWallet] = React.useState<{
     balance_nzd: number;
     lifetime_topup_nzd: number;
@@ -535,7 +534,7 @@ function WalletCard({ show }: { show: (o: any) => void }) {
   const topup = useCallback(async () => {
     const amt = parseFloat(amount);
     if (!amt || amt < 5) {
-      show({ title: "Minimum top-up is $5 NZD", kind: "error" });
+      show({ title: t("seller_sponsored.min_topup"), kind: "error" });
       return;
     }
     setBusy(true);
@@ -550,20 +549,20 @@ function WalletCard({ show }: { show: (o: any) => void }) {
         await Linking.openURL(d.url);
       }
       show({
-        title: "Opening Stripe Checkout",
-        body: "Your wallet will update after payment.",
+        title: t("seller_sponsored.opening_stripe_title"),
+        body: t("seller_sponsored.opening_stripe_body"),
         kind: "success",
       });
     } catch (e: any) {
       show({
-        title: "Topup failed",
+        title: t("seller_sponsored.topup_failed"),
         body: e?.message || "",
         kind: "error",
       });
     } finally {
       setBusy(false);
     }
-  }, [amount, show]);
+  }, [amount, show, t]);
 
   if (!wallet) return null;
   return (
@@ -573,15 +572,14 @@ function WalletCard({ show }: { show: (o: any) => void }) {
           <Wallet size={18} color={colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={walletStyles.label}>Ad wallet balance</Text>
+          <Text style={walletStyles.label}>{t("seller_sponsored.wallet_label")}</Text>
           <Text style={walletStyles.balance}>
             ${wallet.balance_nzd.toFixed(2)}
           </Text>
         </View>
       </View>
       <Text style={walletStyles.meta}>
-        Topped up ${wallet.lifetime_topup_nzd.toFixed(0)} · spent $
-        {wallet.lifetime_spent_nzd.toFixed(2)} lifetime
+        {t("seller_sponsored.wallet_meta", { topup: wallet.lifetime_topup_nzd.toFixed(0), spent: wallet.lifetime_spent_nzd.toFixed(2) })}
       </Text>
       <View style={walletStyles.row}>
         <TextInput
@@ -603,7 +601,7 @@ function WalletCard({ show }: { show: (o: any) => void }) {
           ) : (
             <>
               <CreditCard size={14} color="#fff" />
-              <Text style={walletStyles.topupBtnText}>Top up via Stripe</Text>
+              <Text style={walletStyles.topupBtnText}>{t("seller_sponsored.topup_btn")}</Text>
             </>
           )}
         </Pressable>

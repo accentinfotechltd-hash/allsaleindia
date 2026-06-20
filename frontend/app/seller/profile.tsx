@@ -35,6 +35,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api, setToken } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -78,6 +79,7 @@ type Settings = {
 };
 
 export default function SellerProfileScreen() {
+  const { t } = useTranslation();
   const { show } = useToast();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -96,11 +98,11 @@ export default function SellerProfileScreen() {
       const s = await api<Settings>("/seller/profile/settings");
       setData(s);
     } catch (e: any) {
-      show({ title: "Could not load settings", message: e?.message || "Please try again.", kind: "error" });
+      show({ title: t("seller_profile.could_not_load"), message: e?.message || t("seller_profile.please_try_again"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [show, t]);
 
   useEffect(() => {
     load();
@@ -125,7 +127,7 @@ export default function SellerProfileScreen() {
     async (slot: "logo" | "banner") => {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        show({ title: "Permission needed", message: "We need access to your photos to upload your store images.", kind: "error" });
+        show({ title: t("seller_profile.permission_needed_title"), message: t("seller_profile.permission_needed_msg"), kind: "error" });
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -146,10 +148,10 @@ export default function SellerProfileScreen() {
         if (slot === "logo") set("store_logo_url", up.url);
         else set("store_banner_url", up.url);
       } catch (e: any) {
-        show({ title: "Upload failed", message: e?.message || "Please try again.", kind: "error" });
+        show({ title: t("seller_profile.upload_failed"), message: e?.message || t("seller_profile.please_try_again"), kind: "error" });
       }
     },
-    [],
+    [show, t],
   );
 
   const save = useCallback(async () => {
@@ -186,17 +188,17 @@ export default function SellerProfileScreen() {
       });
       setData(fresh);
       setBankAccountInput("");
-      show({ title: "Saved", message: "Your store profile has been updated.", kind: "error" });
+      show({ title: t("seller_profile.saved_title"), message: t("seller_profile.saved_msg"), kind: "error" });
     } catch (e: any) {
-      show({ title: "Could not save", message: e?.message || "Please try again.", kind: "error" });
+      show({ title: t("seller_profile.could_not_save"), message: e?.message || t("seller_profile.please_try_again"), kind: "error" });
     } finally {
       setSaving(false);
     }
-  }, [data, bankAccountInput]);
+  }, [data, bankAccountInput, show, t]);
 
   const changePassword = useCallback(async () => {
     if (!pwOld || pwNew.length < 8) {
-      show({ title: "Check your input", message: "Enter your current password and a new password ≥ 8 chars with a number.", kind: "error" });
+      show({ title: t("seller_profile.check_input_title"), message: t("seller_profile.check_input_msg"), kind: "error" });
       return;
     }
     setPwSaving(true);
@@ -208,23 +210,23 @@ export default function SellerProfileScreen() {
       await setToken(res.access_token);
       setPwOld("");
       setPwNew("");
-      show({ title: "Password updated", message: "All other devices have been signed out.", kind: "error" });
+      show({ title: t("seller_profile.password_updated_title"), message: t("seller_profile.password_updated_msg"), kind: "error" });
     } catch (e: any) {
-      show({ title: "Could not change password", message: e?.message || "Please try again.", kind: "error" });
+      show({ title: t("seller_profile.could_not_change_password"), message: e?.message || t("seller_profile.please_try_again"), kind: "error" });
     } finally {
       setPwSaving(false);
     }
-  }, [pwOld, pwNew]);
+  }, [pwOld, pwNew, show, t]);
 
   const confirm = useConfirm();
   const toast = useToast();
 
   const signOutAll = useCallback(async () => {
     const ok = await confirm({
-      title: "Sign out all other devices?",
-      message: "You will stay signed in here. All other devices must sign in again.",
+      title: t("seller_profile.signout_confirm_title"),
+      message: t("seller_profile.signout_confirm_msg"),
       destructive: true,
-      confirmLabel: "Sign out everywhere",
+      confirmLabel: t("seller_profile.signout_destructive"),
     });
     if (!ok) return;
     try {
@@ -233,16 +235,16 @@ export default function SellerProfileScreen() {
         { method: "POST" },
       );
       await setToken(res.access_token);
-      toast.show({ kind: "success", title: "Done", body: "All other sessions have been revoked." });
+      toast.show({ kind: "success", title: t("seller_profile.signout_done_title"), body: t("seller_profile.signout_done_body") });
     } catch (e: any) {
-      toast.show({ kind: "error", title: "Failed", body: e?.message || "Please try again." });
+      toast.show({ kind: "error", title: t("seller_profile.signout_failed_title"), body: e?.message || t("seller_profile.please_try_again") });
     }
-  }, [confirm, toast]);
+  }, [confirm, toast, t]);
 
   if (loading || !data) {
     return (
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <Header onBack={() => router.back()} />
+        <Header onBack={() => router.back()} title={t("seller_profile.title")} />
         <View style={styles.center}>
           <ActivityIndicator color={colors.primary} />
         </View>
@@ -252,7 +254,7 @@ export default function SellerProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Header onBack={() => router.back()} />
+      <Header onBack={() => router.back()} title={t("seller_profile.title")} />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         style={{ flex: 1 }}
@@ -262,14 +264,14 @@ export default function SellerProfileScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Storefront identity */}
-          <Section icon={<Store size={18} color={colors.primary} />} title="Storefront">
+          <Section icon={<Store size={18} color={colors.primary} />} title={t("seller_profile.section_storefront")}>
             <Pressable testID="profile-banner-picker" onPress={() => pickImage("banner")} style={styles.bannerSlot}>
               {data.store_banner_url ? (
                 <Image source={{ uri: data.store_banner_url }} style={styles.bannerImg} />
               ) : (
                 <View style={styles.bannerEmpty}>
                   <ImageIcon size={20} color={colors.textMuted} />
-                  <Text style={styles.bannerHint}>Tap to upload a store banner (16:9)</Text>
+                  <Text style={styles.bannerHint}>{t("seller_profile.banner_hint")}</Text>
                 </View>
               )}
               <View style={styles.bannerCameraBadge}>
@@ -290,20 +292,20 @@ export default function SellerProfileScreen() {
               </Pressable>
               <View style={{ flex: 1 }}>
                 <Field
-                  label="Store display name"
+                  label={t("seller_profile.field_store_name")}
                   value={data.store_display_name || ""}
                   placeholder={data.company_name}
-                  onChangeText={(t) => set("store_display_name", t)}
+                  onChangeText={(tx) => set("store_display_name", tx)}
                   testID="profile-store-name"
                 />
               </View>
             </View>
 
             <Field
-              label="Store bio (max 300 chars)"
+              label={t("seller_profile.field_store_bio")}
               value={data.store_bio || ""}
-              placeholder="Authentic Indian handicrafts — handmade in Jaipur"
-              onChangeText={(t) => set("store_bio", t.slice(0, 300))}
+              placeholder={t("seller_profile.bio_placeholder")}
+              onChangeText={(tx) => set("store_bio", tx.slice(0, 300))}
               multiline
               numberOfLines={3}
               testID="profile-store-bio"
@@ -312,27 +314,27 @@ export default function SellerProfileScreen() {
           </Section>
 
           {/* Contact & support */}
-          <Section icon={<UserIcon size={18} color={colors.primary} />} title="Contact & support">
+          <Section icon={<UserIcon size={18} color={colors.primary} />} title={t("seller_profile.section_contact")}>
             <Field
-              label="Contact name"
+              label={t("seller_profile.field_contact_name")}
               value={data.contact_name}
-              onChangeText={(t) => set("contact_name", t)}
+              onChangeText={(tx) => set("contact_name", tx)}
               leftIcon={<UserIcon size={16} color={colors.textMuted} />}
               testID="profile-contact-name"
             />
             <Field
-              label="Contact phone"
+              label={t("seller_profile.field_contact_phone")}
               value={data.contact_phone}
-              onChangeText={(t) => set("contact_phone", t)}
+              onChangeText={(tx) => set("contact_phone", tx)}
               keyboardType="phone-pad"
               leftIcon={<Phone size={16} color={colors.textMuted} />}
               testID="profile-contact-phone"
             />
             <Field
-              label="Support email (public)"
+              label={t("seller_profile.field_support_email")}
               value={data.support_email || ""}
-              placeholder="support@yourstore.com"
-              onChangeText={(t) => set("support_email", t)}
+              placeholder={t("seller_profile.support_placeholder")}
+              onChangeText={(tx) => set("support_email", tx)}
               keyboardType="email-address"
               autoCapitalize="none"
               leftIcon={<Mail size={16} color={colors.textMuted} />}
@@ -341,81 +343,81 @@ export default function SellerProfileScreen() {
             <View style={styles.readOnlyRow}>
               <Mail size={16} color={colors.textMuted} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.readOnlyLabel}>Login email</Text>
+                <Text style={styles.readOnlyLabel}>{t("seller_profile.login_email_label")}</Text>
                 <Text style={styles.readOnlyValue}>{data.email}</Text>
               </View>
             </View>
           </Section>
 
           {/* Business address */}
-          <Section icon={<Building2 size={18} color={colors.primary} />} title="Business address">
+          <Section icon={<Building2 size={18} color={colors.primary} />} title={t("seller_profile.section_address")}>
             <View style={styles.warnBanner}>
               <ShieldAlert size={14} color={colors.primary} />
               <Text style={styles.warnText}>
-                Editing the address re-triggers admin KYC review (7-day SLA).
+                {t("seller_profile.address_warn")}
               </Text>
             </View>
             <Field
-              label="Address line 1"
+              label={t("seller_profile.field_address_1")}
               value={data.address_line1}
-              onChangeText={(t) => set("address_line1", t)}
+              onChangeText={(tx) => set("address_line1", tx)}
               testID="profile-address-line1"
             />
             <Field
-              label="Address line 2 (optional)"
+              label={t("seller_profile.field_address_2")}
               value={data.address_line2 || ""}
-              onChangeText={(t) => set("address_line2", t)}
+              onChangeText={(tx) => set("address_line2", tx)}
               testID="profile-address-line2"
             />
             <View style={styles.row2}>
               <View style={{ flex: 1 }}>
-                <Field label="City" value={data.city} onChangeText={(t) => set("city", t)} />
+                <Field label={t("seller_profile.field_city")} value={data.city} onChangeText={(tx) => set("city", tx)} />
               </View>
               <View style={{ flex: 1 }}>
-                <Field label="State" value={data.state} onChangeText={(t) => set("state", t)} />
+                <Field label={t("seller_profile.field_state")} value={data.state} onChangeText={(tx) => set("state", tx)} />
               </View>
             </View>
             <Field
-              label="Pincode"
+              label={t("seller_profile.field_pincode")}
               value={data.pincode}
-              onChangeText={(t) => set("pincode", t.replace(/\D/g, "").slice(0, 6))}
+              onChangeText={(tx) => set("pincode", tx.replace(/\D/g, "").slice(0, 6))}
               keyboardType="number-pad"
               testID="profile-pincode"
             />
           </Section>
 
           {/* Payout */}
-          <Section icon={<Landmark size={18} color={colors.primary} />} title="Payout (display only)">
+          <Section icon={<Landmark size={18} color={colors.primary} />} title={t("seller_profile.section_payout")}>
             <Text style={styles.helpText}>
-              Bank info is shown to admins for payout reconciliation. The actual transfer uses Stripe — only the last 4 digits of your account are stored.
+              {t("seller_profile.payout_help")}
             </Text>
             <Field
-              label="Account holder name"
+              label={t("seller_profile.field_account_holder")}
               value={data.bank_holder_name || ""}
-              onChangeText={(t) => set("bank_holder_name", t)}
+              onChangeText={(tx) => set("bank_holder_name", tx)}
             />
             <Field
-              label="Bank name"
+              label={t("seller_profile.field_bank_name")}
               value={data.bank_name || ""}
-              placeholder="State Bank of India"
-              onChangeText={(t) => set("bank_name", t)}
+              placeholder={t("seller_profile.bank_placeholder")}
+              onChangeText={(tx) => set("bank_name", tx)}
             />
             <View style={styles.row2}>
               <View style={{ flex: 1 }}>
                 <Field
-                  label="IFSC code"
+                  label={t("seller_profile.field_ifsc")}
                   value={data.bank_ifsc || ""}
-                  placeholder="SBIN0001234"
+                  placeholder={t("seller_profile.ifsc_placeholder")}
                   autoCapitalize="characters"
-                  onChangeText={(t) => set("bank_ifsc", t.toUpperCase().slice(0, 11))}
+                  onChangeText={(tx) => set("bank_ifsc", tx.toUpperCase().slice(0, 11))}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <Field
-                  label={data.bank_account_last4 ? `Account (•••• ${data.bank_account_last4})` : "Account number"}
+                  label={data.bank_account_last4 ? t("seller_profile.account_existing", { last4: data.bank_account_last4 }) : t("seller_profile.account_new")}
                   value={bankAccountInput}
-                  placeholder={data.bank_account_last4 ? "Replace…" : "0123456789"}
-                  onChangeText={(t) => setBankAccountInput(t.replace(/\D/g, "").slice(0, 20))}
+                  placeholder={data.bank_account_last4 ? t("seller_profile.account_replace_placeholder") : t("seller_profile.account_new_placeholder")}
+                  onChangeText={(tx) => setBankAccountInput(tx.replace(/\D/g, "").slice(0, 20))}
                   keyboardType="number-pad"
                   secureTextEntry
                 />
@@ -424,11 +426,11 @@ export default function SellerProfileScreen() {
           </Section>
 
           {/* Operational */}
-          <Section icon={<Plane size={18} color={colors.primary} />} title="Vacation mode">
+          <Section icon={<Plane size={18} color={colors.primary} />} title={t("seller_profile.section_vacation")}>
             <View style={styles.switchRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.switchLabel}>Pause my store</Text>
-                <Text style={styles.switchSub}>Hides all my listings from buyers worldwide.</Text>
+                <Text style={styles.switchLabel}>{t("seller_profile.pause_label")}</Text>
+                <Text style={styles.switchSub}>{t("seller_profile.pause_sub")}</Text>
               </View>
               <Switch
                 testID="profile-vacation-toggle"
@@ -440,17 +442,17 @@ export default function SellerProfileScreen() {
             </View>
             {data.vacation_mode ? (
               <Field
-                label="Away message (shown to existing chats)"
+                label={t("seller_profile.away_label")}
                 value={data.vacation_message || ""}
-                placeholder="Back on 20 July — replies will resume then."
-                onChangeText={(t) => set("vacation_message", t.slice(0, 200))}
+                placeholder={t("seller_profile.away_placeholder")}
+                onChangeText={(tx) => set("vacation_message", tx.slice(0, 200))}
                 multiline
               />
             ) : null}
           </Section>
 
-          <Section icon={<Truck size={18} color={colors.primary} />} title="Shipping handling time">
-            <Text style={styles.helpText}>Used in buyer ETAs. Days to pack & dispatch after order is paid.</Text>
+          <Section icon={<Truck size={18} color={colors.primary} />} title={t("seller_profile.section_shipping")}>
+            <Text style={styles.helpText}>{t("seller_profile.shipping_help")}</Text>
             <View style={styles.daysRow}>
               {[1, 2, 3, 5, 7].map((d) => (
                 <Pressable
@@ -468,7 +470,7 @@ export default function SellerProfileScreen() {
                       data.shipping_handling_days === d && styles.dayChipTextActive,
                     ]}
                   >
-                    {d} {d === 1 ? "day" : "days"}
+                    {d} {d === 1 ? t("seller_profile.day_one") : t("seller_profile.day_other")}
                   </Text>
                 </Pressable>
               ))}
@@ -476,22 +478,22 @@ export default function SellerProfileScreen() {
           </Section>
 
           {/* Notification prefs */}
-          <Section icon={<Bell size={18} color={colors.primary} />} title="Notifications">
-            <PrefRow label="New order" prefs={data.notification_prefs} onToggle={togglePref} keyBase="new_order" />
-            <PrefRow label="Return request" prefs={data.notification_prefs} onToggle={togglePref} keyBase="return_request" />
-            <PrefRow label="Payout sent" prefs={data.notification_prefs} onToggle={togglePref} keyBase="payout" />
-            <PrefRow label="Low stock alert" prefs={data.notification_prefs} onToggle={togglePref} keyBase="low_stock" />
+          <Section icon={<Bell size={18} color={colors.primary} />} title={t("seller_profile.section_notifications")}>
+            <PrefRow label={t("seller_profile.pref_new_order")} prefs={data.notification_prefs} onToggle={togglePref} keyBase="new_order" />
+            <PrefRow label={t("seller_profile.pref_return")} prefs={data.notification_prefs} onToggle={togglePref} keyBase="return_request" />
+            <PrefRow label={t("seller_profile.pref_payout")} prefs={data.notification_prefs} onToggle={togglePref} keyBase="payout" />
+            <PrefRow label={t("seller_profile.pref_low_stock")} prefs={data.notification_prefs} onToggle={togglePref} keyBase="low_stock" />
             <View style={styles.prefHeaderRow}>
               <Text style={[styles.prefHeader, { flex: 1 }]} />
-              <Text style={styles.prefHeader}>Email</Text>
-              <Text style={styles.prefHeader}>In-app</Text>
+              <Text style={styles.prefHeader}>{t("seller_profile.pref_email")}</Text>
+              <Text style={styles.prefHeader}>{t("seller_profile.pref_inapp")}</Text>
             </View>
           </Section>
 
           {/* Account */}
-          <Section icon={<KeyRound size={18} color={colors.primary} />} title="Account">
+          <Section icon={<KeyRound size={18} color={colors.primary} />} title={t("seller_profile.section_account")}>
             <Field
-              label="Current password"
+              label={t("seller_profile.field_current_password")}
               value={pwOld}
               onChangeText={setPwOld}
               secureTextEntry
@@ -499,7 +501,7 @@ export default function SellerProfileScreen() {
               testID="profile-pw-current"
             />
             <Field
-              label="New password (≥ 8 chars, 1 number)"
+              label={t("seller_profile.field_new_password")}
               value={pwNew}
               onChangeText={setPwNew}
               secureTextEntry
@@ -521,13 +523,13 @@ export default function SellerProfileScreen() {
               ) : (
                 <>
                   <KeyRound size={16} color={colors.primary} />
-                  <Text style={styles.secondaryText}>Update password</Text>
+                  <Text style={styles.secondaryText}>{t("seller_profile.update_password_btn")}</Text>
                 </>
               )}
             </Pressable>
             <Pressable testID="profile-signout-all" onPress={signOutAll} style={styles.dangerBtn}>
               <LogOut size={16} color={colors.error} />
-              <Text style={styles.dangerText}>Sign out all other devices</Text>
+              <Text style={styles.dangerText}>{t("seller_profile.signout_all_btn")}</Text>
             </Pressable>
           </Section>
 
@@ -552,7 +554,7 @@ export default function SellerProfileScreen() {
           ) : (
             <>
               <Save size={18} color="#fff" />
-              <Text style={styles.saveText}>Save changes</Text>
+              <Text style={styles.saveText}>{t("seller_profile.save_btn")}</Text>
             </>
           )}
         </Pressable>
@@ -561,13 +563,13 @@ export default function SellerProfileScreen() {
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header({ onBack, title }: { onBack: () => void; title: string }) {
   return (
     <View style={styles.topBar}>
       <Pressable testID="profile-back" onPress={onBack} style={styles.backBtn}>
         <ChevronLeft size={22} color={colors.text} />
       </Pressable>
-      <Text style={styles.title}>Store profile</Text>
+      <Text style={styles.title}>{title}</Text>
       <View style={{ width: 40 }} />
     </View>
   );
