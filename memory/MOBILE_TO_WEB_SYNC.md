@@ -663,3 +663,97 @@ Quick win — the floating ✨ "Ask" button now appears on every product page wi
 
 ### Web parity
 Same pattern works on web — pass `initialQuestion` to whatever FAB/launcher the web frontend uses, navigate to `/assistant?q=<encoded>`.
+
+---
+
+## June 20, 2026 — Production Polish Sprint (Mobile)
+**Status:** 🟢 All shipped & tested on mobile. Web parity items below.
+
+### 1. Sentry Crash Monitoring
+- Backend: `sentry-sdk[fastapi]==2.20.0` already in `requirements.txt`. Init in `server.py` reads `SENTRY_DSN`; skips silently when empty. Configurable: `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `SENTRY_TRACES_SAMPLE_RATE=0.05`.
+- Frontend: `@sentry/react-native@7.2.0` + helper `/src/lib/sentry.ts`. Reads `EXPO_PUBLIC_SENTRY_DSN`. `Sentry.wrap` applied at root `_layout.tsx`. **Web parity:** add `@sentry/nextjs` with same DSN.
+
+### 2. Apple Sign-In Hardening (App Store ready)
+- New `APPLE_BUNDLE_ID` env var (comma-separated allowed audiences).
+- Fix: brand-new users from "Hide My Email" or revoked-and-re-granted flows where Apple omits the `email` claim now get a synthesised `{sub}@privaterelay.appleid.com` (no more 500s).
+- `tests/test_apple_signin.py` — 6 passing tests covering full sub-based lookup / email-linking / synthetic-email fallback / rate-limit isolation.
+- **Web parity:** check Sign-In-with-Apple JS SDK flow uses the same audience.
+
+### 3. Order Cancellation Reasons + Refund Polish
+- New `Order.cancel_reason_code` + `Order.refund_expected_by` fields.
+- New `GET /api/orders/cancel-reasons` — returns canonical list of 8 reason codes with labels. Web should consume.
+- `POST /api/orders/{id}/cancel` now validates `reason_code` + requires note when code is `"other"`.
+- Mobile UX: radio-list reason picker + rich refund-status card with expected-by date, ref ID, method, footnote.
+- **Web parity strongly recommended** — cancel screen needs the same structured picker.
+
+### 4. Empty States + Skeletons
+- New shared `EmptyState` component with consistent icon/title/sub/CTA design.
+- New `SkeletonRows` patterns: `OrderListSkeleton`, `ProductGridSkeleton`, `WishlistListSkeleton`, `SearchSuggestionsSkeleton`.
+- Replaced `ActivityIndicator` placeholders on home, search, orders, wishlist.
+- **Web parity:** apply same skeleton pattern (real-row geometry, no spinner) for CLS-free loads.
+
+### 5. First-Purchase Welcome Coupon (activation lever)
+- New `Coupon.first_order_only` field + `services/welcome_coupon.py`.
+- `WELCOME10` auto-seeded sitewide at startup: 10% off first order, $20 cap, $25 minimum spend.
+- Env-tunable: `ALLSALE_WELCOME_CODE`, `ALLSALE_WELCOME_PCT`, `ALLSALE_WELCOME_MAX_NZD`, `ALLSALE_WELCOME_MIN_NZD`.
+- New `GET /api/coupons/welcome` returns coupon for eligible users (no paid orders, no prior redemption) or null.
+- Mobile: `WelcomeCouponBanner` on home tab with copy-code button, "Shop now" CTA, dismissible (per-user AsyncStorage flag).
+- `tests/test_welcome_coupon.py` — 6 passing service tests (idempotent seed, eligibility, cap, min, redeem-then-hide).
+- **Web parity:** add same banner to web homepage for signed-in eligible users.
+
+### 6. Multi-language UI — ~231 strings translated to Hindi
+Across 6 batched passes, wired `useTranslation()` and translated visible labels on:
+- Tab bar (5 labels)
+- Home (region, deal/best-seller tiles, no-match empty)
+- Search (clear-all, section headers Recent/Trending/Suggested)
+- Cart (NZD label, checkout CTA, empty CTA)
+- Orders list + detail (refund card, cancel modal, reasons)
+- Wishlist (header, 2 empty states, signin prompt)
+- Welcome Coupon Banner
+- Account screen (28 row labels + 19 row subtitles + verify-email banner + footer)
+- Auth (login, register, forgot password, welcome — 20 strings)
+- Product detail (10 strings — fact cards, about, totals)
+- Checkout extras (Loyalty rewards, Coupon/Discount, Gift wrap, Points used)
+- Seller dashboard quick tiles (4 strings) + Payouts top labels (4 strings)
+- Admin gate + core CTAs (9 strings)
+
+**Fallback verified:** `i18n.enableFallback = true` + `defaultLocale = "en"` means **all 28 supported languages** render cleanly via graceful English fallback for the new keys — no raw key paths leak.
+
+**Web parity:** Web likely has its own i18n. The string keys (`tabs.home`, `orders_screen.title`, `welcome_coupon.title`, etc.) are now stable — share `en.ts`/`hi.ts` content with web team.
+
+### 7. Pacific Region Expansion — 4 new countries
+Mobile now supports **9 countries**: NZ, AU, US, GB, CA + 🇫🇯 Fiji, 🇼🇸 Samoa, 🇹🇴 Tonga, 🇵🇬 Papua New Guinea.
+
+- Backend `config.py` → added all 4 to `SUPPORTED_COUNTRIES` + `FX_RATES_FROM_NZD`.
+- Backend `services/fx.py` → **dual-provider FX pipeline**: Frankfurter (ECB) for AUD/USD/GBP/CAD + open.er-api.com for Pacific currencies (FJD/WST/TOP/PGK).
+- Backend `routers/geo.py` → subdomain auto-redirect map extended with `fj/ws/to/pg`.
+- Frontend `RegionContext` → `CountryCode` union extended + hostname switch cases.
+- New i18n locales: Fijian (existing), Samoan (existing), Tongan (existing), Tok Pisin (new stub, 🇵🇬).
+
+**Live FX rates (verified):**
+```
+1 NZD = 1.2924 FJD (Fiji)
+1 NZD = 1.5655 WST (Samoa)
+1 NZD = 1.3726 TOP (Tonga)
+1 NZD = 2.5344 PGK (Papua New Guinea)
+```
+
+**Web parity:** consume the same `/api/currency/rates` endpoint — the 4 new countries appear automatically.
+
+### 8. DNS Documentation
+- New `/app/memory/DNS_REGIONAL_SUBDOMAINS.md` — provider-agnostic deploy guide with the 9 CNAME records, TLS notes (wildcard or per-host SAN list), validation script, rollback plan, and future-markets recipe.
+- Records to add: `ws / to / pg / fj.allsale.co.nz` → CNAME → `allsale.co.nz.` (the other 5 already exist).
+- Web parity: the same DNS doc applies — web ingress should accept the same regional Host headers.
+
+### Backend API changes summary (web should sync)
+| Endpoint | Method | Notes |
+|---|---|---|
+| `/api/orders/cancel-reasons` | GET | Public — list of structured reasons |
+| `/api/orders/{id}/cancel` | POST | Now accepts `{reason_code, reason?}` |
+| `/api/coupons/welcome` | GET | Returns coupon or null (auth required) |
+| `/api/currency/rates` | GET | Now includes 9 countries + 4 new Pacific rates |
+
+### Tests added (all passing)
+- `tests/test_apple_signin.py` (6)
+- `tests/test_cancel_reasons.py` (4)
+- `tests/test_welcome_coupon.py` (6)
