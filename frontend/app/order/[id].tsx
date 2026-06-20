@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as FileSystem from "expo-file-system";
 import * as Linking from "expo-linking";
 import * as Sharing from "expo-sharing";
-import { CheckCircle2, ChevronLeft, ExternalLink, FileText, Mail, MapPin, MessageCircle, Package, PenSquare, RefreshCcw, RotateCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
+import { CheckCircle2, Circle, ChevronLeft, ExternalLink, FileText, Mail, MapPin, MessageCircle, Package, PenSquare, RefreshCcw, RotateCcw, ShieldCheck, Truck, XCircle } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -48,11 +48,19 @@ type Order = {
   cancellable_until?: string | null;
   cancelled_at?: string | null;
   cancel_reason?: string | null;
+  cancel_reason_code?: string | null;
   refund_id?: string | null;
   refund_amount_nzd?: number | null;
+  refund_expected_by?: string | null;
   awb_code?: string | null;
   tracking_status?: string | null;
   buyer_confirmed_at?: string | null;
+};
+
+type CancelReason = {
+  code: string;
+  label: string;
+  requires_note: boolean;
 };
 
 type Shipment = {
@@ -113,6 +121,8 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true);
   const [showCancel, setShowCancel] = useState(false);
   const [reason, setReason] = useState("");
+  const [reasonCode, setReasonCode] = useState<string | null>(null);
+  const [cancelReasons, setCancelReasons] = useState<CancelReason[]>([]);
   const [cancelling, setCancelling] = useState(false);
   const [downloadingInvoice, setDownloadingInvoice] = useState(false);
   const [emailingInvoice, setEmailingInvoice] = useState(false);
@@ -254,21 +264,43 @@ export default function OrderDetail() {
 
   const onCancel = useCallback(async () => {
     if (!order) return;
+    // Validate locally so we can show inline feedback before the round-trip.
+    if (!reasonCode) {
+      toast.show({
+        title: "Pick a reason",
+        body: "Help us improve by telling us why you're cancelling.",
+        kind: "error",
+      });
+      return;
+    }
+    const selected = cancelReasons.find((r) => r.code === reasonCode);
+    if (selected?.requires_note && !reason.trim()) {
+      toast.show({
+        title: "A short note is required",
+        body: "Please add a quick line so we can do better next time.",
+        kind: "error",
+      });
+      return;
+    }
     setCancelling(true);
     try {
       const updated = await api<Order>(`/orders/${order.id}/cancel`, {
         method: "POST",
-        body: { reason: reason.trim() || undefined },
+        body: {
+          reason_code: reasonCode,
+          reason: reason.trim() || undefined,
+        },
       });
       if (mounted.current) {
         setOrder(updated);
         setShowCancel(false);
         setReason("");
+        setReasonCode(null);
       }
       toast.show({
         title: "Order cancelled",
         body: updated.refund_id
-          ? `Your refund of ${formatNZD(updated.refund_amount_nzd || 0)} is on the way. It typically appears within 5–10 business days.`
+          ? `Refund of ${formatNZD(updated.refund_amount_nzd || 0)} on its way (5–10 business days).`
           : "Your cancellation has been received. Your refund will be processed shortly.",
         kind: "success",
       });
@@ -277,7 +309,28 @@ export default function OrderDetail() {
     } finally {
       if (mounted.current) setCancelling(false);
     }
-  }, [order, reason]);
+  }, [order, reason, reasonCode, cancelReasons, toast]);
+
+  // Lazy-load the cancel reasons list the first time the modal opens, then
+  // cache it for the rest of the session.
+  const openCancelModal = useCallback(async () => {
+    setShowCancel(true);
+    if (cancelReasons.length > 0) return;
+    try {
+      const list = await api<CancelReason[]>("/orders/cancel-reasons");
+      if (mounted.current) setCancelReasons(list || []);
+    } catch {
+      // Network failure — fall back to a hardcoded minimal set so the user
+      // can still cancel. These codes must stay in sync with the backend.
+      if (mounted.current) {
+        setCancelReasons([
+          { code: "ordered_by_mistake", label: "Ordered by mistake", requires_note: false },
+          { code: "changed_mind", label: "Changed my mind", requires_note: false },
+          { code: "other", label: "Other (please tell us why)", requires_note: true },
+        ]);
+      }
+    }
+  }, [cancelReasons.length]);
 
   const onMarkReceived = useCallback(async () => {
     if (!order || confirmingReceipt) return;
@@ -395,7 +448,7 @@ export default function OrderDetail() {
         {canCancel ? (
           <Pressable
             testID="order-cancel-topbar-btn"
-            onPress={() => setShowCancel(true)}
+            onPress={openCancelModal}
             style={styles.cancelHeaderBtn}
             hitSlop={8}
           >
@@ -429,19 +482,75 @@ export default function OrderDetail() {
         </View>
 
         {isCancelled ? (
-          <View style={styles.cancelledBanner}>
-            <XCircle size={20} color={colors.error} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cancelledTitle}>Order cancelled</Text>
-              <Text style={styles.cancelledBody}>
-                {order.refund_id
-                  ? `Refund of ${formatNZD(order.refund_amount_nzd || order.total_nzd)} is being processed to your card (5–10 business days).`
-                  : `Refund of ${formatNZD(order.refund_amount_nzd || order.total_nzd)} is being processed and will appear on your card within 5–10 business days.`}
+          <View style={styles.refundCard} testID="order-refund-card">
+            <View style={styles.refundHeader}>
+              <View style={styles.refundIconWrap}>
+                <RefreshCcw size={18} color={colors.error} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.refundTitle}>
+                  {order.refund_id ? "Refund on the way" : "Cancellation received"}
+                </Text>
+                <Text style={styles.refundSubtitle}>
+                  Order #{order.id.replace("order_", "").slice(0, 8).toUpperCase()}
+                </Text>
+              </View>
+              <Text style={styles.refundAmount}>
+                {formatNZD(order.refund_amount_nzd || order.total_nzd)}
               </Text>
-              {order.cancel_reason ? (
-                <Text style={styles.cancelledReason}>Reason: {order.cancel_reason}</Text>
-              ) : null}
             </View>
+
+            <View style={styles.refundRow}>
+              <Text style={styles.refundLabel}>Status</Text>
+              <View style={styles.refundStatusPill}>
+                <View style={styles.refundDot} />
+                <Text style={styles.refundStatusText}>
+                  {order.refund_id ? "Issued to your card" : "Pending — issuing now"}
+                </Text>
+              </View>
+            </View>
+
+            {order.refund_expected_by ? (
+              <View style={styles.refundRow}>
+                <Text style={styles.refundLabel}>Expected by</Text>
+                <Text style={styles.refundValue}>
+                  {new Date(order.refund_expected_by).toLocaleDateString("en-NZ", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </Text>
+              </View>
+            ) : null}
+
+            <View style={styles.refundRow}>
+              <Text style={styles.refundLabel}>Method</Text>
+              <Text style={styles.refundValue}>Back to original card</Text>
+            </View>
+
+            {order.refund_id ? (
+              <View style={styles.refundRow}>
+                <Text style={styles.refundLabel}>Reference</Text>
+                <Text style={styles.refundValueMono} numberOfLines={1}>
+                  {order.refund_id}
+                </Text>
+              </View>
+            ) : null}
+
+            {order.cancel_reason || order.cancel_reason_code ? (
+              <View style={styles.refundRow}>
+                <Text style={styles.refundLabel}>Reason</Text>
+                <Text style={styles.refundValue} numberOfLines={2}>
+                  {order.cancel_reason || _cancelLabelFor(order.cancel_reason_code)}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.refundFootnote}>
+              Your bank typically posts refunds within 5–10 business days. If you
+              don&apos;t see it after that, share this reference with your card
+              issuer or our support team.
+            </Text>
           </View>
         ) : null}
 
@@ -461,7 +570,7 @@ export default function OrderDetail() {
             </Text>
             <Pressable
               testID="order-cancel-btn"
-              onPress={() => setShowCancel(true)}
+              onPress={openCancelModal}
               style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.85 }]}
             >
               <XCircle size={16} color={colors.error} />
@@ -753,22 +862,83 @@ export default function OrderDetail() {
         >
           <Pressable style={styles.modalBackdrop} onPress={() => setShowCancel(false)} />
           <View style={styles.modalCard} testID="order-cancel-modal">
-            <Text style={styles.modalTitle}>Cancel this order?</Text>
+            <Text style={styles.modalTitle}>Why are you cancelling?</Text>
             <Text style={styles.modalBody}>
-              You&apos;ll receive a full refund of {formatNZD(order.total_nzd)} to your card. We&apos;ll
-              notify the seller and Allsale support straight away.
+              We&apos;ll refund {formatNZD(order.total_nzd)} to your card. Picking a
+              reason helps us improve the experience for everyone.
             </Text>
-            <Text style={styles.modalLabel}>Reason (optional)</Text>
-            <TextInput
-              testID="order-cancel-reason-input"
-              value={reason}
-              onChangeText={setReason}
-              placeholder="e.g. Ordered by mistake"
-              placeholderTextColor={colors.textFaint}
-              maxLength={300}
-              multiline
-              style={styles.modalInput}
-            />
+
+            <ScrollView
+              style={styles.reasonList}
+              contentContainerStyle={{ paddingVertical: 4 }}
+              showsVerticalScrollIndicator={false}
+            >
+              {(cancelReasons.length > 0
+                ? cancelReasons
+                : [
+                    { code: "loading", label: "Loading…", requires_note: false },
+                  ]
+              ).map((r) => {
+                const selected = reasonCode === r.code;
+                const disabled = r.code === "loading";
+                return (
+                  <Pressable
+                    key={r.code}
+                    testID={`order-cancel-reason-${r.code}`}
+                    onPress={() => !disabled && setReasonCode(r.code)}
+                    disabled={disabled}
+                    style={({ pressed }) => [
+                      styles.reasonRow,
+                      selected && styles.reasonRowSelected,
+                      pressed && !disabled && { opacity: 0.85 },
+                    ]}
+                  >
+                    {selected ? (
+                      <CheckCircle2 size={20} color={colors.primary} />
+                    ) : (
+                      <Circle size={20} color={colors.border} />
+                    )}
+                    <Text
+                      style={[
+                        styles.reasonLabel,
+                        selected && styles.reasonLabelSelected,
+                        disabled && { color: colors.textFaint },
+                      ]}
+                    >
+                      {r.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {(() => {
+              const sel = cancelReasons.find((r) => r.code === reasonCode);
+              if (!sel) return null;
+              const required = sel.requires_note;
+              return (
+                <>
+                  <Text style={styles.modalLabel}>
+                    {required ? "Tell us more (required)" : "Add a note (optional)"}
+                  </Text>
+                  <TextInput
+                    testID="order-cancel-reason-input"
+                    value={reason}
+                    onChangeText={setReason}
+                    placeholder={
+                      required
+                        ? "What happened? We read every note."
+                        : "Anything you'd like us to know"
+                    }
+                    placeholderTextColor={colors.textFaint}
+                    maxLength={300}
+                    multiline
+                    style={styles.modalInput}
+                  />
+                </>
+              );
+            })()}
+
             <View style={{ flexDirection: "row", gap: 10, marginTop: spacing.md }}>
               <Pressable
                 testID="order-cancel-modal-keep"
@@ -784,9 +954,9 @@ export default function OrderDetail() {
                 style={({ pressed }) => [
                   styles.modalPrimary,
                   pressed && { opacity: 0.9 },
-                  cancelling && { opacity: 0.7 },
+                  (cancelling || !reasonCode) && { opacity: 0.55 },
                 ]}
-                disabled={cancelling}
+                disabled={cancelling || !reasonCode}
               >
                 {cancelling ? (
                   <ActivityIndicator color="#fff" />
@@ -800,6 +970,23 @@ export default function OrderDetail() {
       </Modal>
     </SafeAreaView>
   );
+}
+
+function _cancelLabelFor(code?: string | null): string {
+  // Tiny local fallback for displaying the reason label when only the code
+  // round-trips back from the server. Keep in sync with backend CANCEL_REASONS.
+  if (!code) return "";
+  const map: Record<string, string> = {
+    ordered_by_mistake: "Ordered by mistake",
+    changed_mind: "Changed my mind",
+    found_better_price: "Found a better price elsewhere",
+    shipping_too_slow: "Delivery is taking too long",
+    payment_issue: "Payment / billing issue",
+    duplicate_order: "Duplicate order",
+    address_or_size_wrong: "Wrong address or size",
+    other: "Other",
+  };
+  return map[code] || code;
 }
 
 function Line({
@@ -1157,6 +1344,83 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   modalPrimaryText: { color: "#fff", fontWeight: "800" },
+
+  // Refund Status Card (replaces the old cancelledBanner)
+  refundCard: {
+    marginTop: spacing.md,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+    gap: 10,
+  },
+  refundHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  refundIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  refundTitle: { fontSize: 15, fontWeight: "800", color: colors.text },
+  refundSubtitle: { fontSize: 12, color: colors.textMuted, marginTop: 1 },
+  refundAmount: { fontSize: 18, fontWeight: "800", color: colors.text },
+  refundRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 6,
+  },
+  refundLabel: { fontSize: 12, color: colors.textMuted, fontWeight: "600" },
+  refundValue: { fontSize: 13, color: colors.text, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
+  refundValueMono: { fontSize: 11, color: colors.text, fontWeight: "600", fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "monospace" }), maxWidth: "60%" },
+  refundStatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: colors.primarySoft,
+  },
+  refundDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.primary },
+  refundStatusText: { fontSize: 11, color: colors.primary, fontWeight: "800" },
+  refundFootnote: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 6,
+    lineHeight: 15,
+  },
+
+  // Structured cancellation-reason picker
+  reasonList: {
+    marginTop: spacing.md,
+    maxHeight: 320,
+  },
+  reasonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: "transparent",
+    backgroundColor: colors.surface,
+  },
+  reasonRowSelected: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  reasonLabel: { fontSize: 14, color: colors.text, fontWeight: "600", flex: 1 },
+  reasonLabelSelected: { fontWeight: "800", color: colors.primary },
 
   markReceivedBtn: {
     marginTop: spacing.md,

@@ -13,10 +13,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import DeliveryRatingSheet from "@/src/components/DeliveryRatingSheet";
-import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
 import { useRegion } from "@/src/contexts/RegionContext";
-import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
+import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Order = {
   id: string;
@@ -41,8 +40,6 @@ const STATUS_COLOR: Record<string, { bg: string; text: string }> = {
 export default function Orders() {
   const { formatPrice } = useRegion();
   const router = useRouter();
-  const confirm = useConfirm();
-  const toast = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [ratingFor, setRatingFor] = useState<
@@ -57,27 +54,6 @@ export default function Orders() {
       setLoading(false);
     }
   }, []);
-
-  const cancelOrder = useCallback(
-    async (orderId: string) => {
-      const ok = await confirm({
-        title: "Cancel this order?",
-        message: "You'll receive a full refund within 5–10 business days.",
-        confirmLabel: "Cancel order",
-        cancelLabel: "Keep order",
-        destructive: true,
-      });
-      if (!ok) return;
-      try {
-        await api(`/orders/${orderId}/cancel`, { method: "POST", body: { reason: "" } });
-        toast.show({ title: "Order cancelled", body: "Your refund will be processed shortly.", kind: "success" });
-        await load();
-      } catch (e: any) {
-        toast.show({ title: "Couldn't cancel", body: e?.message || "Please try again.", kind: "error" });
-      }
-    },
-    [load, confirm, toast],
-  );
 
   useFocusEffect(
     useCallback(() => {
@@ -191,7 +167,10 @@ export default function Orders() {
                       testID={`orders-cancel-link-${item.id}`}
                       onPress={(e) => {
                         e.stopPropagation();
-                        cancelOrder(item.id);
+                        // Route to the detail page so the buyer goes through the
+                        // structured reason picker + refund-timeline experience
+                        // (replaces the old one-tap "no-reason" cancel).
+                        router.push(`/order/${item.id}`);
                       }}
                       style={styles.cancelLink}
                     >

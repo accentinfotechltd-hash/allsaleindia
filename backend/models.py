@@ -682,8 +682,10 @@ class Order(BaseModel):
     cancellable_until: Optional[datetime] = None
     cancelled_at: Optional[datetime] = None
     cancel_reason: Optional[str] = None
+    cancel_reason_code: Optional[str] = None  # one of CANCEL_REASONS
     refund_id: Optional[str] = None
     refund_amount_nzd: Optional[float] = None
+    refund_expected_by: Optional[datetime] = None  # latest date the refund should land
     # Multi-region: what the buyer was actually charged in their currency.
     buyer_country: Optional[str] = None
     buyer_currency: Optional[str] = None
@@ -713,8 +715,48 @@ class Order(BaseModel):
     delivery_rating: Optional[dict] = None
 
 
+class CancelReason(BaseModel):
+    """Public representation of one cancellation reason option."""
+
+    code: str
+    label: str
+    requires_note: bool = False  # if True, frontend MUST collect free-text
+
+
+# Ordered list of allowed cancellation reason codes (newest at bottom so the
+# UI defaults to the most common option). The "other" entry forces the user
+# to also type a brief note, captured into `cancel_reason`.
+CANCEL_REASONS: list[CancelReason] = [
+    CancelReason(code="ordered_by_mistake", label="Ordered by mistake"),
+    CancelReason(code="changed_mind", label="Changed my mind"),
+    CancelReason(code="found_better_price", label="Found a better price elsewhere"),
+    CancelReason(code="shipping_too_slow", label="Delivery is taking too long"),
+    CancelReason(code="payment_issue", label="Payment / billing issue"),
+    CancelReason(code="duplicate_order", label="Duplicate order"),
+    CancelReason(
+        code="address_or_size_wrong",
+        label="Wrong address or size",
+    ),
+    CancelReason(code="other", label="Other (please tell us why)", requires_note=True),
+]
+CANCEL_REASON_CODES = {r.code for r in CANCEL_REASONS}
+
+
 class CancelOrderRequest(BaseModel):
-    reason: Optional[str] = Field(None, max_length=300)
+    reason_code: Optional[str] = Field(
+        None,
+        description=(
+            "Structured cancellation reason — must be one of CANCEL_REASONS. "
+            "Optional for backward compatibility with the legacy free-text flow."
+        ),
+    )
+    reason: Optional[str] = Field(
+        None,
+        max_length=300,
+        description=(
+            "Optional free-text note. Required when reason_code='other'."
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------

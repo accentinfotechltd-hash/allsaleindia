@@ -1,7 +1,7 @@
 """Buyer-facing orders: list, get, cancel + shipment lookup."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,7 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from db import db
 from deps import get_current_user
 from models import (
+    CANCEL_REASONS,
+    CANCEL_REASON_CODES,
     CancelOrderRequest,
+    CancelReason,
     Order,
     OrderTracking,
     ReorderResult,
@@ -17,7 +20,6 @@ from models import (
     TrackingEvent,
     TrackingStage,
 )
-from services.cart import hydrate_cart
 from services.eta import compute_eta_summary
 from services.geocode import osm_static_map_url
 from services.notifications import create_notification, notify_admins
@@ -26,6 +28,32 @@ from services.stripe_svc import issue_stripe_refund
 from utils import now_utc
 
 router = APIRouter(tags=["orders"])
+
+
+# Stripe documents refunds taking 5–10 business days. We surface the
+# upper bound so the buyer has a clear "by when" date in the UI.
+REFUND_MAX_BUSINESS_DAYS = 10
+
+
+def _add_business_days(start: datetime, days: int) -> datetime:
+    """Return ``start`` plus N business days (Mon–Fri only), preserving tz."""
+    out = start
+    remaining = days
+    while remaining > 0:
+        out = out + timedelta(days=1)
+        if out.weekday() < 5:  # 0–4 = Mon–Fri
+            remaining -= 1
+    return out
+
+
+@router.get("/orders/cancel-reasons", response_model=list[CancelReason])
+async def get_cancel_reasons() -> list[CancelReason]:
+    """Return the canonical list of cancellation reason codes + labels.
+
+    The frontend renders this as a radio list. Defined here (not hardcoded in
+    the app) so we can localise / experiment without shipping new builds.
+    """
+    return CANCEL_REASONS
 
 
 # Stage order used for both the timeline and progress percentage.
@@ -78,7 +106,23 @@ async def cancel_order(
             detail="This order cannot be cancelled yet (payment not confirmed).",
         )
 
+    # Validate structured reason code (back-compat: if omitted, default to
+    # "other" + free-text reason — preserves the pre-existing simple flow).
+    reason_code = (body.reason_code or "").strip().lower() or None
+    reason_txt = (body.reason or "").strip()
+    if reason_code and reason_code not in CANCEL_REASON_CODES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown cancellation reason: {reason_code}",
+        )
+    if reason_code == "other" and not reason_txt:
+        raise HTTPException(
+            status_code=400,
+            detail="Please tell us why you're cancelling.",
+        )
+
     refund_id, refund_amount = await issue_stripe_refund(order)
+    refund_expected_by = _add_business_days(now_utc(), REFUND_MAX_BUSINESS_DAYS)
 
     await db.payouts.update_many(
         {"order_id": order_id, "status": "pending"},
@@ -95,15 +139,26 @@ async def cancel_order(
                 "status": new_status,
                 "payment_status": "refunded" if refund_id else "refund_pending",
                 "cancelled_at": now_utc(),
-                "cancel_reason": (body.reason or "").strip()[:300] or None,
+                "cancel_reason_code": reason_code,
+                "cancel_reason": reason_txt[:300] or None,
                 "refund_id": refund_id,
                 "refund_amount_nzd": refund_amount,
+                "refund_expected_by": refund_expected_by,
             }
         },
     )
 
     short = order_id.replace("order_", "")[:8].upper()
-    reason_txt = (body.reason or "").strip()
+
+    # Friendly label for notifications — derived from reason_code when given,
+    # falling back to the free-text note for legacy callers.
+    reason_label = next(
+        (r.label for r in CANCEL_REASONS if r.code == reason_code), None
+    ) if reason_code else None
+    reason_summary = (
+        f"{reason_label} — {reason_txt}" if reason_label and reason_txt
+        else reason_label or reason_txt or ""
+    )
 
     await create_notification(
         user_id=order["user_id"],
@@ -132,7 +187,7 @@ async def cancel_order(
             title=f"Order #{short} was cancelled",
             body=(
                 "The buyer has cancelled this order within the 12-hour window."
-                + (f" Reason: {reason_txt}" if reason_txt else "")
+                + (f" Reason: {reason_summary}" if reason_summary else "")
                 + " Please halt dispatch."
             ),
             order_id=order_id,
@@ -143,7 +198,7 @@ async def cancel_order(
         title=f"Order #{short} cancelled by buyer",
         body=(
             f"Refund: ${refund_amount:.2f} NZD ({'issued' if refund_id else 'pending'})."
-            + (f" Reason: {reason_txt}" if reason_txt else "")
+            + (f" Reason: {reason_summary}" if reason_summary else "")
         ),
         order_id=order_id,
     )
@@ -507,7 +562,6 @@ async def reorder_order(order_id: str, current=Depends(get_current_user)):
         {"$set": {"items": cart_items, "updated_at": now_utc()}},
         upsert=True,
     )
-    view = await hydrate_cart(current["id"])
     return ReorderResult(
         cart_item_count=sum(int(i["quantity"]) for i in cart_items),
         added=added,
