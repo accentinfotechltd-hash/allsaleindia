@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { adminApi, AdminForbidden, AdminUnauthorized } from "@/src/lib/adminApi";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type AuditEntry = {
@@ -44,6 +45,7 @@ const FILTERS = ["all", "seller", "review", "sub_admin", "order", "financing", "
 export default function AdminAuditLog() {
   const router = useRouter();
   const { show } = useToast();
+  const { t } = useTranslation();
   const [items, setItems] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -56,11 +58,11 @@ export default function AdminAuditLog() {
     } catch (e: any) {
       if (e instanceof AdminUnauthorized) { router.replace("/admin"); return; }
       if (e instanceof AdminForbidden) { router.replace("/admin"); return; }
-      show({ title: e?.message || "Failed to load audit log", kind: "error" });
+      show({ title: e?.message || t("admin_audit_log.failed_load"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [router, show]);
+  }, [router, show, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -82,8 +84,8 @@ export default function AdminAuditLog() {
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.headerTitle}>Audit log</Text>
-          <Text style={styles.headerSub}>{filtered.length} of {items.length} entries</Text>
+          <Text style={styles.headerTitle}>{t("admin_audit_log.title")}</Text>
+          <Text style={styles.headerSub}>{t("admin_audit_log.subtitle", { filtered: filtered.length, total: items.length })}</Text>
         </View>
         <Pressable testID="audit-refresh" onPress={load} style={styles.iconBtn} hitSlop={8}>
           <RefreshCw size={20} color={colors.text} />
@@ -98,7 +100,7 @@ export default function AdminAuditLog() {
             onPress={() => setFilter(f)}
             style={[styles.chip, filter === f && styles.chipActive]}
           >
-            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{f}</Text>
+            <Text style={[styles.chipText, filter === f && styles.chipTextActive]}>{t(`admin_audit_log.filter_${f}`)}</Text>
           </Pressable>
         ))}
       </View>
@@ -108,7 +110,7 @@ export default function AdminAuditLog() {
       ) : filtered.length === 0 ? (
         <View style={styles.center}>
           <ClipboardList size={28} color={colors.textFaint} />
-          <Text style={styles.emptyText}>No activity matches this filter</Text>
+          <Text style={styles.emptyText}>{t("admin_audit_log.empty")}</Text>
         </View>
       ) : (
         <FlatList
@@ -135,7 +137,7 @@ export default function AdminAuditLog() {
                   </Text>
                 </View>
                 {item.target ? (
-                  <Text style={styles.target} numberOfLines={1}>target: {item.target}</Text>
+                  <Text style={styles.target} numberOfLines={1}>{t("admin_audit_log.target_label", { value: item.target })}</Text>
                 ) : null}
                 {metaStr ? (
                   <Text style={styles.meta} numberOfLines={2}>{metaStr}</Text>

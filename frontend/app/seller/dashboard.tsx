@@ -181,7 +181,7 @@ export default function SellerDashboard() {
                     <PiggyBank size={18} color={colors.primary} />
                   </View>
                   <Text style={styles.quickTitle}>{t("seller_dashboard_extra.earnings")}</Text>
-                  <Text style={styles.quickSubtitle}>Gross · commission · net</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller_dashboard_extra2.earnings_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-returns-link"
@@ -238,8 +238,8 @@ export default function SellerDashboard() {
                   <View style={styles.quickIcon}>
                     <Sparkles size={18} color={colors.primary} />
                   </View>
-                  <Text style={styles.quickTitle}>Import Amazon / Flipkart</Text>
-                  <Text style={styles.quickSubtitle}>Drop your catalog file — AI does the rest.</Text>
+                  <Text style={styles.quickTitle}>{t("seller_dashboard_extra2.import_catalog")}</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller_dashboard_extra2.import_catalog_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-sponsored-link"
@@ -250,7 +250,7 @@ export default function SellerDashboard() {
                     <TrendingUp size={18} color={colors.primary} />
                   </View>
                   <Text style={styles.quickTitle}>{t("seller_dashboard_extra.sponsored_placements")}</Text>
-                  <Text style={styles.quickSubtitle}>Boost a listing · pay per click</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller_dashboard_extra2.sponsored_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-rewards-link"
@@ -261,7 +261,7 @@ export default function SellerDashboard() {
                     <Trophy size={18} color={colors.primary} />
                   </View>
                   <Text style={styles.quickTitle}>{t("seller_dashboard_extra.referral_rewards")}</Text>
-                  <Text style={styles.quickSubtitle}>Tiers · badges · leaderboard</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller_dashboard_extra2.rewards_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-coupons-link"
@@ -294,7 +294,7 @@ export default function SellerDashboard() {
                     <Sparkles size={18} color={colors.primary} />
                   </View>
                   <Text style={styles.quickTitle}>{t("seller_dashboard_extra.refer_and_earn")}</Text>
-                  <Text style={styles.quickSubtitle}>5% commission · NZ$500 cap</Text>
+                  <Text style={styles.quickSubtitle}>{t("seller_dashboard_extra2.referrals_sub")}</Text>
                 </Pressable>
                 <Pressable
                   testID="seller-support-link"

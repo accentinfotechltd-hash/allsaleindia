@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type Sale = {
@@ -37,6 +38,7 @@ type Product = { id: string; name: string; price_nzd: number };
 
 export default function SellerFlashSales() {
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [items, setItems] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -53,11 +55,11 @@ export default function SellerFlashSales() {
       setItems(sales || []);
       setProducts((listings || []).map((p: any) => ({ id: p.id, name: p.name, price_nzd: p.price_nzd })));
     } catch (e: any) {
-      show({ title: "Couldn't load", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_flash_sales.couldnt_load"), body: e?.message || t("seller_flash_sales.try_again"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [show, t]);
 
   useEffect(() => {
     load();
@@ -71,7 +73,7 @@ export default function SellerFlashSales() {
       });
       load();
     } catch (e: any) {
-      show({ title: "Couldn't update", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_flash_sales.couldnt_update"), body: e?.message || t("seller_flash_sales.try_again"), kind: "error" });
     }
   };
 
@@ -80,18 +82,18 @@ export default function SellerFlashSales() {
 
   const remove = async (s: Sale) => {
     const ok = await confirm({
-      title: "Delete flash sale?",
-      message: "This cannot be undone.",
+      title: t("seller_flash_sales.delete_title"),
+      message: t("seller_flash_sales.delete_msg"),
       destructive: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("seller_flash_sales.delete_btn"),
     });
     if (!ok) return;
     try {
       await api(`/seller/flash-sales/${s.id}`, { method: "DELETE" });
-      toast.show({ kind: "success", title: "Flash sale deleted" });
+      toast.show({ kind: "success", title: t("seller_flash_sales.sale_deleted") });
       load();
     } catch (e: any) {
-      toast.show({ kind: "error", title: "Couldn't delete", body: e?.message || "Try again." });
+      toast.show({ kind: "error", title: t("seller_flash_sales.couldnt_delete"), body: e?.message || t("seller_flash_sales.try_again") });
     }
   };
 
@@ -101,14 +103,14 @@ export default function SellerFlashSales() {
         <Pressable onPress={() => router.back()} style={styles.backBtn} testID="seller-flash-back">
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Flash Sales</Text>
+        <Text style={styles.headerTitle}>{t("seller_flash_sales.title")}</Text>
         <Pressable
           onPress={() => setCreateOpen(true)}
           style={styles.createBtn}
           testID="seller-flash-new-btn"
         >
           <Plus size={16} color="#fff" />
-          <Text style={styles.createBtnText}>New</Text>
+          <Text style={styles.createBtnText}>{t("seller_flash_sales.new_btn")}</Text>
         </Pressable>
       </View>
 
@@ -119,13 +121,13 @@ export default function SellerFlashSales() {
       ) : items.length === 0 ? (
         <View style={styles.empty}>
           <Zap size={36} color="#F97316" fill="#F97316" />
-          <Text style={styles.emptyTitle}>No flash sales yet</Text>
+          <Text style={styles.emptyTitle}>{t("seller_flash_sales.no_sales")}</Text>
           <Text style={styles.emptySub}>
-            Run time-boxed deals to drive urgency and clear inventory.
+            {t("seller_flash_sales.no_sales_body")}
           </Text>
           <Pressable onPress={() => setCreateOpen(true)} style={styles.emptyCta} testID="seller-flash-empty-cta">
             <Plus size={16} color="#fff" />
-            <Text style={styles.emptyCtaText}>Create your first sale</Text>
+            <Text style={styles.emptyCtaText}>{t("seller_flash_sales.create_first")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -140,7 +142,7 @@ export default function SellerFlashSales() {
                   </View>
                   {s.featured ? (
                     <View style={styles.featuredChip}>
-                      <Text style={styles.featuredText}>⭐ Featured</Text>
+                      <Text style={styles.featuredText}>{t("seller_flash_sales.featured")}</Text>
                     </View>
                   ) : null}
                   <View style={{ flex: 1 }} />
@@ -151,7 +153,7 @@ export default function SellerFlashSales() {
                   >
                     <Power size={11} color={s.active ? colors.success : colors.textMuted} />
                     <Text style={[styles.statusText, { color: s.active ? colors.success : colors.textMuted }]}>
-                      {s.active ? "Active" : "Paused"}
+                      {s.active ? t("seller_flash_sales.status_active") : t("seller_flash_sales.status_paused")}
                     </Text>
                   </Pressable>
                   <Pressable onPress={() => remove(s)} style={styles.delBtn} testID={`flash-delete-${s.id}`}>
@@ -166,7 +168,7 @@ export default function SellerFlashSales() {
 
                 <View style={styles.metaRow}>
                   <Text style={styles.meta}>
-                    Sold {s.units_sold}/{s.units_max}
+                    {t("seller_flash_sales.units_sold_of", { sold: s.units_sold, max: s.units_max })}
                   </Text>
                   <View style={styles.barTrack}>
                     <View style={[styles.barFill, { width: `${Math.min(100, pct)}%` }]} />
@@ -206,6 +208,8 @@ function CreateModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { show } = useToast();
+  const { t } = useTranslation();
   const [productId, setProductId] = useState<string>("");
   const [price, setPrice] = useState("");
   const [days, setDays] = useState("1");
@@ -225,18 +229,18 @@ function CreateModal({
 
   const submit = async () => {
     if (!productId) {
-      show({ title: "Pick a product", message: "Select which product to put on sale.", kind: "error" });
+      show({ title: t("seller_flash_sales.pick_product"), body: t("seller_flash_sales.pick_product_sub"), kind: "error" });
       return;
     }
     const numPrice = parseFloat(price);
     const numDays = Math.max(1, Math.min(7, parseInt(days || "1", 10)));
     const numUnits = parseInt(unitsMax || "1", 10);
     if (!numPrice || numPrice <= 0) {
-      show({ title: "Invalid price", message: "Sale price must be greater than 0.", kind: "error" });
+      show({ title: t("seller_flash_sales.invalid_price"), body: t("seller_flash_sales.price_positive"), kind: "error" });
       return;
     }
     if (numUnits < 1) {
-      show({ title: "Invalid units", message: "Max units must be at least 1.", kind: "error" });
+      show({ title: t("seller_flash_sales.invalid_units"), body: t("seller_flash_sales.units_min"), kind: "error" });
       return;
     }
     const from = new Date();
@@ -257,7 +261,7 @@ function CreateModal({
       });
       onCreated();
     } catch (e: any) {
-      show({ title: "Couldn't create", message: e?.message || "Try a different price/duration.", kind: "error" });
+      show({ title: t("seller_flash_sales.couldnt_create"), body: e?.message || t("seller_flash_sales.couldnt_create_sub"), kind: "error" });
     } finally {
       setBusy(false);
     }
@@ -276,16 +280,16 @@ function CreateModal({
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>New flash sale</Text>
+            <Text style={styles.modalTitle}>{t("seller_flash_sales.modal_title")}</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <X size={20} color={colors.text} />
             </Pressable>
           </View>
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
             <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
-              <Text style={styles.label}>Product</Text>
+              <Text style={styles.label}>{t("seller_flash_sales.field_product")}</Text>
               {products.length === 0 ? (
-                <Text style={styles.helper}>You have no listings yet. Add one first.</Text>
+                <Text style={styles.helper}>{t("seller_flash_sales.no_listings_helper")}</Text>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                   {products.map((p) => {
@@ -309,12 +313,12 @@ function CreateModal({
                 </ScrollView>
               )}
 
-              <Text style={styles.label}>Sale price (NZD)</Text>
+              <Text style={styles.label}>{t("seller_flash_sales.field_sale_price")}</Text>
               <TextInput
                 testID="flash-sale-price"
                 value={price}
                 onChangeText={setPrice}
-                placeholder={original ? `Less than ${formatNZD(original)}` : "49.00"}
+                placeholder={original ? t("seller_flash_sales.price_placeholder_with_original", { amount: formatNZD(original) }) : t("seller_flash_sales.price_placeholder")}
                 keyboardType="numeric"
                 placeholderTextColor={colors.textFaint}
                 style={styles.input}
@@ -322,12 +326,12 @@ function CreateModal({
               {discountPct > 0 ? (
                 <Text style={[styles.helper, discountPct < 10 && { color: colors.error }]}>
                   {discountPct < 10
-                    ? `⚠️ Min discount is 10% (you're at ${discountPct}%)`
-                    : `✓ ${discountPct}% off original price`}
+                    ? t("seller_flash_sales.min_discount_warn", { pct: discountPct })
+                    : t("seller_flash_sales.discount_ok", { pct: discountPct })}
                 </Text>
               ) : null}
 
-              <Text style={styles.label}>Duration (days, 1-7)</Text>
+              <Text style={styles.label}>{t("seller_flash_sales.field_duration")}</Text>
               <TextInput
                 testID="flash-duration"
                 value={days}
@@ -337,7 +341,7 @@ function CreateModal({
                 style={styles.input}
               />
 
-              <Text style={styles.label}>Max units to sell</Text>
+              <Text style={styles.label}>{t("seller_flash_sales.field_units_max")}</Text>
               <TextInput
                 testID="flash-units"
                 value={unitsMax}
@@ -349,8 +353,8 @@ function CreateModal({
 
               <View style={styles.switchRow}>
                 <View>
-                  <Text style={styles.switchTitle}>Feature as Deal of the Day</Text>
-                  <Text style={styles.switchSub}>Eligible for the home-screen hero banner</Text>
+                  <Text style={styles.switchTitle}>{t("seller_flash_sales.field_feature")}</Text>
+                  <Text style={styles.switchSub}>{t("seller_flash_sales.field_feature_sub")}</Text>
                 </View>
                 <Switch
                   value={featured}
@@ -369,7 +373,7 @@ function CreateModal({
                   busy && { opacity: 0.7 },
                 ]}
               >
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Create flash sale</Text>}
+                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{t("seller_flash_sales.submit")}</Text>}
               </Pressable>
             </ScrollView>
           </KeyboardAvoidingView>
