@@ -32,6 +32,7 @@ import {
   hasRole,
 } from "@/src/lib/adminApi";
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Review = {
@@ -75,6 +76,7 @@ export default function AdminReviews() {
   const router = useRouter();
   const { show } = useToast();
   const confirm = useConfirm();
+  const { t } = useTranslation();
 
   const [me, setMe] = useState<AdminIdentity | null>(null);
   const [items, setItems] = useState<Review[]>([]);
@@ -128,20 +130,20 @@ export default function AdminReviews() {
       setHasMore(!!resp.has_more);
     } catch (e: any) {
       if (e instanceof AdminUnauthorized) {
-        show({ title: "Login required", kind: "error" });
+        show({ title: t("admin_reviews.login_required"), kind: "error" });
         router.replace("/admin");
         return;
       }
       if (e instanceof AdminForbidden) {
-        show({ title: "Manager/Support access required", kind: "error" });
+        show({ title: t("admin_reviews.forbidden"), kind: "error" });
         router.replace("/admin");
         return;
       }
-      show({ title: e?.message || "Failed to load reviews", kind: "error" });
+      show({ title: e?.message || t("admin_reviews.failed_load"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [queryString, router, show]);
+  }, [queryString, router, show, t]);
 
   useEffect(() => {
     load();
@@ -157,28 +159,27 @@ export default function AdminReviews() {
       setItems((prev) => [...prev, ...(resp.reviews || [])]);
       setHasMore(!!resp.has_more);
     } catch (e: any) {
-      show({ title: e?.message || "Failed to load more", kind: "error" });
+      show({ title: e?.message || t("admin_reviews.failed_load_more"), kind: "error" });
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, items.length, loadingMore, queryString, show]);
+  }, [hasMore, items.length, loadingMore, queryString, show, t]);
 
   const onDelete = async (review: Review) => {
     const ok = await confirm({
-      title: "Delete this review?",
-      message:
-        "This permanently removes the review and recomputes the product's rating. The buyer is NOT notified.",
-      confirmLabel: "Delete review",
+      title: t("admin_reviews.delete_title"),
+      message: t("admin_reviews.delete_msg"),
+      confirmLabel: t("admin_reviews.delete_confirm"),
       destructive: true,
     });
     if (!ok) return;
     try {
       await adminApi(`/admin/reviews/${review.id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((r) => r.id !== review.id));
-      setTotal((t) => Math.max(0, t - 1));
-      show({ title: "Review deleted", kind: "success" });
+      setTotal((t2) => Math.max(0, t2 - 1));
+      show({ title: t("admin_reviews.review_deleted"), kind: "success" });
     } catch (e: any) {
-      show({ title: e?.message || "Delete failed", kind: "error" });
+      show({ title: e?.message || t("admin_reviews.delete_failed"), kind: "error" });
     }
   };
 
@@ -194,8 +195,8 @@ export default function AdminReviews() {
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Reviews moderation</Text>
-          <Text style={styles.headerSub}>{total} matching</Text>
+          <Text style={styles.headerTitle}>{t("admin_reviews.title")}</Text>
+          <Text style={styles.headerSub}>{t("admin_reviews.total_matching", { count: total })}</Text>
         </View>
         <Pressable
           testID="admin-reviews-refresh"
@@ -264,7 +265,13 @@ export default function AdminReviews() {
                   statusFilter === s && styles.chipTextActive,
                 ]}
               >
-                {s === "all" ? "Any status" : s.charAt(0).toUpperCase() + s.slice(1)}
+                {s === "all"
+                  ? t("admin_reviews.filter_any_status")
+                  : s === "approved"
+                    ? t("admin_reviews.filter_approved")
+                    : s === "reported"
+                      ? t("admin_reviews.filter_reported")
+                      : t("admin_reviews.filter_hidden")}
               </Text>
             </Pressable>
           ))}
@@ -278,9 +285,9 @@ export default function AdminReviews() {
       ) : items.length === 0 ? (
         <View style={styles.center}>
           <Filter size={28} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>No reviews match</Text>
+          <Text style={styles.emptyTitle}>{t("admin_reviews.empty_title")}</Text>
           <Text style={styles.emptySub}>
-            Try a different filter combination above.
+            {t("admin_reviews.empty_sub")}
           </Text>
         </View>
       ) : (
@@ -304,7 +311,7 @@ export default function AdminReviews() {
                 <ActivityIndicator color={colors.primary} />
               </View>
             ) : !hasMore && items.length > 0 ? (
-              <Text style={styles.endNote}>End of list · {items.length} of {total}</Text>
+              <Text style={styles.endNote}>{t("admin_reviews.end_of_list", { shown: items.length, total })}</Text>
             ) : null
           }
         />
@@ -348,6 +355,7 @@ function ReviewCard({
   onDelete: () => void;
   onOpenPhoto: (uri: string) => void;
 }) {
+  const { t } = useTranslation();
   const date = useMemo(() => {
     if (!review.created_at) return "";
     try {
@@ -380,12 +388,12 @@ function ReviewCard({
         <View style={{ flex: 1 }} />
         {review.reported ? (
           <View style={styles.badgeReported}>
-            <Text style={styles.badgeReportedText}>Reported</Text>
+            <Text style={styles.badgeReportedText}>{t("admin_reviews.badge_reported")}</Text>
           </View>
         ) : null}
         {review.verified_purchase ? (
           <View style={styles.badgeVerified}>
-            <Text style={styles.badgeVerifiedText}>Verified</Text>
+            <Text style={styles.badgeVerifiedText}>{t("admin_reviews.badge_verified")}</Text>
           </View>
         ) : null}
       </View>
@@ -417,7 +425,7 @@ function ReviewCard({
 
       <View style={styles.metaRow}>
         <Text style={styles.metaText} numberOfLines={1}>
-          {review.user_name || "Anonymous"} · {date}
+          {review.user_name || t("admin_reviews.anonymous")} · {date}
         </Text>
         {review.helpful_count ? (
           <Text style={styles.metaText}>👍 {review.helpful_count}</Text>
@@ -425,11 +433,11 @@ function ReviewCard({
       </View>
       {review.product_name ? (
         <Text style={styles.productLink} numberOfLines={1}>
-          on {review.product_name}
+          {t("admin_reviews.on_product", { name: review.product_name })}
         </Text>
       ) : (
         <Text style={styles.productLink} numberOfLines={1}>
-          product · {review.product_id.slice(0, 8)}…
+          {t("admin_reviews.product_label", { id: review.product_id.slice(0, 8) })}
         </Text>
       )}
 
@@ -443,7 +451,7 @@ function ReviewCard({
           ]}
         >
           <Trash2 size={14} color="#b91c1c" />
-          <Text style={styles.deleteBtnText}>Delete review</Text>
+          <Text style={styles.deleteBtnText}>{t("admin_reviews.delete_review_btn")}</Text>
         </Pressable>
       ) : null}
     </View>

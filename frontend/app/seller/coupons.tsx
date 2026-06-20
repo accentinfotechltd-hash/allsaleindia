@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Coupon = {
@@ -36,14 +37,15 @@ type Coupon = {
   created_at?: string;
 };
 
-const TYPES: { key: Coupon["type"]; label: string }[] = [
-  { key: "percent", label: "% off" },
-  { key: "fixed", label: "$ off" },
-  { key: "free_shipping", label: "Free shipping" },
+const TYPES: { key: Coupon["type"]; tkey: string }[] = [
+  { key: "percent", tkey: "type_percent" },
+  { key: "fixed", tkey: "type_fixed" },
+  { key: "free_shipping", tkey: "type_free_shipping" },
 ];
 
 export default function SellerCoupons() {
   const { show } = useToast();
+  const { t } = useTranslation();
   const router = useRouter();
   const [items, setItems] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,11 +57,11 @@ export default function SellerCoupons() {
       const list = await api<Coupon[]>("/seller/coupons");
       setItems(list || []);
     } catch (e: any) {
-      show({ title: "Couldn't load coupons", message: e?.message || "Try again later.", kind: "error" });
+      show({ title: t("seller_coupons.couldnt_load"), body: e?.message || t("seller_coupons.try_later"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [show, t]);
 
   useEffect(() => {
     load();
@@ -73,7 +75,7 @@ export default function SellerCoupons() {
       });
       load();
     } catch (e: any) {
-      show({ title: "Couldn't update", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_coupons.couldnt_update"), body: e?.message || t("seller_coupons.try_again"), kind: "error" });
     }
   };
 
@@ -82,18 +84,18 @@ export default function SellerCoupons() {
 
   const remove = async (c: Coupon) => {
     const ok = await confirm({
-      title: "Delete coupon?",
-      message: `Remove "${c.code}" permanently?`,
+      title: t("seller_coupons.delete_coupon_title"),
+      message: t("seller_coupons.delete_coupon_msg", { code: c.code }),
       destructive: true,
-      confirmLabel: "Delete",
+      confirmLabel: t("seller_coupons.delete_btn"),
     });
     if (!ok) return;
     try {
       await api(`/seller/coupons/${c.id}`, { method: "DELETE" });
-      toast.show({ kind: "success", title: "Coupon deleted" });
+      toast.show({ kind: "success", title: t("seller_coupons.coupon_deleted") });
       load();
     } catch (e: any) {
-      toast.show({ kind: "error", title: "Couldn't delete", body: e?.message || "Try again." });
+      toast.show({ kind: "error", title: t("seller_coupons.couldnt_delete"), body: e?.message || t("seller_coupons.try_again") });
     }
   };
 
@@ -107,14 +109,14 @@ export default function SellerCoupons() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>My Coupons</Text>
+        <Text style={styles.headerTitle}>{t("seller_coupons.title")}</Text>
         <Pressable
           onPress={() => setCreateOpen(true)}
           style={styles.createBtn}
           testID="seller-coupons-new-btn"
         >
           <Plus size={16} color="#fff" />
-          <Text style={styles.createBtnText}>New</Text>
+          <Text style={styles.createBtnText}>{t("seller_coupons.new_btn")}</Text>
         </Pressable>
       </View>
 
@@ -125,9 +127,9 @@ export default function SellerCoupons() {
       ) : items.length === 0 ? (
         <View style={styles.empty}>
           <Tag size={36} color={colors.textFaint} />
-          <Text style={styles.emptyTitle}>No coupons yet</Text>
+          <Text style={styles.emptyTitle}>{t("seller_coupons.no_coupons")}</Text>
           <Text style={styles.emptySub}>
-            Run flash promos, % off, or free shipping deals on your store.
+            {t("seller_coupons.no_coupons_body")}
           </Text>
           <Pressable
             onPress={() => setCreateOpen(true)}
@@ -135,7 +137,7 @@ export default function SellerCoupons() {
             testID="seller-coupons-empty-cta"
           >
             <Plus size={16} color="#fff" />
-            <Text style={styles.emptyCtaText}>Create your first coupon</Text>
+            <Text style={styles.emptyCtaText}>{t("seller_coupons.create_first")}</Text>
           </Pressable>
         </View>
       ) : (
@@ -163,7 +165,7 @@ export default function SellerCoupons() {
                         c.active ? { color: colors.success } : { color: colors.textMuted },
                       ]}
                     >
-                      {c.active ? "Active" : "Paused"}
+                      {c.active ? t("seller_coupons.status_active") : t("seller_coupons.status_paused")}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -182,18 +184,19 @@ export default function SellerCoupons() {
                 <View style={styles.tagOuter}>
                   <Text style={styles.tagText}>
                     {c.type === "percent"
-                      ? `${c.value}% off`
+                      ? t("seller_coupons.pct_off", { value: c.value })
                       : c.type === "fixed"
-                        ? `$${c.value.toFixed(0)} off`
-                        : "Free shipping"}
+                        ? t("seller_coupons.amount_off", { value: c.value.toFixed(0) })
+                        : t("seller_coupons.type_free_shipping")}
                   </Text>
                 </View>
                 {c.min_order_nzd > 0 ? (
-                  <Text style={styles.meta}>Min ${c.min_order_nzd.toFixed(0)}</Text>
+                  <Text style={styles.meta}>{t("seller_coupons.min_spend", { amount: c.min_order_nzd.toFixed(0) })}</Text>
                 ) : null}
                 <Text style={styles.meta}>
-                  Used {c.used_count}
-                  {c.usage_limit_total ? `/${c.usage_limit_total}` : ""}
+                  {c.usage_limit_total
+                    ? t("seller_coupons.used_limit", { count: c.used_count, limit: c.usage_limit_total })
+                    : t("seller_coupons.used_count", { count: c.used_count })}
                 </Text>
               </View>
             </View>
@@ -222,6 +225,8 @@ function CreateCouponModal({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { show } = useToast();
+  const { t } = useTranslation();
   const [code, setCode] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<Coupon["type"]>("percent");
@@ -246,20 +251,20 @@ function CreateCouponModal({
   const submit = async () => {
     const trimmed = code.trim().toUpperCase();
     if (trimmed.length < 3) {
-      show({ title: "Code too short", message: "Code should be at least 3 characters.", kind: "error" });
+      show({ title: t("seller_coupons.code_too_short"), body: t("seller_coupons.code_too_short_body"), kind: "error" });
       return;
     }
     if (description.trim().length < 3) {
-      show({ title: "Add a description", message: "Customers see this on the offers page.", kind: "error" });
+      show({ title: t("seller_coupons.add_desc_title"), body: t("seller_coupons.add_desc_body"), kind: "error" });
       return;
     }
     const numVal = type === "free_shipping" ? 0 : parseFloat(value || "0");
     if (type === "percent" && !(numVal > 0 && numVal <= 90)) {
-      show({ title: "Invalid value", message: "Percent must be 1-90.", kind: "error" });
+      show({ title: t("seller_coupons.invalid_value"), body: t("seller_coupons.percent_range"), kind: "error" });
       return;
     }
     if (type === "fixed" && numVal <= 0) {
-      show({ title: "Invalid value", message: "Amount must be greater than 0.", kind: "error" });
+      show({ title: t("seller_coupons.invalid_value"), body: t("seller_coupons.amount_positive"), kind: "error" });
       return;
     }
     setBusy(true);
@@ -280,7 +285,7 @@ function CreateCouponModal({
       });
       onCreated();
     } catch (e: any) {
-      show({ title: "Couldn't create", message: e?.message || "Try again.", kind: "error" });
+      show({ title: t("seller_coupons.couldnt_create"), body: e?.message || t("seller_coupons.try_again"), kind: "error" });
     } finally {
       setBusy(false);
     }
@@ -291,31 +296,31 @@ function CreateCouponModal({
       <View style={styles.modalBackdrop}>
         <View style={styles.modalCard}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>New coupon</Text>
+            <Text style={styles.modalTitle}>{t("seller_coupons.modal_title")}</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <X size={20} color={colors.text} />
             </Pressable>
           </View>
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
             <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
-              <Field label="Code">
+              <Field label={t("seller_coupons.field_code")}>
                 <TextInput
                   testID="new-coupon-code"
                   value={code}
                   onChangeText={(v) => setCode(v.toUpperCase())}
-                  placeholder="SUMMER25"
+                  placeholder={t("seller_coupons.placeholder_code")}
                   autoCapitalize="characters"
                   autoCorrect={false}
                   placeholderTextColor={colors.textFaint}
                   style={styles.input}
                 />
               </Field>
-              <Field label="Description">
+              <Field label={t("seller_coupons.field_desc")}>
                 <TextInput
                   testID="new-coupon-desc"
                   value={description}
                   onChangeText={setDescription}
-                  placeholder="25% off all sarees this month"
+                  placeholder={t("seller_coupons.placeholder_desc")}
                   placeholderTextColor={colors.textFaint}
                   multiline
                   style={[styles.input, { minHeight: 60, paddingTop: 10 }]}
@@ -323,19 +328,19 @@ function CreateCouponModal({
                 />
               </Field>
 
-              <Field label="Discount type">
+              <Field label={t("seller_coupons.field_type")}>
                 <View style={styles.typeRow}>
-                  {TYPES.map((t) => {
-                    const sel = type === t.key;
+                  {TYPES.map((typ) => {
+                    const sel = type === typ.key;
                     return (
                       <Pressable
-                        key={t.key}
-                        onPress={() => setType(t.key)}
+                        key={typ.key}
+                        onPress={() => setType(typ.key)}
                         style={[styles.typeChip, sel && styles.typeChipSel]}
-                        testID={`new-coupon-type-${t.key}`}
+                        testID={`new-coupon-type-${typ.key}`}
                       >
                         <Text style={[styles.typeText, sel && styles.typeTextSel]}>
-                          {t.label}
+                          {t(`seller_coupons.${typ.tkey}`)}
                         </Text>
                       </Pressable>
                     );
@@ -345,7 +350,7 @@ function CreateCouponModal({
 
               {type !== "free_shipping" ? (
                 <Field
-                  label={type === "percent" ? "Percent (%)" : "Amount (NZD)"}
+                  label={type === "percent" ? t("seller_coupons.field_percent") : t("seller_coupons.field_amount")}
                 >
                   <TextInput
                     testID="new-coupon-value"
@@ -359,7 +364,7 @@ function CreateCouponModal({
                 </Field>
               ) : null}
 
-              <Field label="Minimum spend (NZD, optional)">
+              <Field label={t("seller_coupons.field_min_spend")}>
                 <TextInput
                   testID="new-coupon-min"
                   value={minOrder}
@@ -371,7 +376,7 @@ function CreateCouponModal({
                 />
               </Field>
 
-              <Field label="Total uses (leave blank for unlimited)">
+              <Field label={t("seller_coupons.field_total_uses")}>
                 <TextInput
                   testID="new-coupon-limit"
                   value={usageLimit}
@@ -385,9 +390,9 @@ function CreateCouponModal({
 
               <View style={styles.switchRow}>
                 <View>
-                  <Text style={styles.switchTitle}>Active</Text>
+                  <Text style={styles.switchTitle}>{t("seller_coupons.field_active")}</Text>
                   <Text style={styles.switchSub}>
-                    Customers can use this immediately
+                    {t("seller_coupons.field_active_sub")}
                   </Text>
                 </View>
                 <Switch
@@ -410,7 +415,7 @@ function CreateCouponModal({
                 {busy ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.submitText}>Create coupon</Text>
+                  <Text style={styles.submitText}>{t("seller_coupons.create_btn")}</Text>
                 )}
               </Pressable>
             </ScrollView>

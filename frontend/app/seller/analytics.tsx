@@ -28,6 +28,7 @@ import { TimeseriesChart, type Metric } from "@/src/components/TimeseriesChart";
 import InsightsSection from "@/src/components/InsightsSection";
 import LowStockAlerts from "@/src/components/LowStockAlerts";
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 type ListingRow = {
@@ -65,15 +66,16 @@ type Timeseries = {
   buckets: { date: string; views: number; cart_adds: number; sold: number; revenue_nzd: number }[];
 };
 
-const METRICS: { key: Metric; label: string }[] = [
-  { key: "views", label: "Views" },
-  { key: "cart_adds", label: "Carts" },
-  { key: "sold", label: "Sold" },
-  { key: "revenue_nzd", label: "Revenue" },
+const METRICS: { key: Metric; tkey: string }[] = [
+  { key: "views", tkey: "metric_views" },
+  { key: "cart_adds", tkey: "metric_carts" },
+  { key: "sold", tkey: "metric_sold" },
+  { key: "revenue_nzd", tkey: "metric_revenue" },
 ];
 
 export default function SellerAnalyticsScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [data, setData] = useState<Data | null>(null);
   const [series, setSeries] = useState<Timeseries | null>(null);
   const [days, setDays] = useState<7 | 30>(7);
@@ -102,7 +104,7 @@ export default function SellerAnalyticsScreen() {
         <Pressable testID="analytics-back" onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Analytics</Text>
+        <Text style={styles.title}>{t("seller_analytics.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -121,22 +123,22 @@ export default function SellerAnalyticsScreen() {
               <View style={styles.summaryGrid}>
                 <SummaryCard
                   icon={<Eye size={16} color={colors.primary} />}
-                  label="Total views"
+                  label={t("seller_analytics.total_views")}
                   value={data.summary.total_views.toLocaleString()}
                 />
                 <SummaryCard
                   icon={<ShoppingCart size={16} color={colors.primary} />}
-                  label="Add to carts"
+                  label={t("seller_analytics.add_to_carts")}
                   value={data.summary.total_cart_adds.toLocaleString()}
                 />
                 <SummaryCard
                   icon={<BarChart3 size={16} color={colors.primary} />}
-                  label="Units sold"
+                  label={t("seller_analytics.units_sold")}
                   value={data.summary.total_sold.toLocaleString()}
                 />
                 <SummaryCard
                   icon={<TrendingUp size={16} color={colors.primary} />}
-                  label="Revenue"
+                  label={t("seller_analytics.revenue")}
                   value={formatNZD(data.summary.total_revenue_nzd)}
                 />
               </View>
@@ -144,8 +146,8 @@ export default function SellerAnalyticsScreen() {
               <View style={styles.conversionPill}>
                 <TrendingUp size={14} color={colors.success} />
                 <Text style={styles.conversionText}>
-                  Overall conversion · <Text style={{ fontWeight: "800" }}>{data.summary.overall_conversion_pct}%</Text>
-                  {"  "}({data.summary.total_sold} sold ÷ {data.summary.total_views} views)
+                  {t("seller_analytics.overall_conversion")} · <Text style={{ fontWeight: "800" }}>{data.summary.overall_conversion_pct}%</Text>
+                  {"  "}{t("seller_analytics.conversion_breakdown", { sold: data.summary.total_sold, views: data.summary.total_views })}
                 </Text>
               </View>
 
@@ -161,7 +163,7 @@ export default function SellerAnalyticsScreen() {
                       style={[styles.rangePill, active && styles.rangePillActive]}
                     >
                       <Text style={[styles.rangeText, active && styles.rangeTextActive]}>
-                        {d} days
+                        {t("seller_analytics.range_days", { count: d })}
                       </Text>
                     </Pressable>
                   );
@@ -179,7 +181,7 @@ export default function SellerAnalyticsScreen() {
                       style={[styles.metricChip, active && styles.metricChipActive]}
                     >
                       <Text style={[styles.metricChipText, active && styles.metricChipTextActive]}>
-                        {m.label}
+                        {t(`seller_analytics.${m.tkey}`)}
                       </Text>
                     </Pressable>
                   );
@@ -198,7 +200,7 @@ export default function SellerAnalyticsScreen() {
               {/* Top 5 by views */}
               {data.top_by_views.length > 0 ? (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Top 5 by views</Text>
+                  <Text style={styles.sectionTitle}>{t("seller_analytics.top_by_views")}</Text>
                   {data.top_by_views.map((r, idx) => (
                     <TopRow key={r.product_id} rank={idx + 1} row={r} metric="views" />
                   ))}
@@ -208,7 +210,7 @@ export default function SellerAnalyticsScreen() {
               {/* Top 5 by sold */}
               {data.top_by_sold.some((r) => r.sold > 0) ? (
                 <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Top 5 by units sold</Text>
+                  <Text style={styles.sectionTitle}>{t("seller_analytics.top_by_sold")}</Text>
                   {data.top_by_sold
                     .filter((r) => r.sold > 0)
                     .map((r, idx) => (
@@ -218,7 +220,7 @@ export default function SellerAnalyticsScreen() {
               ) : null}
 
               <Text style={[styles.sectionTitle, { marginTop: spacing.xl, marginBottom: spacing.sm }]}>
-                All listings ({data.listings.length})
+                {t("seller_analytics.all_listings", { count: data.listings.length })}
               </Text>
             </View>
           }
@@ -231,12 +233,12 @@ export default function SellerAnalyticsScreen() {
               <Image source={{ uri: item.image }} style={styles.thumb} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
-                <Text style={styles.rowPrice}>{formatNZD(item.price_nzd)} · stock {item.stock_count}</Text>
+                <Text style={styles.rowPrice}>{formatNZD(item.price_nzd)} · {t("seller_analytics.stock_label", { count: item.stock_count })}</Text>
                 <View style={styles.metricsRow}>
-                  <MetricCell label="Views" value={item.views} />
-                  <MetricCell label="Carts" value={item.cart_adds} />
-                  <MetricCell label="Sold" value={item.sold} />
-                  <MetricCell label="Conv" value={`${item.conversion_pct}%`} highlight />
+                  <MetricCell label={t("seller_analytics.cell_views")} value={item.views} />
+                  <MetricCell label={t("seller_analytics.cell_carts")} value={item.cart_adds} />
+                  <MetricCell label={t("seller_analytics.cell_sold")} value={item.sold} />
+                  <MetricCell label={t("seller_analytics.cell_conv")} value={`${item.conversion_pct}%`} highlight />
                 </View>
               </View>
             </Pressable>
@@ -244,7 +246,7 @@ export default function SellerAnalyticsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyText}>
-                No analytics yet. Once shoppers view your listings, stats will appear here.
+                {t("seller_analytics.no_analytics")}
               </Text>
             </View>
           }
