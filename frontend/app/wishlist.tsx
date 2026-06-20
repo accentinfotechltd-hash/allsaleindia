@@ -82,6 +82,7 @@ export default function WishlistScreen() {
   const [activeCollection, setActiveCollection] = useState<string | null>(null); // null = All saved
   const [newListOpen, setNewListOpen] = useState(false);
   const [newListName, setNewListName] = useState("");
+  const [moveListOpen, setMoveListOpen] = useState(false);
 
   // Selection mode
   const [selectionMode, setSelectionMode] = useState(false);
@@ -143,15 +144,52 @@ export default function WishlistScreen() {
         method: "POST",
         body: { name },
       });
-      toast.show({ title: `Created "${name}"`, kind: "success" });
+      show({ title: `Created "${name}"`, kind: "success" });
       setNewListName("");
       setNewListOpen(false);
       loadCollections();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Couldn't create list";
-      toast.show({ title: msg, kind: "error" });
+      show({ title: msg, kind: "error" });
     }
-  }, [newListName, toast, loadCollections]);
+  }, [newListName, show, loadCollections]);
+
+  const moveSelectedToCollection = useCallback(
+    async (targetCollectionId: string | null) => {
+      if (selected.size === 0) return;
+      setBusy(true);
+      try {
+        await Promise.all(
+          Array.from(selected).map((pid) =>
+            api(`/wishlist/items/${pid}`, {
+              method: "PATCH",
+              body: { collection_id: targetCollectionId },
+            })
+          )
+        );
+        const name =
+          targetCollectionId === null
+            ? "All saved"
+            : collections.find((c) => c.id === targetCollectionId)?.name ||
+              "list";
+        show({
+          title: `Moved ${selected.size} item${selected.size === 1 ? "" : "s"} to ${name}`,
+          kind: "success",
+        });
+        setMoveListOpen(false);
+        setSelected(new Set());
+        setSelectionMode(false);
+        load();
+        loadCollections();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Couldn't move items";
+        show({ title: msg, kind: "error" });
+      } finally {
+        setBusy(false);
+      }
+    },
+    [selected, collections, show, load, loadCollections]
+  );
 
 
   const onPullRefresh = () => {
@@ -653,6 +691,25 @@ export default function WishlistScreen() {
             </Text>
           </Pressable>
           <Pressable
+            testID="wishlist-bulk-tolist-btn"
+            disabled={busy || selected.size === 0 || collections.length === 0}
+            onPress={() => setMoveListOpen(true)}
+            style={[
+              styles.bulkRemoveBtn,
+              {
+                borderColor: colors.primary,
+                backgroundColor: colors.primarySoft,
+              },
+              (busy || selected.size === 0 || collections.length === 0) && {
+                opacity: 0.5,
+              },
+            ]}
+          >
+            <Text style={[styles.bulkRemoveText, { color: colors.primary }]}>
+              Move to list ({selected.size})
+            </Text>
+          </Pressable>
+          <Pressable
             testID="wishlist-bulk-move-btn"
             disabled={busy || selectedInStock === 0}
             onPress={onBulkMoveToCart}
@@ -730,6 +787,61 @@ export default function WishlistScreen() {
               <Text style={styles.quickActionText}>
                 Select all in-stock items
               </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* New list modal */}
+      <Modal
+        visible={moveListOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMoveListOpen(false)}
+      >
+        <Pressable
+          style={styles.newListBackdrop}
+          onPress={() => setMoveListOpen(false)}
+        >
+          <Pressable
+            style={styles.newListCard}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={styles.newListTitle}>
+              Move {selected.size} item{selected.size === 1 ? "" : "s"} to…
+            </Text>
+            <Text style={styles.newListHint}>Choose a destination list</Text>
+            <View style={{ gap: 8, marginTop: 8 }}>
+              <Pressable
+                testID="wishlist-move-target-all"
+                onPress={() => moveSelectedToCollection(null)}
+                style={[styles.collectionChip, { alignSelf: "stretch", alignItems: "center" }]}
+              >
+                <Text style={styles.collectionChipText}>
+                  All saved (no list)
+                </Text>
+              </Pressable>
+              {collections.map((c) => (
+                <Pressable
+                  key={c.id}
+                  testID={`wishlist-move-target-${c.id}`}
+                  onPress={() => moveSelectedToCollection(c.id)}
+                  style={[
+                    styles.collectionChip,
+                    { alignSelf: "stretch", alignItems: "center" },
+                  ]}
+                >
+                  <Text style={styles.collectionChipText}>
+                    {c.name} · {c.item_count}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              onPress={() => setMoveListOpen(false)}
+              style={[styles.newListCancel, { marginTop: 16 }]}
+            >
+              <Text style={styles.newListCancelText}>Cancel</Text>
             </Pressable>
           </Pressable>
         </Pressable>

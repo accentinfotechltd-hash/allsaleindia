@@ -1,0 +1,45 @@
+{
+  "summary": "Wishlist Collections — Bulk Move feature tested end-to-end. Backend 12/13 pass (1 minor edge case: ?collection_id= empty string is treated literally instead of None). Frontend mobile flow PASSES every step in the request: chips row renders with counts, '+ New list' creates DiwaliUI, Select mode + 'Move to list (N)' button works, modal lists All-saved + every collection, tapping a target triggers the correct toast ('Moved 2 items to DiwaliUI'), selection mode exits, chip count updates to 2, filter shows only those 2 cards, and round-tripping back to 'All saved (no list)' also works with toast. No red-screen errors after expo restart (pre-restart stale bundle showed 'toast is not defined' — confirmed already fixed in source).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/wishlist?collection_id=",
+        "issue": "Empty-string collection_id is matched literally against documents (returns 0 results) instead of being treated as None per spec. In routers/wishlist.py line 49, the check is `if collection_id is not None:` — for FastAPI Query() this fails because empty string is a non-None str. Easy fix: `if collection_id:`. Frontend currently avoids passing empty string so users are unaffected."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "wishlist.tsx toolbar",
+        "issues": ["When wishlist has >=2 in-stock items, the orange 'Move all (N)' pill (testID wishlist-move-all-btn) can overlap the small trash 'Clear all' button on narrow viewports — purely cosmetic, not blocking."]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_wishlist_collections_move.py",
+    "/app/test_reports/pytest/iter49_wishlist_collections.xml"
+  ],
+  "action_items": [
+    "(Optional, minor) routers/wishlist.py:49 — change `if collection_id is not None:` to `if collection_id:` so empty-string query param is treated as None per spec.",
+    "(Cosmetic) Consider hiding 'Move all (N)' button when toolbar is cramped, or moving 'Clear all' to a kebab/menu to avoid overlap."
+  ],
+  "critical_code_review_comments": [
+    "wishlist.tsx (1137 lines) is approaching the 700-line guideline; consider extracting modals (sort sheet, new-list, move-to-list) and chip row into sub-components for maintainability.",
+    "moveSelectedToCollection issues N PATCH requests in parallel (Promise.all over selected.size). Works fine for small selections but a bulk endpoint POST /api/wishlist/items/move-bulk { product_ids, collection_id } would be more efficient and atomic — worth considering later.",
+    "Backend PATCH /api/wishlist/items/{product_id} correctly validates collection ownership (line 429-434) and returns 404 for missing collection / missing item — verified by tests."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_wishlist_collections_move.py (new)"
+  ],
+  "success_rate": {"backend": "92% (12/13)", "frontend": "100%"},
+  "seed_data_creation": "Test creates `Diwali TEST` collection (auto-cleaned in fixture teardown) and uses 3 seeded products from /api/products. UI test creates a `DiwaliUI` collection — leftover collections are wiped before each run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_wishlist_collections_move.py covers the collection move feature comprehensively. Backend BASE_URL resolved from EXPO_PUBLIC_BACKEND_URL. The single failing assertion (empty-string collection_id) is a one-line backend fix if main agent wants to honour the spec literally; frontend doesn't trigger it.",
+  "rca_of_issue": "Stale Metro bundle initially served the pre-fix wishlist.tsx that referenced `toast.show(...)` causing 'toast is not defined' ReferenceError and a red-screen on /wishlist. `sudo supervisorctl restart expo` rebuilt the bundle and the error disappeared — the fix already in source (uses destructured `show` from useToast) is correct. Verified with grep: no `toast` token remains in /app/frontend/app/wishlist.tsx."
+}
