@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { adminApi, AdminForbidden, AdminUnauthorized } from "@/src/lib/adminApi";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Cat = {
@@ -27,12 +28,12 @@ type Resp = {
   tier_map: Record<string, number>;
 };
 
-const PERIODS: { label: string; key: string }[] = [
-  { label: "7 days", key: "7d" },
-  { label: "30 days", key: "30d" },
-  { label: "90 days", key: "90d" },
-  { label: "1 year", key: "365d" },
-  { label: "All time", key: "all" },
+const PERIODS: { tkey: string; key: string }[] = [
+  { tkey: "period_7d", key: "7d" },
+  { tkey: "period_30d", key: "30d" },
+  { tkey: "period_90d", key: "90d" },
+  { tkey: "period_365d", key: "365d" },
+  { tkey: "period_all", key: "all" },
 ];
 
 const fmtNZD = (cents: number) =>
@@ -45,6 +46,7 @@ const fmtPct = (bps: number) => `${(bps / 100).toFixed(2)}%`;
 export default function AdminCommission() {
   const router = useRouter();
   const { show } = useToast();
+  const { t } = useTranslation();
   const [period, setPeriod] = useState("30d");
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,11 +59,11 @@ export default function AdminCommission() {
     } catch (e: any) {
       if (e instanceof AdminUnauthorized) { router.replace("/admin"); return; }
       if (e instanceof AdminForbidden) { router.replace("/admin"); return; }
-      show({ title: e?.message || "Failed to load", kind: "error" });
+      show({ title: e?.message || t("admin_commission.failed_load"), kind: "error" });
     } finally {
       setLoading(false);
     }
-  }, [period, router, show]);
+  }, [period, router, show, t]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -74,8 +76,8 @@ export default function AdminCommission() {
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
         <View style={{ flex: 1, alignItems: "center" }}>
-          <Text style={styles.headerTitle}>Commission Analytics</Text>
-          <Text style={styles.headerSub}>{data?.total_orders ?? 0} orders</Text>
+          <Text style={styles.headerTitle}>{t("admin_commission.title")}</Text>
+          <Text style={styles.headerSub}>{t("admin_commission.orders_count", { count: data?.total_orders ?? 0 })}</Text>
         </View>
         <Pressable testID="commission-refresh" onPress={load} style={styles.iconBtn} hitSlop={8}>
           <RefreshCw size={20} color={colors.text} />
@@ -91,7 +93,7 @@ export default function AdminCommission() {
             onPress={() => setPeriod(p.key)}
             style={[styles.chip, period === p.key && styles.chipActive]}
           >
-            <Text style={[styles.chipText, period === p.key && styles.chipTextActive]}>{p.label}</Text>
+            <Text style={[styles.chipText, period === p.key && styles.chipTextActive]}>{t(`admin_commission.${p.tkey}`)}</Text>
           </Pressable>
         ))}
       </View>
@@ -104,11 +106,11 @@ export default function AdminCommission() {
             {/* KPI cards */}
             <View style={styles.kpiRow}>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>GMV</Text>
+                <Text style={styles.kpiLabel}>{t("admin_commission.kpi_gmv")}</Text>
                 <Text style={styles.kpiValue}>{fmtNZD(data.total_gmv_cents)}</Text>
               </View>
               <View style={[styles.kpiCard, styles.kpiAccent]}>
-                <Text style={styles.kpiLabel}>Commission earned</Text>
+                <Text style={styles.kpiLabel}>{t("admin_commission.kpi_commission_earned")}</Text>
                 <Text style={[styles.kpiValue, { color: "#16a34a" }]}>
                   {fmtNZD(data.total_commission_cents)}
                 </Text>
@@ -116,21 +118,21 @@ export default function AdminCommission() {
             </View>
             <View style={styles.kpiRow}>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>Effective take rate</Text>
+                <Text style={styles.kpiLabel}>{t("admin_commission.kpi_take_rate")}</Text>
                 <Text style={styles.kpiValue}>{fmtPct(data.effective_take_rate_bps)}</Text>
               </View>
               <View style={styles.kpiCard}>
-                <Text style={styles.kpiLabel}>Categories</Text>
+                <Text style={styles.kpiLabel}>{t("admin_commission.kpi_categories")}</Text>
                 <Text style={styles.kpiValue}>{data.categories.length}</Text>
               </View>
             </View>
 
             {/* Per-category breakdown */}
-            <Text style={styles.sectionTitle}>Revenue by category</Text>
+            <Text style={styles.sectionTitle}>{t("admin_commission.revenue_by_category")}</Text>
             {data.categories.length === 0 ? (
               <View style={styles.empty}>
                 <TrendingUp size={28} color={colors.textFaint} />
-                <Text style={styles.emptyText}>No paid orders in this period</Text>
+                <Text style={styles.emptyText}>{t("admin_commission.no_paid_orders")}</Text>
               </View>
             ) : (
               data.categories.map((c) => {
@@ -148,7 +150,7 @@ export default function AdminCommission() {
                     </View>
                     <View style={styles.catMeta}>
                       <Text style={styles.catMetaText}>
-                        {c.orders} orders · {c.units} units · GMV {fmtNZD(c.gmv_cents)}
+                        {t("admin_commission.cat_meta", { orders: c.orders, units: c.units, gmv: fmtNZD(c.gmv_cents) })}
                       </Text>
                       <Text style={styles.catCommission}>{fmtNZD(c.commission_cents)}</Text>
                     </View>
@@ -158,7 +160,7 @@ export default function AdminCommission() {
             )}
 
             {/* Tier reference */}
-            <Text style={styles.sectionTitle}>Active commission tiers</Text>
+            <Text style={styles.sectionTitle}>{t("admin_commission.active_tiers")}</Text>
             <View style={styles.tierCard}>
               {Object.entries(data.tier_map).map(([k, v]) => (
                 <View key={k} style={styles.tierRow}>
@@ -169,8 +171,7 @@ export default function AdminCommission() {
             </View>
 
             <Text style={styles.footnote}>
-              Rates are calculated by re-applying the live tier map to every paid order in the window.
-              Edit `services/stripe_connect_svc.py` to tune category rates.
+              {t("admin_commission.footnote")}
             </Text>
           </>
         ) : null}

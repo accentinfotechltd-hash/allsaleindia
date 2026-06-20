@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { api } from "@/src/lib/api";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -46,6 +47,7 @@ type ConnectStatus = {
 export default function StripeConnectScreen() {
   const router = useRouter();
   const { show } = useToast();
+  const { t } = useTranslation();
   const [status, setStatus] = useState<ConnectStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -57,14 +59,14 @@ export default function StripeConnectScreen() {
       setStatus(d);
     } catch (e: any) {
       show({
-        title: "Couldn't load Stripe status",
-        message: e?.message,
+        title: t("seller_stripe.toast_couldnt_load"),
+        body: e?.message,
         kind: "error",
       });
     } finally {
       setLoading(false);
     }
-  }, [show]);
+  }, [show, t]);
 
   useEffect(() => {
     load();
@@ -85,8 +87,8 @@ export default function StripeConnectScreen() {
       }
     } catch (e: any) {
       show({
-        title: "Couldn't start Stripe onboarding",
-        message: e?.message,
+        title: t("seller_stripe.toast_couldnt_start"),
+        body: e?.message,
         kind: "error",
       });
     } finally {
@@ -109,8 +111,8 @@ export default function StripeConnectScreen() {
       }
     } catch (e: any) {
       show({
-        title: "Couldn't open Stripe dashboard",
-        message: e?.message,
+        title: t("seller_stripe.toast_couldnt_open"),
+        body: e?.message,
         kind: "error",
       });
     } finally {
@@ -124,10 +126,9 @@ export default function StripeConnectScreen() {
       return (
         <View style={[styles.stateCard, styles.stateMuted]}>
           <Banknote size={28} color={colors.textMuted} />
-          <Text style={styles.stateTitle}>Get paid via Stripe</Text>
+          <Text style={styles.stateTitle}>{t("seller_stripe.get_paid_title")}</Text>
           <Text style={styles.stateBody}>
-            Set up your payout account so we can release your earnings after each
-            order&apos;s 14-day return window closes.
+            {t("seller_stripe.get_paid_body")}
           </Text>
         </View>
       );
@@ -136,10 +137,9 @@ export default function StripeConnectScreen() {
       return (
         <View style={[styles.stateCard, styles.stateOk]}>
           <CheckCircle2 size={28} color="#16a34a" />
-          <Text style={styles.stateTitle}>Stripe is active</Text>
+          <Text style={styles.stateTitle}>{t("seller_stripe.active_title")}</Text>
           <Text style={styles.stateBody}>
-            Your payouts are enabled. We&apos;ll route your share of each sale to
-            your bank automatically.
+            {t("seller_stripe.active_body")}
           </Text>
         </View>
       );
@@ -148,11 +148,11 @@ export default function StripeConnectScreen() {
     return (
       <View style={[styles.stateCard, styles.stateWarn]}>
         <AlertTriangle size={28} color="#b45309" />
-        <Text style={styles.stateTitle}>Finish your setup</Text>
+        <Text style={styles.stateTitle}>{t("seller_stripe.finish_title")}</Text>
         <Text style={styles.stateBody}>
           {status.details_submitted
-            ? "Stripe needs a few more details before payouts can be enabled."
-            : "You started onboarding but didn't finish — tap below to continue."}
+            ? t("seller_stripe.finish_body_more_details")
+            : t("seller_stripe.finish_body_didnt_finish")}
         </Text>
         {due.length > 0 && (
           <View style={styles.dueWrap}>
@@ -178,7 +178,7 @@ export default function StripeConnectScreen() {
         >
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Payouts &amp; bank</Text>
+        <Text style={styles.headerTitle}>{t("seller_stripe.header_title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -209,7 +209,7 @@ export default function StripeConnectScreen() {
                     <Banknote size={18} color="#fff" />
                   )}
                   <Text style={styles.primaryBtnText}>
-                    {acting ? "Starting…" : "Connect Stripe"}
+                    {acting ? t("seller_stripe.btn_starting") : t("seller_stripe.btn_connect")}
                   </Text>
                 </Pressable>
               ) : !(status.charges_enabled && status.payouts_enabled) ? (
@@ -225,7 +225,7 @@ export default function StripeConnectScreen() {
                 >
                   <ExternalLink size={18} color="#fff" />
                   <Text style={styles.primaryBtnText}>
-                    {acting ? "Loading…" : "Continue setup"}
+                    {acting ? t("seller_stripe.btn_loading") : t("seller_stripe.btn_continue")}
                   </Text>
                 </Pressable>
               ) : (
@@ -241,7 +241,7 @@ export default function StripeConnectScreen() {
                 >
                   <ExternalLink size={18} color="#fff" />
                   <Text style={styles.primaryBtnText}>
-                    {acting ? "Opening…" : "Open Stripe Dashboard"}
+                    {acting ? t("seller_stripe.btn_opening") : t("seller_stripe.btn_open_dashboard")}
                   </Text>
                 </Pressable>
               )}
@@ -254,19 +254,16 @@ export default function StripeConnectScreen() {
                   pressed && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.secondaryBtnText}>Refresh status</Text>
+                <Text style={styles.secondaryBtnText}>{t("seller_stripe.btn_refresh")}</Text>
               </Pressable>
             </View>
 
             <View style={styles.infoCard}>
               <ShieldCheck size={18} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.infoTitle}>How payouts work</Text>
+                <Text style={styles.infoTitle}>{t("seller_stripe.info_payouts_title")}</Text>
                 <Text style={styles.infoBody}>
-                  After each order delivers, we hold the buyer&apos;s payment in
-                  escrow for 14 days (the return window). Once the window closes
-                  with no return, we release your earnings — automatically — to
-                  your Stripe-linked bank account every Tuesday.
+                  {t("seller_stripe.info_payouts_body")}
                 </Text>
               </View>
             </View>
@@ -274,11 +271,9 @@ export default function StripeConnectScreen() {
             <View style={styles.infoCard}>
               <Banknote size={18} color={colors.primary} />
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.infoTitle}>Fees</Text>
+                <Text style={styles.infoTitle}>{t("seller_stripe.info_fees_title")}</Text>
                 <Text style={styles.infoBody}>
-                  Allsale&apos;s marketplace commission is 12% of the product
-                  price (excluding shipping). Stripe&apos;s standard processing
-                  fee is paid by Allsale — never deducted from your payout.
+                  {t("seller_stripe.info_fees_body")}
                 </Text>
               </View>
             </View>
