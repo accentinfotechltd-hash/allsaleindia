@@ -26,6 +26,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ORIGIN_URL, api, getAuthToken } from "@/src/lib/api";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 // ---------------------------------------------------------------------------
@@ -89,28 +90,13 @@ type CommitResponse = {
 
 const SOURCE_OPTIONS: {
   key: "amazon" | "flipkart" | "csv";
-  title: string;
-  blurb: string;
+  titleKey: string;
+  blurbKey: string;
   emoji: string;
 }[] = [
-  {
-    key: "amazon",
-    title: "Amazon Seller Central",
-    blurb: "Upload the .xlsx/.xlsm catalog template you use for Amazon India.",
-    emoji: "📦",
-  },
-  {
-    key: "flipkart",
-    title: "Flipkart Seller Hub",
-    blurb: "Upload the .xls catalog file you downloaded from Flipkart.",
-    emoji: "🛍️",
-  },
-  {
-    key: "csv",
-    title: "Your own CSV",
-    blurb: "A simple CSV with sku, name, price, image. We handle the rest.",
-    emoji: "📄",
-  },
+  { key: "amazon", titleKey: "seller_import.source_amazon_title", blurbKey: "seller_import.source_amazon_blurb", emoji: "📦" },
+  { key: "flipkart", titleKey: "seller_import.source_flipkart_title", blurbKey: "seller_import.source_flipkart_blurb", emoji: "🛍️" },
+  { key: "csv", titleKey: "seller_import.source_csv_title", blurbKey: "seller_import.source_csv_blurb", emoji: "📄" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -118,6 +104,7 @@ const SOURCE_OPTIONS: {
 // ---------------------------------------------------------------------------
 export default function SellerImportScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
 
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0);
@@ -200,14 +187,14 @@ export default function SellerImportScreen() {
       setStep(2);
     } catch (e: any) {
       show({
-        title: "Couldn't read your catalog",
-        body: e?.message || "Try again with a different file.",
+        title: t("seller_import.couldnt_read"),
+        body: e?.message || t("seller_import.couldnt_read_body"),
         kind: "error",
       });
     } finally {
       setUploading(false);
     }
-  }, [source, show]);
+  }, [source, show, t]);
 
   const toggleRow = useCallback((row_index: number) => {
     setRowDecisions((prev) => ({ ...prev, [row_index]: !prev[row_index] }));
@@ -240,22 +227,21 @@ export default function SellerImportScreen() {
       setStep(4);
     } catch (e: any) {
       show({
-        title: "Couldn't publish listings",
-        body: e?.message || "Try again.",
+        title: t("seller_import.couldnt_publish"),
+        body: e?.message || t("seller_import.try_again"),
         kind: "error",
       });
     } finally {
       setCommitting(false);
     }
-  }, [preview, rowDecisions, marginInput, enrichAi, show]);
+  }, [preview, rowDecisions, marginInput, enrichAi, show, t]);
 
   // ---- Renderers per step ----
   const renderStep0 = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.h1}>Where&apos;s your catalog coming from?</Text>
+      <Text style={styles.h1}>{t("seller_import.step0_h1")}</Text>
       <Text style={styles.sub}>
-        Bring your existing listings from Amazon or Flipkart and we&apos;ll have them
-        live in minutes — no re-typing required.
+        {t("seller_import.step0_sub")}
       </Text>
       {SOURCE_OPTIONS.map((o) => (
         <Pressable
@@ -269,8 +255,8 @@ export default function SellerImportScreen() {
         >
           <Text style={styles.sourceEmoji}>{o.emoji}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.sourceTitle}>{o.title}</Text>
-            <Text style={styles.sourceBlurb}>{o.blurb}</Text>
+            <Text style={styles.sourceTitle}>{t(o.titleKey)}</Text>
+            <Text style={styles.sourceBlurb}>{t(o.blurbKey)}</Text>
           </View>
           {source === o.key ? (
             <CheckCircle2 size={20} color={colors.primary} />
@@ -282,17 +268,16 @@ export default function SellerImportScreen() {
         onPress={() => setStep(1)}
         testID="import-continue-source"
       >
-        <Text style={styles.primaryBtnText}>Continue</Text>
+        <Text style={styles.primaryBtnText}>{t("seller_import.continue_btn")}</Text>
       </Pressable>
     </ScrollView>
   );
 
   const renderStep1 = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.h1}>Upload your catalog file</Text>
+      <Text style={styles.h1}>{t("seller_import.step1_h1")}</Text>
       <Text style={styles.sub}>
-        Drag the file your marketplace gave you. We accept .xlsx, .xlsm, .xls
-        and .csv up to 25 MB.
+        {t("seller_import.step1_sub")}
       </Text>
       <Pressable
         style={styles.dropzone}
@@ -305,15 +290,15 @@ export default function SellerImportScreen() {
         ) : (
           <>
             <CloudUpload size={36} color={colors.primary} />
-            <Text style={styles.dropzoneTitle}>Tap to pick a file</Text>
+            <Text style={styles.dropzoneTitle}>{t("seller_import.pick_file")}</Text>
             <Text style={styles.dropzoneSub}>
-              Source: {SOURCE_OPTIONS.find((s) => s.key === source)?.title}
+              {t("seller_import.source_prefix", { title: t(SOURCE_OPTIONS.find((s) => s.key === source)?.titleKey || "") })}
             </Text>
           </>
         )}
       </Pressable>
       <Pressable style={styles.linkBtn} onPress={() => setStep(0)}>
-        <Text style={styles.linkBtnText}>← Pick a different source</Text>
+        <Text style={styles.linkBtnText}>{t("seller_import.pick_different_source")}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -325,28 +310,27 @@ export default function SellerImportScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statTile}>
             <Text style={styles.statNum}>{preview.total_rows}</Text>
-            <Text style={styles.statLabel}>found</Text>
+            <Text style={styles.statLabel}>{t("seller_import.stat_found")}</Text>
           </View>
           <View style={[styles.statTile, styles.statTileGood]}>
             <Text style={[styles.statNum, { color: "#16a34a" }]}>
               {preview.ready_count}
             </Text>
-            <Text style={styles.statLabel}>ready</Text>
+            <Text style={styles.statLabel}>{t("seller_import.stat_ready")}</Text>
           </View>
           {preview.needs_attention_count > 0 ? (
             <View style={[styles.statTile, styles.statTileWarn]}>
               <Text style={[styles.statNum, { color: "#ea580c" }]}>
                 {preview.needs_attention_count}
               </Text>
-              <Text style={styles.statLabel}>need fix</Text>
+              <Text style={styles.statLabel}>{t("seller_import.stat_need_fix")}</Text>
             </View>
           ) : null}
         </View>
 
         <Text style={styles.fxLine}>
-          FX 1 NZD = ₹{preview.fx_inr_to_nzd.toFixed(2)} · source:{" "}
-          {preview.source}
-          {preview.sheet_name ? ` · sheet: ${preview.sheet_name}` : ""}
+          {t("seller_import.fx_line", { rate: preview.fx_inr_to_nzd.toFixed(2), source: preview.source })}
+          {preview.sheet_name ? t("seller_import.fx_line_sheet_suffix", { sheet: preview.sheet_name }) : ""}
         </Text>
 
         {preview.warnings.map((w) => (
@@ -383,14 +367,14 @@ export default function SellerImportScreen() {
                   {p.name}
                 </Text>
                 <Text style={styles.rowMeta}>
-                  {p.category || "— uncategorised —"}
+                  {p.category || t("seller_import.uncategorised")}
                   {p.subcategory ? ` · ${p.subcategory}` : ""}
                   {p.brand ? ` · ${p.brand}` : ""}
                 </Text>
                 <Text style={styles.rowPrice}>
-                  {p.price_nzd != null ? formatNZD(p.price_nzd) : "no price"}
+                  {p.price_nzd != null ? formatNZD(p.price_nzd) : t("seller_import.no_price")}
                   {p.price_inr ? `  (₹${p.price_inr.toFixed(0)})` : ""}
-                  {`  · stock ${p.stock_count}`}
+                  {`  · ${t("seller_import.stock_prefix", { count: p.stock_count })}`}
                 </Text>
                 {r.issues.length > 0 ? (
                   <View style={styles.issueList}>
@@ -433,17 +417,16 @@ export default function SellerImportScreen() {
 
   const renderStep3 = () => (
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.h1}>Last touches</Text>
+      <Text style={styles.h1}>{t("seller_import.step3_h1")}</Text>
       <Text style={styles.sub}>
-        Selected <Text style={{ fontWeight: "800" }}>{selectedCount}</Text>{" "}
-        product{selectedCount === 1 ? "" : "s"} to publish.
+        {t(selectedCount === 1 ? "seller_import.selected_one" : "seller_import.selected_other", { n: selectedCount })}
       </Text>
 
       <View style={styles.settingCard}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.settingTitle}>Markup on NZD price (%)</Text>
+          <Text style={styles.settingTitle}>{t("seller_import.margin_label")}</Text>
           <Text style={styles.settingHelp}>
-            Apply across all imported items to cover shipping &amp; profit.
+            {t("seller_import.margin_help")}
           </Text>
         </View>
         <TextInput
@@ -460,12 +443,10 @@ export default function SellerImportScreen() {
       <View style={styles.settingCard}>
         <View style={{ flex: 1 }}>
           <Text style={styles.settingTitle}>
-            <Sparkles size={14} color={colors.primary} /> AI clean-up (Claude
-            Sonnet 4.5)
+            <Sparkles size={14} color={colors.primary} /> {t("seller_import.ai_label")}
           </Text>
           <Text style={styles.settingHelp}>
-            Translates Hindi/Hinglish descriptions to English and rewrites long
-            blurbs into clean 5-bullet feature lists.
+            {t("seller_import.ai_help")}
           </Text>
         </View>
         <Switch
@@ -486,12 +467,12 @@ export default function SellerImportScreen() {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.primaryBtnText}>
-            Publish {selectedCount} listing{selectedCount === 1 ? "" : "s"}
+            {t(selectedCount === 1 ? "seller_import.publish_one" : "seller_import.publish_other", { n: selectedCount })}
           </Text>
         )}
       </Pressable>
       <Pressable style={styles.linkBtn} onPress={() => setStep(2)}>
-        <Text style={styles.linkBtnText}>← Back to selection</Text>
+        <Text style={styles.linkBtnText}>{t("seller_import.back_to_selection")}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -500,21 +481,21 @@ export default function SellerImportScreen() {
     <ScrollView contentContainerStyle={[styles.content, { alignItems: "center" }]}>
       <PartyPopper size={48} color={colors.primary} style={{ marginTop: 24 }} />
       <Text style={[styles.h1, { textAlign: "center" }]}>
-        {result?.created || 0} listings live!
+        {t("seller_import.step4_listings_live", { n: result?.created || 0 })}
       </Text>
       <Text style={styles.sub}>
-        We created {result?.created || 0} new listings
+        {t("seller_import.step4_summary_a", { n: result?.created || 0 })}
         {(result?.updated || 0) > 0
-          ? `, updated ${result?.updated} existing`
+          ? t("seller_import.step4_summary_updated", { u: result?.updated })
           : ""}
-        {(result?.skipped || 0) > 0 ? `, skipped ${result?.skipped}` : ""}.
+        {(result?.skipped || 0) > 0 ? t("seller_import.step4_summary_skipped", { s: result?.skipped }) : ""}
+        {t("seller_import.step4_summary_dot")}
       </Text>
       {(result?.failed || 0) > 0 ? (
         <View style={styles.warningBanner}>
           <TriangleAlert size={14} color="#ea580c" />
           <Text style={styles.warningText}>
-            {result?.failed} row{(result?.failed || 0) === 1 ? "" : "s"} failed.
-            Check the seller dashboard for details.
+            {t((result?.failed || 0) === 1 ? "seller_import.step4_failed_one" : "seller_import.step4_failed_other", { n: result?.failed })}
           </Text>
         </View>
       ) : null}
@@ -522,7 +503,7 @@ export default function SellerImportScreen() {
         style={[styles.primaryBtn, { marginTop: 24 }]}
         onPress={() => router.replace("/seller/dashboard")}
       >
-        <Text style={styles.primaryBtnText}>Go to my dashboard</Text>
+        <Text style={styles.primaryBtnText}>{t("seller_import.go_dashboard")}</Text>
       </Pressable>
       <Pressable
         style={styles.linkBtn}
@@ -532,7 +513,7 @@ export default function SellerImportScreen() {
           setResult(null);
         }}
       >
-        <Text style={styles.linkBtnText}>Import another catalog</Text>
+        <Text style={styles.linkBtnText}>{t("seller_import.import_another")}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -547,7 +528,7 @@ export default function SellerImportScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Import catalog</Text>
+        <Text style={styles.headerTitle}>{t("seller_import.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -563,7 +544,7 @@ export default function SellerImportScreen() {
           {renderStep2()}
           <View style={styles.bottomBar}>
             <Text style={styles.bottomBarText}>
-              {selectedCount} selected
+              {t("seller_import.bottom_selected", { n: selectedCount })}
             </Text>
             <Pressable
               style={[styles.primaryBtn, selectedCount === 0 && { opacity: 0.5 }]}
@@ -571,7 +552,7 @@ export default function SellerImportScreen() {
               onPress={() => setStep(3)}
               testID="import-to-settings"
             >
-              <Text style={styles.primaryBtnText}>Next</Text>
+              <Text style={styles.primaryBtnText}>{t("seller_import.next_btn")}</Text>
             </Pressable>
           </View>
         </>

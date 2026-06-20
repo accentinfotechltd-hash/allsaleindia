@@ -41,6 +41,7 @@ import {
   getAdminSecret,
 } from "@/src/lib/adminApi";
 import { useConfirm, useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type AdminUser = {
@@ -75,10 +76,10 @@ type ListResp = {
 const PAGE_SIZE = 50;
 type RoleFilter = "all" | "buyer" | "seller";
 
-const ROLE_TABS: { key: RoleFilter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "buyer", label: "Buyers" },
-  { key: "seller", label: "Sellers" },
+const ROLE_TABS: { key: RoleFilter; labelKey: string }[] = [
+  { key: "all", labelKey: "admin_users.tab_all" },
+  { key: "buyer", labelKey: "admin_users.tab_buyers" },
+  { key: "seller", labelKey: "admin_users.tab_sellers" },
 ];
 
 function initials(name?: string | null, email?: string) {
@@ -106,6 +107,7 @@ function formatDate(iso?: string | null) {
 
 export default function AdminUsersScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { show } = useToast();
   const confirm = useConfirm();
 
@@ -177,8 +179,8 @@ export default function AdminUsersScreen() {
     setPrompt({
       visible: true,
       kind: "suspend",
-      title: "Suspend account",
-      label: "Reason (visible only to admins)",
+      title: t("admin_users.suspend_title"),
+      label: t("admin_users.suspend_label"),
       reason: "",
       delta: "",
     });
@@ -186,7 +188,7 @@ export default function AdminUsersScreen() {
 
   const submitSuspend = async () => {
     if (!detail || prompt.reason.trim().length < 4) {
-      show({ title: "Add a reason (min 4 chars)", kind: "error" });
+      show({ title: t("admin_users.reason_too_short"), kind: "error" });
       return;
     }
     setActionBusy(true);
@@ -195,11 +197,11 @@ export default function AdminUsersScreen() {
         method: "POST",
         body: { reason: prompt.reason.trim() },
       });
-      show({ title: "Account suspended", kind: "success" });
+      show({ title: t("admin_users.suspend_done"), kind: "success" });
       closePrompt();
       await refreshDetail();
     } catch (e: any) {
-      show({ title: e?.message || "Suspend failed", kind: "error" });
+      show({ title: e?.message || t("admin_users.suspend_failed"), kind: "error" });
     } finally {
       setActionBusy(false);
     }
@@ -208,18 +210,18 @@ export default function AdminUsersScreen() {
   const onReactivate = async () => {
     if (!detail) return;
     const ok = await confirm({
-      title: "Reactivate account?",
-      message: "The buyer/seller will be able to sign in again immediately.",
-      confirmLabel: "Reactivate",
+      title: t("admin_users.reactivate_title"),
+      message: t("admin_users.reactivate_msg"),
+      confirmLabel: t("admin_users.reactivate_btn"),
     });
     if (!ok) return;
     setActionBusy(true);
     try {
       await adminApi(`/admin/users/${detail.id}/reactivate`, { method: "POST" });
-      show({ title: "Account reactivated", kind: "success" });
+      show({ title: t("admin_users.reactivate_done"), kind: "success" });
       await refreshDetail();
     } catch (e: any) {
-      show({ title: e?.message || "Reactivate failed", kind: "error" });
+      show({ title: e?.message || t("admin_users.reactivate_failed"), kind: "error" });
     } finally {
       setActionBusy(false);
     }
@@ -229,20 +231,19 @@ export default function AdminUsersScreen() {
   const onReset2FA = async () => {
     if (!detail) return;
     const ok = await confirm({
-      title: "Reset two-factor authentication?",
-      message:
-        "The user will be able to sign in WITHOUT their authenticator app on the next login. Only do this after verifying their identity.",
-      confirmLabel: "Reset 2FA",
+      title: t("admin_users.reset_2fa_title"),
+      message: t("admin_users.reset_2fa_msg"),
+      confirmLabel: t("admin_users.reset_2fa_btn"),
       destructive: true,
     });
     if (!ok) return;
     setActionBusy(true);
     try {
       await adminApi(`/admin/users/${detail.id}/reset-2fa`, { method: "POST" });
-      show({ title: "2FA disabled", kind: "success" });
+      show({ title: t("admin_users.reset_2fa_done"), kind: "success" });
       await refreshDetail();
     } catch (e: any) {
-      show({ title: e?.message || "Reset failed", kind: "error" });
+      show({ title: e?.message || t("admin_users.reset_2fa_failed"), kind: "error" });
     } finally {
       setActionBusy(false);
     }
@@ -253,8 +254,8 @@ export default function AdminUsersScreen() {
     setPrompt({
       visible: true,
       kind: "points",
-      title: "Adjust loyalty points",
-      label: "Reason (visible in the ledger)",
+      title: t("admin_users.points_adjust_title"),
+      label: t("admin_users.points_adjust_label"),
       reason: "",
       delta: "",
     });
@@ -264,11 +265,11 @@ export default function AdminUsersScreen() {
     if (!detail) return;
     const delta = parseInt(prompt.delta, 10);
     if (!Number.isFinite(delta) || delta === 0) {
-      show({ title: "Enter a non-zero delta", kind: "error" });
+      show({ title: t("admin_users.delta_required"), kind: "error" });
       return;
     }
     if (prompt.reason.trim().length < 4) {
-      show({ title: "Add a reason (min 4 chars)", kind: "error" });
+      show({ title: t("admin_users.reason_too_short"), kind: "error" });
       return;
     }
     setActionBusy(true);
@@ -281,14 +282,14 @@ export default function AdminUsersScreen() {
         },
       );
       show({
-        title: `${delta > 0 ? "Credited" : "Debited"} ${Math.abs(delta)} pts`,
-        body: `New balance: ${res.balance}`,
+        title: t(delta > 0 ? "admin_users.points_credited" : "admin_users.points_debited", { n: Math.abs(delta) }),
+        body: t("admin_users.points_new_balance", { balance: res.balance }),
         kind: "success",
       });
       closePrompt();
       await refreshDetail();
     } catch (e: any) {
-      show({ title: e?.message || "Adjustment failed", kind: "error" });
+      show({ title: e?.message || t("admin_users.points_adjust_failed"), kind: "error" });
     } finally {
       setActionBusy(false);
     }
@@ -336,21 +337,21 @@ export default function AdminUsersScreen() {
         setHasMore(!!resp.has_more);
       } catch (e: any) {
         if (e instanceof AdminUnauthorized) {
-          show({ title: "Login required", kind: "error" });
+          show({ title: t("admin_users.login_required"), kind: "error" });
           router.replace("/admin");
           return;
         }
         if (e instanceof AdminForbidden) {
-          show({ title: "Manager/Support access required", kind: "error" });
+          show({ title: t("admin_users.access_required"), kind: "error" });
           router.replace("/admin");
           return;
         }
-        show({ title: e?.message || "Failed to load users", kind: "error" });
+        show({ title: e?.message || t("admin_users.failed_to_load"), kind: "error" });
       } finally {
         setLoading(false);
       }
     },
-    [queryString, router, show],
+    [queryString, router, show, t],
   );
 
   useEffect(() => {
@@ -376,16 +377,15 @@ export default function AdminUsersScreen() {
       setItems((prev) => [...prev, ...(resp.users || [])]);
       setHasMore(!!resp.has_more);
     } catch (e: any) {
-      show({ title: e?.message || "Failed to load more", kind: "error" });
+      show({ title: e?.message || t("admin_users.failed_to_load_more"), kind: "error" });
     } finally {
       setLoadingMore(false);
     }
-  }, [hasMore, items.length, loadingMore, queryString, show]);
+  }, [hasMore, items.length, loadingMore, queryString, show, t]);
 
   const headerSubtitle = useMemo(() => {
-    const showing = items.length;
-    return `Showing ${showing} of ${total.toLocaleString()}`;
-  }, [items.length, total]);
+    return t("admin_users.showing", { showing: items.length, total: total.toLocaleString() });
+  }, [items.length, total, t]);
 
   const renderItem = useCallback(
     ({ item }: { item: AdminUser }) => {
@@ -417,7 +417,7 @@ export default function AdminUsersScreen() {
                   <UserIcon size={10} color="#1E40AF" />
                 )}
                 <Text style={[styles.badgeText, isSeller ? { color: "#7C2D12" } : { color: "#1E40AF" }]}>
-                  {isSeller ? "Seller" : "Buyer"}
+                  {isSeller ? t("admin_users.role_seller") : t("admin_users.role_buyer")}
                 </Text>
               </View>
               {item.country ? (
@@ -460,13 +460,13 @@ export default function AdminUsersScreen() {
           <View style={{ alignItems: "flex-end" }}>
             <Text style={styles.dateSm}>{formatDate(item.created_at)}</Text>
             {item.email_verified ? (
-              <Text style={styles.verifiedEmail}>✓ verified</Text>
+              <Text style={styles.verifiedEmail}>{t("admin_users.verified_email")}</Text>
             ) : null}
           </View>
         </Pressable>
       );
     },
-    [openDetail],
+    [openDetail, t],
   );
 
   return (
@@ -481,7 +481,7 @@ export default function AdminUsersScreen() {
           <ChevronLeft size={24} color={colors.text} />
         </Pressable>
         <View style={styles.headerTitleWrap}>
-          <Text style={styles.headerTitle}>Users</Text>
+          <Text style={styles.headerTitle}>{t("admin_users.title")}</Text>
           <Text style={styles.headerSub}>{headerSubtitle}</Text>
         </View>
         <Pressable
@@ -501,7 +501,7 @@ export default function AdminUsersScreen() {
           testID="admin-users-search"
           value={search}
           onChangeText={setSearch}
-          placeholder="Search by email, name, or company"
+          placeholder={t("admin_users.search_placeholder")}
           placeholderTextColor={colors.textFaint}
           autoCapitalize="none"
           autoCorrect={false}
@@ -522,17 +522,17 @@ export default function AdminUsersScreen() {
 
       {/* Role tabs */}
       <View style={styles.tabRow}>
-        {ROLE_TABS.map((t) => {
-          const active = role === t.key;
+        {ROLE_TABS.map((tab) => {
+          const active = role === tab.key;
           return (
             <Pressable
-              key={t.key}
-              testID={`admin-users-role-${t.key}`}
-              onPress={() => setRole(t.key)}
+              key={tab.key}
+              testID={`admin-users-role-${tab.key}`}
+              onPress={() => setRole(tab.key)}
               style={[styles.tab, active && styles.tabActive]}
             >
               <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                {t.label}
+                {t(tab.labelKey)}
               </Text>
             </Pressable>
           );
@@ -546,11 +546,11 @@ export default function AdminUsersScreen() {
       ) : items.length === 0 ? (
         <View style={styles.emptyWrap}>
           <UserIcon size={36} color={colors.textMuted} />
-          <Text style={styles.emptyTitle}>No users found</Text>
+          <Text style={styles.emptyTitle}>{t("admin_users.no_users_title")}</Text>
           <Text style={styles.emptyBody}>
             {debouncedSearch
-              ? `No results for "${debouncedSearch}". Try a different query.`
-              : "There are no users for this filter."}
+              ? t("admin_users.no_results_for", { query: debouncedSearch })
+              : t("admin_users.no_users_for_filter")}
           </Text>
         </View>
       ) : (
@@ -571,7 +571,7 @@ export default function AdminUsersScreen() {
               </View>
             ) : !hasMore && items.length > 0 ? (
               <Text style={styles.endText}>
-                — End of list · {items.length} of {total} —
+                {t("admin_users.end_of_list", { shown: items.length, total: total })}
               </Text>
             ) : null
           }
@@ -589,7 +589,7 @@ export default function AdminUsersScreen() {
         <View style={styles.modalScrim}>
           <View style={styles.modalCard}>
             <View style={styles.modalHead}>
-              <Text style={styles.modalTitle}>User details</Text>
+              <Text style={styles.modalTitle}>{t("admin_users.detail_title")}</Text>
               <Pressable
                 onPress={() => setDetail(null)}
                 testID="admin-user-detail-close"
@@ -611,7 +611,7 @@ export default function AdminUsersScreen() {
                       {detail.full_name || detail.company_name || detail.email}
                     </Text>
                     <Text style={styles.detailRoleSmall}>
-                      {detail.is_seller ? "Seller account" : "Buyer account"}
+                      {detail.is_seller ? t("admin_users.seller_account") : t("admin_users.buyer_account")}
                       {detail.country ? ` · ${detail.country}` : ""}
                     </Text>
                   </View>
@@ -619,51 +619,51 @@ export default function AdminUsersScreen() {
 
                 <DetailRow
                   icon={<Mail size={14} color={colors.textMuted} />}
-                  label="Email"
+                  label={t("admin_users.field_email")}
                   value={`${detail.email}${detail.email_verified ? " · ✓" : ""}`}
                 />
                 {detail.phone ? (
                   <DetailRow
                     icon={<Phone size={14} color={colors.textMuted} />}
-                    label="Phone"
+                    label={t("admin_users.field_phone")}
                     value={detail.phone}
                   />
                 ) : null}
                 {detail.is_seller && detail.company_name ? (
                   <DetailRow
                     icon={<Store size={14} color={colors.textMuted} />}
-                    label="Company"
+                    label={t("admin_users.field_company")}
                     value={detail.company_name}
                   />
                 ) : null}
                 {detail.is_seller && detail.seller_verification_status ? (
                   <DetailRow
                     icon={<ShieldCheck size={14} color={colors.textMuted} />}
-                    label="Verification"
+                    label={t("admin_users.field_verification")}
                     value={detail.seller_verification_status}
                   />
                 ) : null}
                 <DetailRow
                   icon={<Calendar size={14} color={colors.textMuted} />}
-                  label="Joined"
+                  label={t("admin_users.field_joined")}
                   value={formatDate(detail.created_at)}
                 />
                 {detail.last_login_at ? (
                   <DetailRow
                     icon={<Calendar size={14} color={colors.textMuted} />}
-                    label="Last login"
+                    label={t("admin_users.field_last_login")}
                     value={formatDate(detail.last_login_at)}
                   />
                 ) : null}
                 {typeof detail.points_balance === "number" ? (
                   <DetailRow
                     icon={<UserIcon size={14} color={colors.textMuted} />}
-                    label="Points balance"
+                    label={t("admin_users.field_points")}
                     value={String(detail.points_balance)}
                   />
                 ) : null}
                 <Text style={styles.detailIdHint}>
-                  ID: {detail.id}
+                  {t("admin_users.detail_id_hint", { id: detail.id })}
                 </Text>
 
                 {/* Suspension banner */}
@@ -671,7 +671,7 @@ export default function AdminUsersScreen() {
                   <View style={styles.suspendBanner} testID="user-suspended-banner">
                     <ShieldOff size={14} color={colors.error} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.suspendTitle}>Account suspended</Text>
+                      <Text style={styles.suspendTitle}>{t("admin_users.account_suspended_title")}</Text>
                       {detail.suspend_reason ? (
                         <Text style={styles.suspendReason} numberOfLines={3}>
                           {detail.suspend_reason}
@@ -683,7 +683,7 @@ export default function AdminUsersScreen() {
 
                 {/* Admin actions */}
                 <View style={styles.actionsHead}>
-                  <Text style={styles.actionsHeadText}>Admin actions</Text>
+                  <Text style={styles.actionsHeadText}>{t("admin_users.admin_actions")}</Text>
                 </View>
                 <View style={styles.actionsGrid}>
                   {detail.is_suspended ? (
@@ -694,7 +694,7 @@ export default function AdminUsersScreen() {
                       style={[styles.actionBtn, styles.actionPrimary, actionBusy && { opacity: 0.6 }]}
                     >
                       <PlayCircle size={14} color="#fff" />
-                      <Text style={styles.actionPrimaryText}>Reactivate</Text>
+                      <Text style={styles.actionPrimaryText}>{t("admin_users.reactivate_btn")}</Text>
                     </Pressable>
                   ) : (
                     <Pressable
@@ -704,7 +704,7 @@ export default function AdminUsersScreen() {
                       style={[styles.actionBtn, styles.actionDanger, actionBusy && { opacity: 0.6 }]}
                     >
                       <PowerOff size={14} color={colors.error} />
-                      <Text style={styles.actionDangerText}>Suspend</Text>
+                      <Text style={styles.actionDangerText}>{t("admin_users.suspend_btn")}</Text>
                     </Pressable>
                   )}
 
@@ -720,7 +720,7 @@ export default function AdminUsersScreen() {
                   >
                     <KeyRound size={14} color={colors.text} />
                     <Text style={styles.actionSecondaryText}>
-                      {detail.two_factor_enabled ? "Reset 2FA" : "2FA off"}
+                      {detail.two_factor_enabled ? t("admin_users.reset_2fa_btn") : t("admin_users.twofa_off_btn")}
                     </Text>
                   </Pressable>
 
@@ -731,7 +731,7 @@ export default function AdminUsersScreen() {
                     style={[styles.actionBtn, styles.actionSecondary, actionBusy && { opacity: 0.6 }]}
                   >
                     <Coins size={14} color={colors.text} />
-                    <Text style={styles.actionSecondaryText}>Adjust points</Text>
+                    <Text style={styles.actionSecondaryText}>{t("admin_users.adjust_points_btn")}</Text>
                   </Pressable>
                 </View>
               </View>
@@ -758,7 +758,7 @@ export default function AdminUsersScreen() {
 
             {prompt.kind === "points" ? (
               <>
-                <Text style={styles.promptLabel}>Delta (+credit / −debit)</Text>
+                <Text style={styles.promptLabel}>{t("admin_users.prompt_delta_label")}</Text>
                 <TextInput
                   testID="admin-user-prompt-delta"
                   keyboardType="numbers-and-punctuation"
@@ -766,7 +766,7 @@ export default function AdminUsersScreen() {
                   onChangeText={(v) =>
                     setPrompt((p) => ({ ...p, delta: v.replace(/[^\d-]/g, "") }))
                   }
-                  placeholder="e.g. 500 or -100"
+                  placeholder={t("admin_users.prompt_delta_placeholder")}
                   placeholderTextColor={colors.textFaint}
                   style={styles.promptInput}
                 />
@@ -778,7 +778,7 @@ export default function AdminUsersScreen() {
               testID="admin-user-prompt-reason"
               value={prompt.reason}
               onChangeText={(v) => setPrompt((p) => ({ ...p, reason: v }))}
-              placeholder="Why are you doing this?"
+              placeholder={t("admin_users.prompt_reason_placeholder")}
               placeholderTextColor={colors.textFaint}
               multiline
               style={[styles.promptInput, { minHeight: 70, textAlignVertical: "top" }]}
@@ -791,7 +791,7 @@ export default function AdminUsersScreen() {
                 style={[styles.actionBtn, styles.actionSecondary, { flex: 1 }]}
                 testID="admin-user-prompt-cancel"
               >
-                <Text style={styles.actionSecondaryText}>Cancel</Text>
+                <Text style={styles.actionSecondaryText}>{t("admin_users.cancel_btn")}</Text>
               </Pressable>
               <Pressable
                 disabled={actionBusy}
@@ -811,7 +811,7 @@ export default function AdminUsersScreen() {
                 {actionBusy ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.actionPrimaryText}>Confirm</Text>
+                  <Text style={styles.actionPrimaryText}>{t("admin_users.confirm_btn")}</Text>
                 )}
               </Pressable>
             </View>
