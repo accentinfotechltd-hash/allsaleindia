@@ -546,3 +546,34 @@ Same endpoints. Web should render a "Sponsored" badge on slot cards (small grey 
 - Stripe Checkout topup for prepaid wallet model (replaces post-paid invoicing).
 - Monthly invoice generator for current post-paid model.
 - A/B-tested copy: should the sponsored badge say "Sponsored" or "Ad"?
+
+
+## B2B Referral Gamification (June 20, 2026)
+Tiers + badges + leaderboard on top of the existing `seller_referrals` data. **No schema migration** — all derived read-only.
+
+### Backend — `routers/b2b_gamification.py`
+- `GET /api/b2b/gamification/me` — full state for current seller: tier, next tier + needed count, progress %, all-time rank, badges (locked/unlocked), aggregate stats.
+- `GET /api/b2b/gamification/leaderboard?period=all|month|week&limit=20` — top referrers with hydrated display name + city + tier badge.
+- `GET /api/b2b/gamification/tiers` — static ladder + badge definitions (for the marketing card).
+
+### Tiers
+| Key | Label | Min approved |
+|---|---|---|
+| none | Newcomer 🌱 | 0 |
+| bronze | Bronze 🥉 | 1 |
+| silver | Silver 🥈 | 5 |
+| gold | Gold 🥇 | 15 |
+| platinum | Platinum 💎 | 50 |
+
+### Badges (9)
+First Yard ✉️ · First Win 🎉 · Hat-Trick 🎩 · Power Network ⚡ · Five Figures 💰 ($1k) · Six Figures 🏦 ($10k) · Top 10 🏆 · Podium 🥇 · Kingmaker 👑 (referred a Gold-tier seller).
+
+### Mobile UI
+- `app/seller/referrals-game.tsx` — Tier hero card with progress bar + share CTA, stat tiles (approved · signed up · earned · rank), 9-badge grid (locked badges shown greyscale), leaderboard with Week/Month/All-Time pills, "You" row highlighted in primary orange.
+- Seller dashboard: added "Referral rewards" quick card with Trophy icon.
+
+### Tests
+- `backend/tests/test_b2b_gamification.py` — 7 cases covering newcomer/bronze/silver/platinum tier transitions, badge unlock thresholds, leaderboard self-presence, auth gate, full tier ladder. All pass.
+
+### Web parity
+Identical endpoints. Web can render the tier card + leaderboard as a sidebar on the seller dashboard. Share link in the hero opens the native share sheet (mobile) — web should fall back to `navigator.share` or a "Copy link" UX.
