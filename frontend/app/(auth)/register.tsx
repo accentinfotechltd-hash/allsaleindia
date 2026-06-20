@@ -14,11 +14,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useTranslation } from "@/src/i18n";
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Register() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { register } = useAuth();
   const [fullName, setFullName] = useState("");
@@ -73,11 +75,11 @@ export default function Register() {
             <ChevronLeft size={24} color={colors.text} />
           </Pressable>
 
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Join thousands of Kiwis shopping authentic India.</Text>
+          <Text style={styles.title}>{t("auth.create_title")}</Text>
+          <Text style={styles.subtitle}>{t("auth.create_sub")}</Text>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Full name</Text>
+            <Text style={styles.label}>{t("auth.full_name")}</Text>
             <TextInput
               testID="register-name-input"
               style={styles.input}
@@ -89,7 +91,7 @@ export default function Register() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t("auth.email")}</Text>
             <TextInput
               testID="register-email-input"
               style={styles.input}
@@ -104,7 +106,7 @@ export default function Register() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t("auth.password")}</Text>
             <View style={styles.passwordRow}>
               <TextInput
                 testID="register-password-input"
@@ -134,15 +136,15 @@ export default function Register() {
             <Text style={styles.agreeText}>
               I agree to Allsale&apos;s{" "}
               <Link href="/legal/terms" asChild>
-                <Text style={styles.agreeLink}>Terms of Service</Text>
+                <Text style={styles.agreeLink}>{t("auth.terms")}</Text>
               </Link>
               {", "}
               <Link href="/legal/privacy" asChild>
-                <Text style={styles.agreeLink}>Privacy Policy</Text>
+                <Text style={styles.agreeLink}>{t("auth.privacy_policy")}</Text>
               </Link>
               {" and "}
               <Link href="/legal/return" asChild>
-                <Text style={styles.agreeLink}>Return Policy</Text>
+                <Text style={styles.agreeLink}>{t("auth.return_policy")}</Text>
               </Link>
               .
             </Text>
@@ -179,10 +181,10 @@ export default function Register() {
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={styles.footerText}>{t("auth.already_have_account")}</Text>
             <Link href="/(auth)/login" asChild>
               <Pressable testID="register-go-login">
-                <Text style={styles.footerLink}>Sign in</Text>
+                <Text style={styles.footerLink}>{t("auth.sign_in")}</Text>
               </Pressable>
             </Link>
           </View>

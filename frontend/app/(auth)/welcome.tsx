@@ -5,6 +5,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { useTranslation } from "@/src/i18n";
 import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { SellOnAllsaleBanner } from "@/src/components/SellOnAllsaleBanner";
 import { colors, radius, spacing } from "@/src/lib/theme";
@@ -13,6 +14,7 @@ const HERO_IMG =
   "https://images.unsplash.com/photo-1696887484490-715e7eb0e682?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwxfHxUYWolMjBNYWhhbHxlbnwwfHx8b3JhbmdlfDE3ODEzMjg3ODB8MA&ixlib=rb-4.1.0&q=85";
 
 export default function Welcome() {
+  const { t } = useTranslation();
   const router = useRouter();
 
   return (
@@ -33,7 +35,7 @@ export default function Welcome() {
           </View>
         </View>
         <View style={styles.heroContent}>
-          <Text style={styles.eyebrow}>INDIA → NEW ZEALAND</Text>
+          <Text style={styles.eyebrow}>{t("auth.welcome_eyebrow")}</Text>
           <Text style={styles.heroTitle}>
             Authentic India,{"\n"}delivered to your door.
           </Text>
@@ -55,7 +57,7 @@ export default function Welcome() {
           onPress={() => router.push("/(auth)/register")}
           style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.98 }] }]}
         >
-          <Text style={styles.ctaText}>Get started with email</Text>
+          <Text style={styles.ctaText}>{t("auth.welcome_cta")}</Text>
           <ArrowRight size={20} color="#fff" />
         </Pressable>
 

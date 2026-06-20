@@ -14,9 +14,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { api } from "@/src/lib/api";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function ForgotPassword() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -73,14 +75,14 @@ export default function ForgotPassword() {
               <View style={styles.iconBubble}>
                 <Mail size={28} color={colors.primary} />
               </View>
-              <Text style={styles.title}>Forgot your password?</Text>
+              <Text style={styles.title}>{t("auth.forgot_title")}</Text>
               <Text style={styles.subtitle}>
                 Enter the email associated with your Allsale account and we&apos;ll
                 send you a link to reset it. The link is valid for 1 hour.
               </Text>
 
               <View style={styles.field}>
-                <Text style={styles.label}>Email</Text>
+                <Text style={styles.label}>{t("auth.email")}</Text>
                 <TextInput
                   testID="forgot-email-input"
                   style={styles.input}
@@ -123,7 +125,7 @@ export default function ForgotPassword() {
                 onPress={() => router.replace("/(auth)/login")}
                 style={styles.linkBtn}
               >
-                <Text style={styles.linkText}>Back to sign in</Text>
+                <Text style={styles.linkText}>{t("auth.back_to_signin")}</Text>
               </Pressable>
             </>
           ) : (
@@ -149,7 +151,7 @@ export default function ForgotPassword() {
                 onPress={() => setSent(false)}
                 style={styles.secondaryCta}
               >
-                <Text style={styles.secondaryCtaText}>Try a different email</Text>
+                <Text style={styles.secondaryCtaText}>{t("auth.try_diff_email")}</Text>
               </Pressable>
 
               <Pressable
@@ -157,7 +159,7 @@ export default function ForgotPassword() {
                 onPress={() => router.replace("/(auth)/login")}
                 style={styles.linkBtn}
               >
-                <Text style={styles.linkText}>Back to sign in</Text>
+                <Text style={styles.linkText}>{t("auth.back_to_signin")}</Text>
               </Pressable>
             </>
           )}

@@ -91,7 +91,7 @@ export default function Login() {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
+            <Text style={styles.label}>{t("auth.password")}</Text>
             <View style={styles.passwordRow}>
               <TextInput
                 testID="login-password-input"
@@ -116,7 +116,7 @@ export default function Login() {
             style={styles.forgotBtn}
             hitSlop={8}
           >
-            <Text style={styles.forgotText}>Forgot password?</Text>
+            <Text style={styles.forgotText}>{t("auth.forgot_password")}</Text>
           </Pressable>
 
           <Pressable
@@ -146,10 +146,10 @@ export default function Login() {
           />
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>New to Allsale? </Text>
+            <Text style={styles.footerText}>{t("auth.new_to_allsale")}</Text>
             <Link href="/(auth)/register" asChild>
               <Pressable testID="login-go-register">
-                <Text style={styles.footerLink}>Create account</Text>
+                <Text style={styles.footerLink}>{t("auth.create_account_link")}</Text>
               </Pressable>
             </Link>
           </View>
