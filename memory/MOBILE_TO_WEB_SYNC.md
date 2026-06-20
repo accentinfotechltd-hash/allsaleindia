@@ -6,6 +6,11 @@
 
 > **June 19, 2026 — Stock Alerts**: New endpoint `GET /api/seller/analytics/low-stock?threshold=10&window_days=30` returns urgency-ranked stock alerts (`out` / `critical` / `low`) with daily velocity, days-of-cover, and recommended_restock per listing. Optional for web parity (mobile only for now).
 
+> **June 19, 2026 — Today's Deals page + Coupons-active P0 fix**:
+> - NEW: `/deals` mobile route consolidating active flash sales (with live countdown timers + units-sold progress), public sitewide coupons (auth-gated horizontal strip with Copy-code), and a "More deals · 10%+ off" 2-col grid via the existing `min_discount_pct` facet.
+> - Entry point: home tab's `FlashSalesCarousel` now has a "See all →" link to `/deals`, and renders a "Today's Deals" promo card when no flash sales are live.
+> - FIXED: `GET /api/coupons/active` previously crashed with 500 when ambassador coupons (`cpn_amb_*` with `description=None`) tripped Pydantic. Endpoint now filters out personal/ambassador codes — they're 1:1 referrals, not browseable promos. Web parity must apply the same filter.
+
 > **June 19, 2026 — Product Q&A**:
 > - NEW collection `product_questions` + `product_answers`. Endpoints under `/api`:
 >   - `GET /products/{id}/questions?sort=helpful|recent&limit=N` (public) — returns rows with `top_answer` preview + `answer_count` + `is_upvoted_by_me`
