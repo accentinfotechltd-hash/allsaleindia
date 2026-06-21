@@ -1905,6 +1905,16 @@ const en = {
     platform_facebook: "Facebook",
     platform_other: "Other",
   },
+  tax: {
+    nz_gst: "NZ GST (15%)",
+    au_gst: "AU GST (10%)",
+    uk_vat: "UK VAT (20%)",
+    in_gst_inclusive: "GST included in price (18%)",
+    line_default: "Tax",
+    line_at_border: "Customs duty",
+    value_at_border: "At border",
+    value_inclusive: "Included",
+  },
   admin_analytics: {
     title: "A/B Analytics",
     err_manager_required: "Manager access required",

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 
 import { api } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
+import { useRegion } from "@/src/contexts/RegionContext";
 import { getStoredRef } from "@/src/lib/ref";
 
 export type CartItem = {
@@ -29,6 +30,15 @@ export type Cart = {
   points_max_usable?: number;
   gift_wrap_fee_nzd?: number;
   gift_wrap_count?: number;
+  // Tax / duty (per destination jurisdiction)
+  tax_nzd?: number;
+  tax_rate?: number;
+  tax_country?: string | null;
+  tax_label_key?: string | null;
+  tax_threshold_nzd?: number;
+  tax_over_threshold?: boolean;
+  tax_at_border?: boolean;
+  tax_inclusive?: boolean;
 };
 
 type CartState = {
@@ -69,6 +79,7 @@ const CartCtx = createContext<CartState | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
+  const { country } = useRegion();
   const [cart, setCart] = useState<Cart>(EMPTY);
   const [loading, setLoading] = useState(false);
   // Track per-user-session whether we've already tried auto-applying the
@@ -108,7 +119,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
     setLoading(true);
     try {
-      const c = await api<Cart>("/cart");
+      // Pass the buyer's region so the backend can compute GST/VAT for the
+      // correct jurisdiction (NZ 15%, AU 10%, UK 20%, etc.).
+      const c = await api<Cart>(`/cart?country=${encodeURIComponent(country)}`);
       setCart(c);
       // Fire-and-forget: try to auto-apply ambassador ref code if present.
       void maybeAutoApplyRef(c, user.id);
@@ -117,7 +130,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user, maybeAutoApplyRef]);
+  }, [user, country, maybeAutoApplyRef]);
 
   useEffect(() => {
     refresh();

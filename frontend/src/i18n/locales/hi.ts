@@ -1897,6 +1897,16 @@ const hi = {
     platform_facebook: "Facebook",
     platform_other: "अन्य",
   },
+  tax: {
+    nz_gst: "NZ GST (15%)",
+    au_gst: "AU GST (10%)",
+    uk_vat: "UK VAT (20%)",
+    in_gst_inclusive: "कीमत में GST शामिल (18%)",
+    line_default: "कर",
+    line_at_border: "सीमा शुल्क",
+    value_at_border: "सीमा पर",
+    value_inclusive: "शामिल",
+  },
   admin_analytics: {
     title: "A/B विश्लेषण",
     err_manager_required: "मैनेजर एक्सेस आवश्यक",

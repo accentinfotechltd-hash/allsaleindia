@@ -14,8 +14,17 @@ router = APIRouter(tags=["cart"])
 
 
 @router.get("/cart", response_model=CartView)
-async def get_cart(current=Depends(get_current_user)):
-    return await hydrate_cart(current["id"])
+async def get_cart(
+    current=Depends(get_current_user),
+    country: str | None = None,
+):
+    """Hydrate the cart, optionally with tax/duty for the buyer's region.
+
+    Frontend should pass `?country=XX` from RegionContext so the cart shows
+    the correct GST/VAT line. Without it, tax is not computed (we never
+    guess — too risky for cross-border compliance).
+    """
+    return await hydrate_cart(current["id"], country=country)
 
 
 @router.post("/cart", response_model=CartView)

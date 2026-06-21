@@ -36,7 +36,10 @@ router = APIRouter(tags=["checkout"])
 async def create_checkout_session_route(
     body: CheckoutRequest, current=Depends(get_current_user)
 ):
-    cart = await hydrate_cart(current["id"])
+    # Use the shipping address country (more accurate than user profile)
+    # so tax matches the actual destination.
+    delivery_country = (body.address.country or current.get("country") or "NZ").upper()
+    cart = await hydrate_cart(current["id"], country=delivery_country)
     if not cart.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
@@ -114,6 +117,15 @@ async def create_checkout_session_route(
         "subtotal_nzd": cart.subtotal_nzd,
         "shipping_nzd": cart.shipping_nzd,
         "discount_nzd": float(getattr(cart, "discount_nzd", 0.0) or 0.0),
+        # Tax / customs duty (per destination jurisdiction)
+        "tax_nzd": float(getattr(cart, "tax_nzd", 0.0) or 0.0),
+        "tax_rate": float(getattr(cart, "tax_rate", 0.0) or 0.0),
+        "tax_country": getattr(cart, "tax_country", None),
+        "tax_label_key": getattr(cart, "tax_label_key", None),
+        "tax_threshold_nzd": float(getattr(cart, "tax_threshold_nzd", 0.0) or 0.0),
+        "tax_over_threshold": bool(getattr(cart, "tax_over_threshold", False)),
+        "tax_at_border": bool(getattr(cart, "tax_at_border", False)),
+        "tax_inclusive": bool(getattr(cart, "tax_inclusive", False)),
         "total_nzd": cart.total_nzd,
         "coupon_code": getattr(cart, "coupon_code", None),
         "coupon_label": getattr(cart, "coupon_label", None),

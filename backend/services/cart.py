@@ -1,15 +1,20 @@
 """Cart hydration helper."""
 from __future__ import annotations
 
+from typing import Optional
+
 from db import db
 from models import CartItem, CartView
+from services.tax import compute_tax
 from utils import compute_cart_totals
 
 # Pricing dial — keep central so we can later move it into admin/config.
 GIFT_WRAP_FEE_PER_LINE_NZD: float = 5.00
 
 
-async def hydrate_cart(user_id: str) -> CartView:
+async def hydrate_cart(
+    user_id: str, country: Optional[str] = None
+) -> CartView:
     cart_doc = await db.carts.find_one({"user_id": user_id}, {"_id": 0})
     items: list[CartItem] = []
     coupon_code = None
@@ -155,5 +160,24 @@ async def hydrate_cart(user_id: str) -> CartView:
             )
     except Exception:
         pass
+
+    # ----- Tax / duty (per destination country) --------------------------
+    # We ONLY apply tax when the caller explicitly knows the destination —
+    # the cart endpoint passes `?country=` from the buyer's RegionContext,
+    # and the checkout endpoint passes the shipping address country.
+    # If no country is supplied we leave tax at 0 so cart fetches before a
+    # destination is selected don't show a misleading line item.
+    if country:
+        tax = compute_tax(
+            subtotal_nzd=cart.subtotal_nzd,
+            shipping_nzd=cart.shipping_nzd,
+            country=country,
+        )
+        cart = cart.model_copy(
+            update={
+                **tax.to_dict(),
+                "total_nzd": round(cart.total_nzd + tax.tax_nzd, 2),
+            }
+        )
 
     return cart

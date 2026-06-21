@@ -320,6 +320,15 @@ class CartView(BaseModel):
     # Gift wrap
     gift_wrap_fee_nzd: float = 0.0
     gift_wrap_count: int = 0
+    # Tax / duty (per destination country)
+    tax_nzd: float = 0.0
+    tax_rate: float = 0.0
+    tax_country: Optional[str] = None
+    tax_label_key: Optional[str] = None
+    tax_threshold_nzd: float = 0.0
+    tax_over_threshold: bool = False
+    tax_at_border: bool = False
+    tax_inclusive: bool = False
 
 
 # ---------------------------------------------------------------------------

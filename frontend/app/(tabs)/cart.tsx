@@ -163,12 +163,24 @@ export default function Cart() {
           <PointsRedeemInput />
         </View>
         <SummaryRow
-          label={cart.subtotal_nzd > 1000 ? "NZ GST 15% + 10% duty (est.)" : "NZ GST 15% (est.)"}
-          value={formatPrice(
-            cart.subtotal_nzd > 1000
-              ? (cart.subtotal_nzd + cart.shipping_nzd) * 0.15 + cart.subtotal_nzd * 0.1
-              : (cart.subtotal_nzd + cart.shipping_nzd) * 0.15,
-          )}
+          label={
+            cart.tax_at_border
+              ? t("tax.line_at_border")
+              : cart.tax_inclusive
+              ? t("tax.in_gst_inclusive")
+              : cart.tax_label_key
+              ? `${t(cart.tax_label_key)}${cart.tax_over_threshold ? " (at border)" : ""}`
+              : t("tax.line_default")
+          }
+          value={
+            cart.tax_nzd && cart.tax_nzd > 0
+              ? formatPrice(cart.tax_nzd)
+              : cart.tax_at_border
+              ? t("tax.value_at_border")
+              : cart.tax_inclusive
+              ? t("tax.value_inclusive")
+              : formatPrice(0)
+          }
         />
         <View style={styles.divider} />
         <SummaryRow label={`Total (${info.currency})`} value={formatPrice(cart.total_nzd)} bold />

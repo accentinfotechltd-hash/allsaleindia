@@ -1908,6 +1908,16 @@ const tpi = {
     platform_facebook: "Facebook",
     platform_other: "Narapela",
   },
+  tax: {
+    nz_gst: "NZ GST (15%)",
+    au_gst: "AU GST (10%)",
+    uk_vat: "UK VAT (20%)",
+    in_gst_inclusive: "GST i stap insait long prais (18%)",
+    line_default: "Takis",
+    line_at_border: "Kastom duti",
+    value_at_border: "Long boda",
+    value_inclusive: "Insait",
+  },
   admin_analytics: {
     title: "A/B Analitiks",
     err_manager_required: "Akses bilong manaja i nidim",
