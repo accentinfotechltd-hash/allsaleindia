@@ -26,6 +26,17 @@ const mr = {
     google: "Google सह सुरू ठेवा",
     apple: "Apple सह सुरू ठेवा",
     or: "किंवा",
+    welcome_eyebrow: "भारत → न्यूझीलंड",
+    welcome_cta: "ईमेलने सुरुवात करा",
+    welcome_continue_signin: "आधीच आमच्याकडे खरेदी करत आहात?",
+    welcome_hero_title: "खरा भारत,\nतुमच्या दारी पोचवला.",
+    welcome_hero_subtitle: "प्रवास न करता, भारतीयांप्रमाणे भारतात खरेदी करा.",
+    welcome_usp_sellers: "थेट भारतीय विक्रेत्यांकडून",
+    welcome_usp_shipping: "NZ ला 7-14 दिवसांत शिपिंग",
+    welcome_usp_payments: "NZD मध्ये सुरक्षित पेमेंट",
+    welcome_or: "किंवा",
+    welcome_continue_google: "Google सह सुरू ठेवा",
+    welcome_sign_in: "साइन इन"
   },
   tabs: {
     home: "होम",

@@ -26,6 +26,17 @@ const or_ = {
     google: "Google ସହିତ ଜାରି ରଖନ୍ତୁ",
     apple: "Apple ସହିତ ଜାରି ରଖନ୍ତୁ",
     or: "କିମ୍ବା",
+    welcome_eyebrow: "ଭାରତ → ନ୍ୟୁଜିଲାଣ୍ଡ",
+    welcome_cta: "ଇମେଲ ସହିତ ଆରମ୍ଭ କରନ୍ତୁ",
+    welcome_continue_signin: "ଆମ ସହ ପୂର୍ବରୁ କିଣାକାଟ କରୁଛନ୍ତି କି?",
+    welcome_hero_title: "ପ୍ରକୃତ ଭାରତ,\nଆପଣଙ୍କ ଦୁଆରକୁ ପ୍ରଦାନ କରାଯାଇଛି.",
+    welcome_hero_subtitle: "ଯାତ୍ରା ବିନା, ଭାରତୀୟଙ୍କ ପରି ଭାରତରେ କିଣାକାଟ କରନ୍ତୁ.",
+    welcome_usp_sellers: "ଭାରତୀୟ ବିକ୍ରେତାଙ୍କଠାରୁ ସିଧାସଳଖ",
+    welcome_usp_shipping: "NZ କୁ 7-14 ଦିନରେ ସିପିଂ",
+    welcome_usp_payments: "NZD ରେ ସୁରକ୍ଷିତ ପେମେଣ୍ଟ",
+    welcome_or: "କିମ୍ବା",
+    welcome_continue_google: "Google ସହିତ ଜାରି ରଖନ୍ତୁ",
+    welcome_sign_in: "ସାଇନ ଇନ"
   },
   tabs: {
     home: "ହୋମ୍",

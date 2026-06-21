@@ -26,6 +26,17 @@ const ur = {
     google: "Google کے ساتھ جاری رکھیں",
     apple: "Apple کے ساتھ جاری رکھیں",
     or: "یا",
+    welcome_eyebrow: "بھارت ← نیوزی لینڈ",
+    welcome_cta: "ای میل سے شروع کریں",
+    welcome_continue_signin: "پہلے سے ہمارے ساتھ خریداری کر رہے ہیں؟",
+    welcome_hero_title: "اصلی بھارت،\nآپ کے دروازے تک۔",
+    welcome_hero_subtitle: "بنا سفر کے، بھارتیوں کی طرح بھارت میں خریداری کریں۔",
+    welcome_usp_sellers: "بھارتی فروخت کنندگان سے براہ راست",
+    welcome_usp_shipping: "NZ تک 7-14 دنوں میں شپنگ",
+    welcome_usp_payments: "NZD میں محفوظ ادائیگیاں",
+    welcome_or: "یا",
+    welcome_continue_google: "Google کے ساتھ جاری رکھیں",
+    welcome_sign_in: "سائن ان"
   },
   tabs: {
     home: "ہوم",

@@ -26,6 +26,17 @@ const gu = {
     google: "Google સાથે ચાલુ રાખો",
     apple: "Apple સાથે ચાલુ રાખો",
     or: "અથવા",
+    welcome_eyebrow: "ભારત → ન્યુઝીલેન્ડ",
+    welcome_cta: "ઇમેઇલથી શરૂ કરો",
+    welcome_continue_signin: "પહેલેથી અમારી પાસેથી ખરીદી કરો છો?",
+    welcome_hero_title: "અસલી ભારત,\nતમારા દરવાજે પહોંચાડ્યો.",
+    welcome_hero_subtitle: "મુસાફરી વગર, ભારતીયોની જેમ ભારતમાં ખરીદી કરો.",
+    welcome_usp_sellers: "સીધા ભારતીય વેચાણકારો પાસેથી",
+    welcome_usp_shipping: "NZ સુધી 7-14 દિવસમાં શિપિંગ",
+    welcome_usp_payments: "NZDમાં સુરક્ષિત ચૂકવણી",
+    welcome_or: "અથવા",
+    welcome_continue_google: "Google સાથે ચાલુ રાખો",
+    welcome_sign_in: "સાઇન ઇન"
   },
   tabs: {
     home: "હોમ",

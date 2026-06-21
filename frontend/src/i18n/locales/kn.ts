@@ -26,6 +26,17 @@ const kn = {
     google: "Google ನೊಂದಿಗೆ ಮುಂದುವರಿಸಿ",
     apple: "Apple ನೊಂದಿಗೆ ಮುಂದುವರಿಸಿ",
     or: "ಅಥವಾ",
+    welcome_eyebrow: "ಭಾರತ → ನ್ಯೂಜಿಲೆಂಡ್",
+    welcome_cta: "ಇಮೇಲ್‌ನೊಂದಿಗೆ ಪ್ರಾರಂಭಿಸಿ",
+    welcome_continue_signin: "ಈಗಾಗಲೇ ನಮ್ಮೊಂದಿಗೆ ಶಾಪಿಂಗ್ ಮಾಡುತ್ತಿದ್ದೀರಾ?",
+    welcome_hero_title: "ನಿಜವಾದ ಭಾರತ,\nನಿಮ್ಮ ಬಾಗಿಲಿಗೆ ತಲುಪಿಸಲಾಗಿದೆ.",
+    welcome_hero_subtitle: "ಪ್ರಯಾಣವಿಲ್ಲದೆ, ಭಾರತೀಯರಂತೆ ಭಾರತದಲ್ಲಿ ಶಾಪಿಂಗ್ ಮಾಡಿ.",
+    welcome_usp_sellers: "ಭಾರತೀಯ ಮಾರಾಟಗಾರರಿಂದ ನೇರವಾಗಿ",
+    welcome_usp_shipping: "NZಗೆ 7-14 ದಿನಗಳಲ್ಲಿ ಶಿಪ್ಪಿಂಗ್",
+    welcome_usp_payments: "NZDನಲ್ಲಿ ಸುರಕ್ಷಿತ ಪಾವತಿಗಳು",
+    welcome_or: "ಅಥವಾ",
+    welcome_continue_google: "Googleನೊಂದಿಗೆ ಮುಂದುವರಿಸಿ",
+    welcome_sign_in: "ಸೈನ್ ಇನ್"
   },
   tabs: {
     home: "ಮುಖಪುಟ",

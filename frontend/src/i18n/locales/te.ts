@@ -26,6 +26,17 @@ const te = {
     google: "Google తో కొనసాగించండి",
     apple: "Apple తో కొనసాగించండి",
     or: "లేదా",
+    welcome_eyebrow: "భారతదేశం → న్యూజిలాండ్",
+    welcome_cta: "ఇమెయిల్‌తో ప్రారంభించండి",
+    welcome_continue_signin: "ఇప్పటికే మాతో షాపింగ్ చేస్తున్నారా?",
+    welcome_hero_title: "నిజమైన భారత్,\nమీ ఇంటి వద్దకే.",
+    welcome_hero_subtitle: "ప్రయాణం లేకుండా, భారతీయుల్లా భారత్‌లో షాపింగ్ చేయండి.",
+    welcome_usp_sellers: "భారతీయ విక్రేతల నుండి నేరుగా",
+    welcome_usp_shipping: "NZకి 7-14 రోజుల్లో షిప్పింగ్",
+    welcome_usp_payments: "NZDలో సురక్షిత చెల్లింపులు",
+    welcome_or: "లేదా",
+    welcome_continue_google: "Googleతో కొనసాగించండి",
+    welcome_sign_in: "సైన్ ఇన్"
   },
   tabs: {
     home: "హోమ్",

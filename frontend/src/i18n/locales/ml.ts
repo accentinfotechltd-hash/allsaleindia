@@ -26,6 +26,17 @@ const ml = {
     google: "Google ഉപയോഗിച്ച് തുടരുക",
     apple: "Apple ഉപയോഗിച്ച് തുടരുക",
     or: "അല്ലെങ്കിൽ",
+    welcome_eyebrow: "ഇന്ത്യ → ന്യൂസിലൻഡ്",
+    welcome_cta: "ഇമെയിലിലൂടെ ആരംഭിക്കുക",
+    welcome_continue_signin: "ഇതിനോടകം ഞങ്ങളോടൊപ്പം ഷോപ്പിംഗ് നടത്തുന്നുണ്ടോ?",
+    welcome_hero_title: "യഥാർത്ഥ ഇന്ത്യ,\nനിങ്ങളുടെ വാതിൽപ്പടിയിൽ.",
+    welcome_hero_subtitle: "യാത്രയില്ലാതെ, ഇന്ത്യക്കാരെപ്പോലെ ഇന്ത്യയിൽ ഷോപ്പിംഗ് നടത്തുക.",
+    welcome_usp_sellers: "ഇന്ത്യൻ വിൽപ്പനക്കാരിൽ നിന്നും നേരിട്ട്",
+    welcome_usp_shipping: "NZ-ലേക്ക് 7-14 ദിവസത്തിനുള്ളിൽ ഷിപ്പിംഗ്",
+    welcome_usp_payments: "NZD-യിൽ സുരക്ഷിത പേയ്മെന്റുകൾ",
+    welcome_or: "അല്ലെങ്കിൽ",
+    welcome_continue_google: "Google ഉപയോഗിച്ച് തുടരുക",
+    welcome_sign_in: "സൈൻ ഇൻ"
   },
   tabs: {
     home: "ഹോം",

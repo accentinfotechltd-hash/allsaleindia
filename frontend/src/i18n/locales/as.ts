@@ -26,6 +26,17 @@ const as_ = {
     google: "Google ৰ সৈতে আগবাঢ়ক",
     apple: "Apple ৰ সৈতে আগবাঢ়ক",
     or: "নাইবা",
+    welcome_eyebrow: "ভাৰত → নিউজিলেণ্ড",
+    welcome_cta: "ইমেইলৰ সৈতে আৰম্ভ কৰক",
+    welcome_continue_signin: "ইতিমধ্যে আমাৰ সৈতে কিনাকটা কৰি আছে?",
+    welcome_hero_title: "প্ৰকৃত ভাৰত,\nআপোনাৰ দুৱাৰলৈ আনা হৈছে.",
+    welcome_hero_subtitle: "ভ্ৰমণ নকৰি, ভাৰতীয়সকলৰ দৰে ভাৰতত কিনাকটা কৰক.",
+    welcome_usp_sellers: "ভাৰতীয় বিক্ৰেতাসকলৰ পৰা পোনপটীয়াকৈ",
+    welcome_usp_shipping: "NZ লৈ 7-14 দিনত শিপিং",
+    welcome_usp_payments: "NZDত সুৰক্ষিত পেমেণ্ট",
+    welcome_or: "বা",
+    welcome_continue_google: "Googleৰ সৈতে অব্যাহত ৰাখক",
+    welcome_sign_in: "ছাইন ইন"
   },
   tabs: {
     home: "হোম",

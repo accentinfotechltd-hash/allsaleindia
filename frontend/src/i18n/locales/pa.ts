@@ -26,6 +26,17 @@ const pa = {
     google: "Google ਨਾਲ ਜਾਰੀ ਰੱਖੋ",
     apple: "Apple ਨਾਲ ਜਾਰੀ ਰੱਖੋ",
     or: "ਜਾਂ",
+    welcome_eyebrow: "ਭਾਰਤ → ਨਿਊਜ਼ੀਲੈਂਡ",
+    welcome_cta: "ਈਮੇਲ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ",
+    welcome_continue_signin: "ਪਹਿਲਾਂ ਹੀ ਸਾਡੇ ਨਾਲ ਖਰੀਦਦਾਰੀ ਕਰ ਰਹੇ ਹੋ?",
+    welcome_hero_title: "ਅਸਲੀ ਭਾਰਤ,\nਤੁਹਾਡੇ ਦਰਵਾਜ਼ੇ ਤੇ.",
+    welcome_hero_subtitle: "ਯਾਤਰਾ ਤੋਂ ਬਿਨਾਂ, ਭਾਰਤੀਆਂ ਵਾਂਗ ਭਾਰਤ ਵਿੱਚ ਖਰੀਦਦਾਰੀ ਕਰੋ.",
+    welcome_usp_sellers: "ਸਿੱਧੇ ਭਾਰਤੀ ਵਿਕਰੇਤਾਵਾਂ ਤੋਂ",
+    welcome_usp_shipping: "NZ ਨੂੰ 7-14 ਦਿਨਾਂ ਵਿੱਚ ਸ਼ਿਪਿੰਗ",
+    welcome_usp_payments: "NZD ਵਿੱਚ ਸੁਰੱਖਿਅਤ ਭੁਗਤਾਨ",
+    welcome_or: "ਜਾਂ",
+    welcome_continue_google: "Google ਨਾਲ ਜਾਰੀ ਰੱਖੋ",
+    welcome_sign_in: "ਸਾਈਨ ਇਨ"
   },
   tabs: {
     home: "ਘਰ",
