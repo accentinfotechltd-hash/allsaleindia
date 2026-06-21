@@ -383,10 +383,53 @@ def _build_pdf_bytes(order: dict, buyer_email: str | None) -> bytes:
         "Return Policy.",
         small,
     ))
-    elements.append(Paragraph(
-        "Allsale Ltd · Auckland, New Zealand · NZBN pending · GST not applicable on cross-border imports",
-        small,
-    ))
+    # Legal/registration footer — accurate per destination so the buyer (and
+    # any tax auditor) sees the right basis for any consumption tax charged
+    # on this invoice.
+    _country = order.get("tax_country")
+    _tax_nzd = float(order.get("tax_nzd") or 0)
+    _at_border = order.get("tax_at_border")
+    if _tax_nzd > 0 and _country == "NZ":
+        footer_legal = (
+            "Allsale Ltd · Auckland, New Zealand · NZBN pending · "
+            "NZ GST 15% collected and remitted to Inland Revenue on imports "
+            "under NZ$1,000 (offshore-retailer regime, GST registered)"
+        )
+    elif _tax_nzd > 0 and _country == "AU":
+        footer_legal = (
+            "Allsale Ltd · Auckland, New Zealand · NZBN pending · "
+            "AU GST 10% collected and remitted to the ATO on imports under "
+            "AU$1,000 (offshore-retailer regime, GST registered)"
+        )
+    elif _tax_nzd > 0 and _country == "GB":
+        footer_legal = (
+            "Allsale Ltd · Auckland, New Zealand · NZBN pending · "
+            "UK VAT 20% collected and remitted to HMRC on imports up to £135 "
+            "(offshore-retailer regime, VAT registered)"
+        )
+    elif _at_border and order.get("tax_over_threshold") and float(order.get("tax_rate") or 0) > 0:
+        # High-value parcel into NZ/AU/UK — those jurisdictions DO collect
+        # at the border above their low-value threshold. Pacific/US/CA
+        # don't fit this branch because their rate is 0 and they don't run
+        # an offshore-retailer regime at all.
+        footer_legal = (
+            "Allsale Ltd · Auckland, New Zealand · NZBN pending · "
+            "Destination customs duty / import VAT applies at the border for "
+            "this order (above low-value threshold)"
+        )
+    elif order.get("tax_inclusive") or _country == "IN":
+        # India domestic — seller's price already includes 18% IGST.
+        footer_legal = (
+            "Allsale Ltd · Auckland, New Zealand · NZBN pending · "
+            "18% IGST is included in the seller's listed price (India domestic sale)"
+        )
+    else:
+        # US/CA/Pacific etc — local customs handles at the border if applicable.
+        footer_legal = (
+            "Allsale Ltd · Auckland, New Zealand · NZBN pending · "
+            "Destination import duties (if any) are assessed by local customs"
+        )
+    elements.append(Paragraph(footer_legal, small))
     elements.append(Paragraph(
         "Customer support: support@allsale.co.nz",
         small,
