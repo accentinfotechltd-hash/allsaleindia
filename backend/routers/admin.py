@@ -9,7 +9,7 @@ from pydantic import BaseModel, EmailStr
 
 from config import ADMIN_SECRET
 from db import db
-from models import Payout
+from models import Payout, SellerTaxRegistration
 from services.admin_auth import (
     authenticate_admin,
     get_current_admin,
@@ -642,3 +642,76 @@ async def admin_flag_review(
         action="review.flag",
         admin_id=admin["id"],
     )
+
+
+# ---------------------------------------------------------------------------
+# Seller tax-registration capture
+#
+# For each seller we keep a list of their tax-authority registrations so the
+# admin team has a single source of truth for compliance (NZ IRD, AU ATO,
+# UK HMRC, India GSTIN, etc.). These ride alongside the existing PAN/GSTIN
+# fields on the SellerBusiness object — those are the *business identifier*,
+# whereas these are *tax-collection registrations* that may differ.
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/admin/sellers/{user_id}/tax-registrations",
+    response_model=List[SellerTaxRegistration],
+)
+async def admin_get_seller_tax_registrations(
+    user_id: str,
+    admin: dict = Depends(require_roles("manager", "support")),
+):
+    """Return all tax-authority registrations on file for a seller."""
+    doc = await db.sellers.find_one(
+        {"user_id": user_id}, {"_id": 0, "tax_registrations": 1}
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Seller not found")
+    return [SellerTaxRegistration(**r) for r in (doc.get("tax_registrations") or [])]
+
+
+class TaxRegistrationUpsert(BaseModel):
+    """Request body for replacing the seller's full tax-registration list.
+
+    Admin sends the canonical, ordered list. We replace what's stored.
+    """
+    registrations: List[SellerTaxRegistration]
+
+
+@router.put(
+    "/admin/sellers/{user_id}/tax-registrations",
+    response_model=List[SellerTaxRegistration],
+)
+async def admin_set_seller_tax_registrations(
+    user_id: str,
+    body: TaxRegistrationUpsert,
+    admin: dict = Depends(require_roles("manager")),
+):
+    """Replace the seller's full set of tax registrations.
+
+    Manager-only — registrations are legally sensitive and we want a clear
+    audit trail of who changed them.
+    """
+    seller = await db.sellers.find_one({"user_id": user_id}, {"_id": 0})
+    if not seller:
+        raise HTTPException(status_code=404, detail="Seller not found")
+
+    # Normalise country codes upper-case; dedupe by (country, kind).
+    seen: dict[tuple[str, str], dict] = {}
+    for r in body.registrations:
+        key = (r.country.upper(), r.kind)
+        seen[key] = {**r.model_dump(), "country": r.country.upper()}
+    deduped = list(seen.values())
+
+    await db.sellers.update_one(
+        {"user_id": user_id},
+        {"$set": {"tax_registrations": deduped, "updated_at": now_utc()}},
+    )
+    await log_admin_action(
+        admin_id=admin["id"],
+        action="seller.tax_registrations.update",
+        target_user_id=user_id,
+        meta={"count": len(deduped)},
+    )
+    return [SellerTaxRegistration(**r) for r in deduped]

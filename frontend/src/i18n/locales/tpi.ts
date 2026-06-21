@@ -1918,6 +1918,14 @@ const tpi = {
     value_at_border: "Long boda",
     value_inclusive: "Insait",
   },
+  landed: {
+    goods: "Ol samting",
+    shipping: "Salim",
+    tax: "Takis",
+    free: "FRI",
+    total: "Olgeta lainded prais",
+    delivered_in: "Bai i kam insait long {{min}}-{{max}} de",
+  },
   admin_analytics: {
     title: "A/B Analitiks",
     err_manager_required: "Akses bilong manaja i nidim",

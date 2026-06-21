@@ -70,6 +70,25 @@ class GoogleSessionRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Seller / business
 # ---------------------------------------------------------------------------
+class SellerTaxRegistration(BaseModel):
+    """A destination-country tax-registration the seller (or platform) holds.
+
+    Examples:
+      - country="NZ", kind="gst_ird",  number="123-456-789"
+      - country="AU", kind="abn",      number="51 824 753 556"
+      - country="GB", kind="vat",      number="GB123456789"
+      - country="IN", kind="gstin",    number="29AAAAA0000A1Z5"
+
+    Tracked centrally so admin can review at any time, and the invoice PDF
+    prints the right registration number under each jurisdiction's footer.
+    """
+    country: str = Field(..., min_length=2, max_length=2)  # ISO-2
+    kind: str = Field(..., min_length=2, max_length=20)
+    number: str = Field(..., min_length=4, max_length=40)
+    verified_at: Optional[str] = None  # ISO timestamp once admin verifies
+    note: Optional[str] = Field(default=None, max_length=200)
+
+
 class SellerBusiness(BaseModel):
     business_type: str = Field(..., min_length=2)
     company_name: str = Field(..., min_length=2)
@@ -265,6 +284,26 @@ class DutyEstimateResponse(BaseModel):
     grand_total_nzd: float    # goods + shipping + gst + duty
     threshold_nzd: float
     over_threshold: bool
+
+
+class LandedCostResponse(BaseModel):
+    """Transparent total-landed-cost breakdown for the PDP "Total cost" badge.
+
+    Buyers see this BEFORE adding-to-cart so the checkout total isn't a surprise.
+    """
+    country: str
+    price_nzd: float
+    shipping_nzd: float
+    shipping_free: bool
+    tax_nzd: float
+    tax_rate: float
+    tax_label_key: Optional[str] = None
+    tax_at_border: bool = False
+    tax_inclusive: bool = False
+    tax_over_threshold: bool = False
+    total_nzd: float
+    delivery_min_days: int
+    delivery_max_days: int
 
 
 class ProhibitedCheckRequest(BaseModel):

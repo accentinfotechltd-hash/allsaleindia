@@ -1907,6 +1907,14 @@ const hi = {
     value_at_border: "सीमा पर",
     value_inclusive: "शामिल",
   },
+  landed: {
+    goods: "सामान",
+    shipping: "शिपिंग",
+    tax: "कर",
+    free: "मुफ्त",
+    total: "कुल लैंडेड लागत",
+    delivered_in: "{{min}}-{{max}} दिनों में डिलीवर",
+  },
   admin_analytics: {
     title: "A/B विश्लेषण",
     err_manager_required: "मैनेजर एक्सेस आवश्यक",

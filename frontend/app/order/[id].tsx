@@ -1480,22 +1480,3 @@ const styles = StyleSheet.create({
   actionTileText: { color: colors.text, fontSize: 13, fontWeight: "800" },
   actionTileSub: { color: colors.textMuted, fontSize: 11, textAlign: "center" },
 });
-rginTop: spacing.md,
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  actionTile: {
-    flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  actionTileText: { color: colors.text, fontSize: 13, fontWeight: "800" },
-  actionTileSub: { color: colors.textMuted, fontSize: 11, textAlign: "center" },
-});

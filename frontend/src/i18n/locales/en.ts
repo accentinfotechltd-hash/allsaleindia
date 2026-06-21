@@ -1915,6 +1915,14 @@ const en = {
     value_at_border: "At border",
     value_inclusive: "Included",
   },
+  landed: {
+    goods: "Goods",
+    shipping: "Shipping",
+    tax: "Tax",
+    free: "FREE",
+    total: "Total landed cost",
+    delivered_in: "Delivered in {{min}}-{{max}} days",
+  },
   admin_analytics: {
     title: "A/B Analytics",
     err_manager_required: "Manager access required",

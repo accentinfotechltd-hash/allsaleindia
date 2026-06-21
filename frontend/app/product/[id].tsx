@@ -58,7 +58,7 @@ type SellerPublic = {
 };
 
 export default function ProductDetail() {
-  const { formatPrice } = useRegion();
+  const { formatPrice, country } = useRegion();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { add } = useCart();
@@ -73,6 +73,35 @@ export default function ProductDetail() {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
+  const [landed, setLanded] = useState<{
+    price_nzd: number;
+    shipping_nzd: number;
+    shipping_free: boolean;
+    tax_nzd: number;
+    tax_rate: number;
+    tax_label_key: string | null;
+    tax_at_border: boolean;
+    tax_inclusive: boolean;
+    tax_over_threshold: boolean;
+    total_nzd: number;
+  } | null>(null);
+
+  useEffect(() => {
+    // Fetch live landed-cost breakdown (price + shipping + GST/VAT) for the
+    // buyer's current region. Reuses the same `compute_tax()` engine that
+    // runs at checkout so the preview matches the final invoice.
+    if (!id) return;
+    (async () => {
+      try {
+        const c = await api<typeof landed>(
+          `/products/${id}/landed-cost?country=${encodeURIComponent(country)}`,
+        );
+        setLanded(c);
+      } catch {
+        // Silently fall back to the basic price card; never block the page.
+      }
+    })();
+  }, [id, country]);
 
   useEffect(() => {
     (async () => {
@@ -275,6 +304,52 @@ export default function ProductDetail() {
               <Text style={styles.discountText}>{t("product.direct_import")}</Text>
             </View>
           </View>
+
+          {/* Total landed cost (goods + shipping + GST/VAT) — eliminates
+              checkout sticker shock for cross-border buyers. */}
+          {landed && (
+            <View style={styles.landedCard} testID="product-landed-cost">
+              <View style={styles.landedRow}>
+                <Text style={styles.landedRowLabel}>{t("landed.goods")}</Text>
+                <Text style={styles.landedRowValue}>{formatPrice(landed.price_nzd)}</Text>
+              </View>
+              <View style={styles.landedRow}>
+                <Text style={styles.landedRowLabel}>{t("landed.shipping")}</Text>
+                <Text style={[styles.landedRowValue, landed.shipping_free && { color: colors.success }]}>
+                  {landed.shipping_free ? t("landed.free") : formatPrice(landed.shipping_nzd)}
+                </Text>
+              </View>
+              {landed.tax_nzd > 0 ? (
+                <View style={styles.landedRow}>
+                  <Text style={styles.landedRowLabel}>
+                    {landed.tax_label_key ? t(landed.tax_label_key) : t("landed.tax")}
+                  </Text>
+                  <Text style={styles.landedRowValue}>{formatPrice(landed.tax_nzd)}</Text>
+                </View>
+              ) : landed.tax_inclusive ? (
+                <View style={styles.landedRow}>
+                  <Text style={styles.landedRowLabel}>{t("tax.in_gst_inclusive")}</Text>
+                  <Text style={styles.landedRowValue}>{t("tax.value_inclusive")}</Text>
+                </View>
+              ) : landed.tax_at_border && landed.tax_over_threshold ? (
+                <View style={styles.landedRow}>
+                  <Text style={styles.landedRowLabel}>{t("tax.line_at_border")}</Text>
+                  <Text style={styles.landedRowValue}>{t("tax.value_at_border")}</Text>
+                </View>
+              ) : null}
+              <View style={styles.landedDivider} />
+              <View style={styles.landedRow}>
+                <Text style={styles.landedTotalLabel}>{t("landed.total")}</Text>
+                <Text style={styles.landedTotalValue}>{formatPrice(landed.total_nzd)}</Text>
+              </View>
+              <Text style={styles.landedSub}>
+                {t("landed.delivered_in", {
+                  min: landed.delivery_min_days || product.shipping_days_min,
+                  max: landed.delivery_max_days || product.shipping_days_max,
+                })}
+              </Text>
+            </View>
+          )}
 
           <View style={styles.factsCard}>
             <Fact icon={<Truck size={16} color={colors.primary} />} title="Shipping to NZ" value={`${product.shipping_days_min}-${product.shipping_days_max} days`} />
@@ -575,6 +650,32 @@ const styles = StyleSheet.create({
   },
   priceNzd: { fontSize: 28, fontWeight: "800", color: colors.text, letterSpacing: -0.6 },
   priceInr: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  // Landed-cost breakdown card (PDP) — shows goods + shipping + GST/VAT
+  // so cross-border buyers see the total they'll actually pay.
+  landedCard: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  landedRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  landedRowLabel: { fontSize: 13, color: colors.textMuted, fontWeight: "500" },
+  landedRowValue: { fontSize: 13, color: colors.text, fontWeight: "600" },
+  landedDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.xs,
+  },
+  landedTotalLabel: { fontSize: 14, color: colors.text, fontWeight: "800" },
+  landedTotalValue: { fontSize: 18, color: colors.primary, fontWeight: "800", letterSpacing: -0.3 },
+  landedSub: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
   discountTag: {
     backgroundColor: colors.text,
     paddingHorizontal: 10,

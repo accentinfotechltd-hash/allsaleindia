@@ -7,6 +7,8 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query
 
 from config import (
+    FLAT_SHIPPING_NZD,
+    FREE_SHIPPING_THRESHOLD_NZD,
     HIDDEN_BUYER_CATEGORIES,
     NZ_DUTY_RATE,
     NZ_DUTY_THRESHOLD_NZD,
@@ -18,11 +20,13 @@ from db import db
 from models import (
     DutyEstimateRequest,
     DutyEstimateResponse,
+    LandedCostResponse,
     Product,
     ProhibitedCheckRequest,
     ProhibitedCheckResponse,
     TaxonomyNode,
 )
+from services.tax import compute_tax
 
 router = APIRouter(tags=["products"])
 
@@ -492,6 +496,59 @@ async def get_product(product_id: str):
     if not p:
         raise HTTPException(status_code=404, detail="Product not found")
     return Product(**p)
+
+
+# ---------------------------------------------------------------------------
+# Landed-cost preview — the single number that matters most to cross-border
+# buyers ("what will I actually pay?").
+#
+# Combines: goods price + flat shipping estimate + destination GST/VAT.
+# Reuses the same `compute_tax()` engine that runs at checkout so the
+# preview matches the final invoice line-for-line.
+# ---------------------------------------------------------------------------
+@router.get(
+    "/products/{product_id}/landed-cost",
+    response_model=LandedCostResponse,
+)
+async def get_product_landed_cost(product_id: str, country: str = "NZ"):
+    """Return a transparent landed-cost breakdown for one unit of a product.
+
+    The frontend calls this when rendering the PDP "Total landed cost"
+    badge — buyers see goods + shipping + GST/VAT before they add to cart,
+    eliminating checkout sticker shock.
+    """
+    p = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Product not found")
+    price_nzd = float(p.get("price_nzd") or 0)
+
+    # Shipping — mirror the cart's free-shipping logic so the preview
+    # doesn't lie to buyers who'd actually qualify for free shipping at
+    # checkout.
+    if price_nzd >= FREE_SHIPPING_THRESHOLD_NZD or price_nzd == 0:
+        shipping_nzd = 0.0
+    else:
+        shipping_nzd = FLAT_SHIPPING_NZD
+
+    tax = compute_tax(
+        subtotal_nzd=price_nzd, shipping_nzd=shipping_nzd, country=country
+    )
+
+    return LandedCostResponse(
+        country=(country or "NZ").upper(),
+        price_nzd=round(price_nzd, 2),
+        shipping_nzd=round(shipping_nzd, 2),
+        shipping_free=(shipping_nzd == 0 and price_nzd > 0),
+        tax_nzd=tax.tax_nzd,
+        tax_rate=tax.rate,
+        tax_label_key=tax.label_key,
+        tax_at_border=tax.at_border,
+        tax_inclusive=tax.inclusive,
+        tax_over_threshold=tax.over_threshold,
+        total_nzd=round(price_nzd + shipping_nzd + tax.tax_nzd, 2),
+        delivery_min_days=int(p.get("shipping_days_min") or 7),
+        delivery_max_days=int(p.get("shipping_days_max") or 14),
+    )
 
 
 # ---------------------------------------------------------------------------
