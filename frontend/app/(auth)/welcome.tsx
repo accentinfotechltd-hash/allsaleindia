@@ -1,10 +1,12 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { ArrowRight, Globe2, ShieldCheck, Truck } from "lucide-react-native";
+import { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
+import { LanguagePicker, LanguagePill } from "@/src/components/LanguagePicker";
 import { useTranslation } from "@/src/i18n";
 import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { SellOnAllsaleBanner } from "@/src/components/SellOnAllsaleBanner";
@@ -16,6 +18,7 @@ const HERO_IMG =
 export default function Welcome() {
   const { t } = useTranslation();
   const router = useRouter();
+  const [langOpen, setLangOpen] = useState(false);
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -34,22 +37,30 @@ export default function Welcome() {
             />
           </View>
         </View>
+        <View style={styles.langRow}>
+          <LanguagePill onPress={() => setLangOpen(true)} />
+        </View>
         <View style={styles.heroContent}>
           <Text style={styles.eyebrow}>{t("auth.welcome_eyebrow")}</Text>
-          <Text style={styles.heroTitle}>
-            Authentic India,{"\n"}delivered to your door.
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            Shop India, the way Indians shop — without the trip.
-          </Text>
+          <Text style={styles.heroTitle}>{t("auth.welcome_hero_title")}</Text>
+          <Text style={styles.heroSubtitle}>{t("auth.welcome_hero_subtitle")}</Text>
         </View>
       </View>
 
       <View style={styles.body}>
         <View style={styles.usp}>
-          <Bullet icon={<Globe2 size={18} color={colors.primary} />} text="Direct from Indian sellers" />
-          <Bullet icon={<Truck size={18} color={colors.primary} />} text="Shipping to NZ in 7-14 days" />
-          <Bullet icon={<ShieldCheck size={18} color={colors.primary} />} text="Secure payments in NZD" />
+          <Bullet
+            icon={<Globe2 size={18} color={colors.primary} />}
+            text={t("auth.welcome_usp_sellers")}
+          />
+          <Bullet
+            icon={<Truck size={18} color={colors.primary} />}
+            text={t("auth.welcome_usp_shipping")}
+          />
+          <Bullet
+            icon={<ShieldCheck size={18} color={colors.primary} />}
+            text={t("auth.welcome_usp_payments")}
+          />
         </View>
 
         <Pressable
@@ -63,13 +74,13 @@ export default function Welcome() {
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
+          <Text style={styles.dividerText}>{t("auth.welcome_or")}</Text>
           <View style={styles.dividerLine} />
         </View>
 
         <GoogleSignInButton
           testID="welcome-google-btn"
-          label="Continue with Google"
+          label={t("auth.welcome_continue_google")}
           redirectTo="/(tabs)/home"
         />
 
@@ -84,12 +95,15 @@ export default function Welcome() {
           style={styles.secondaryCta}
         >
           <Text style={styles.secondaryText}>
-            Already shopping with us? <Text style={styles.secondaryLink}>Sign in</Text>
+            {t("auth.welcome_continue_signin")}{" "}
+            <Text style={styles.secondaryLink}>{t("auth.welcome_sign_in")}</Text>
           </Text>
         </Pressable>
 
         <SellOnAllsaleBanner testID="welcome-sell-banner" />
       </View>
+
+      <LanguagePicker visible={langOpen} onClose={() => setLangOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -131,6 +145,11 @@ const styles = StyleSheet.create({
   brandLogo: {
     width: 95,
     height: 42,
+  },
+  langRow: {
+    position: "absolute",
+    top: spacing.lg,
+    right: spacing.lg,
   },
   brandDot: { width: 10, height: 10, backgroundColor: colors.primary, borderRadius: 999 },
   brandText: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
