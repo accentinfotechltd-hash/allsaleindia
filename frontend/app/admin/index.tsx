@@ -391,6 +391,17 @@ export default function AdminDashboard() {
         )}
 
         <Pressable
+          testID="admin-tax-reg-btn"
+          onPress={() => router.push("/admin/tax-registrations")}
+          style={({ pressed }) => [
+            styles.reviewBtn,
+            pressed && { transform: [{ scale: 0.98 }] },
+          ]}
+        >
+          <Text style={styles.reviewBtnText}>Tax registrations</Text>
+        </Pressable>
+
+        <Pressable
           testID="admin-users-btn"
           onPress={() => router.push("/admin/users")}
           style={({ pressed }) => [styles.usersBtn, pressed && { opacity: 0.85 }]}
