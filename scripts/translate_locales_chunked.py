@@ -135,7 +135,7 @@ async def translate_chunk(locale: str, language: str, chunk: str, idx: int, tota
                     session_id=f"tx-{locale}-{idx}-{int(time.time())}",
                     system_message=prompt,
                 )
-                .with_model("anthropic", "claude-sonnet-4-5-20250929")
+                .with_model("anthropic", "claude-haiku-4-5-20251001")
                 .with_params(max_tokens=16000)
             )
             out = await chat.send_message(UserMessage(text=chunk))

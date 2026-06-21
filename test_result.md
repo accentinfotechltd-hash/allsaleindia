@@ -491,3 +491,35 @@ agent_communication:
                section visible above Insights.
             4. Row tap → /seller/edit-listing/{product_id}.
 
+
+  - agent: main
+    message: |
+      Mass i18n translation across all 26 fallback locales — COMPLETE.
+
+      Initial chunked approach (translate_locales_chunked.py with Claude Sonnet 4.5)
+      hit 502 BadGateway and budget caps. Pivoted to a robust JSON-based approach
+      (extract_en_to_json.js → translate_json.py → render_locale.py) using Claude
+      Haiku 4.5. Result: all 26 locales now have full 1,950-key translations.
+
+      Files created:
+        /app/scripts/translate_json.py            — main translator (LLM only sees JSON)
+        /app/scripts/render_locale.py             — renders flat JSON → TS file
+        /app/scripts/extract_en_to_json.js        — extracts en.ts → flat JSON
+        /app/scripts/validate_locales.js          — esbuild-based validator
+        /app/scripts/fix_locale_braces.py         — (deprecated) brace fixer
+        /app/scripts/locales_json_snapshot/*.json — 26 translated JSON snapshots
+
+      Files updated (1,950 keys each, ~2,134 lines):
+        es, ar, zh, zh-TW, pt, fr, de, ja, ko, bn, ta, id, ru,
+        mi, sm, to, fj, te, mr, ur, gu, kn, ml, pa, or, as
+
+      Validation: all 29 locale files (incl. en, hi, tpi) PASS esbuild parse + eval.
+      Visual verification: ES, ZH, FR, DE, MI, TA, UR, RU all render correctly
+      with native scripts on the welcome screen.
+
+      Known minor item (NOT in scope, pre-existing): SellOnAllsaleBanner.tsx
+      ("Own a business in India? Sell on Allsale") still has hardcoded English
+      strings — falls back to English in all locales as before.
+
+      Budget used: ~$15–18 of Universal Key (auto-recharge active).
+
