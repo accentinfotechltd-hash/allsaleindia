@@ -30,6 +30,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ORIGIN_URL, getAuthToken } from "@/src/lib/api";
 import { colors, formatNZD, radius, shadow, spacing } from "@/src/lib/theme";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 
 type PreviewRow = {
   row_number: number;
@@ -132,10 +133,10 @@ export default function BulkUploadScreen() {
             UTI: suggestedName.endsWith(".xlsx") ? "com.microsoft.excel.xlsx" : "public.comma-separated-values-text",
           });
         } else {
-          show({ title: "Downloaded", message: `Saved to ${r.uri}`, kind: "error" });
+          show({ title: t("seller_bulk_upload.download_saved_title"), message: t("seller_bulk_upload.download_saved_body", { path: r.uri }), kind: "error" });
         }
       } catch (e: any) {
-        show({ title: "Download failed", message: e?.message || "Could not download file.", kind: "error" });
+        show({ title: t("seller_bulk_upload.download_failed_title"), message: e?.message || t("seller_bulk_upload.download_failed_body"), kind: "error" });
       }
     },
     [],
@@ -192,11 +193,11 @@ export default function BulkUploadScreen() {
         name: asset.name,
       });
     } catch (e: any) {
-      show({ title: "ZIP upload failed", message: e?.message || "Please check your ZIP.", kind: "error" });
+      show({ title: t("seller_bulk_upload.zip_failed_title"), message: e?.message || t("seller_bulk_upload.zip_failed_body"), kind: "error" });
     } finally {
       setZipUploading(false);
     }
-  }, []);
+  }, [show]);
 
   const pickAndPreview = useCallback(async () => {
     setPicking(true);
@@ -258,19 +259,19 @@ export default function BulkUploadScreen() {
       }
       setPreview(data as PreviewResponse);
     } catch (e: any) {
-      show({ title: "Could not read file", message: e?.message || "Please check your file.", kind: "error" });
+      show({ title: t("seller_bulk_upload.file_failed_title"), message: e?.message || t("seller_bulk_upload.file_failed_body"), kind: "error" });
       setFileName(null);
     } finally {
       setUploading(false);
       setPicking(false);
     }
-  }, [imagesMap]);
+  }, [imagesMap, show]);
 
   const commitImport = useCallback(async () => {
     if (!preview) return;
     const validRows = preview.rows.filter((r) => r.ok).map((r) => r.data);
     if (validRows.length === 0) {
-      show({ title: "Nothing to import", message: "All rows have errors. Please fix and try again.", kind: "error" });
+      show({ title: t("seller_bulk_upload.nothing_title"), message: t("seller_bulk_upload.nothing_body"), kind: "error" });
       return;
     }
     setImporting(true);
@@ -301,11 +302,11 @@ export default function BulkUploadScreen() {
       setResult(data as ImportResult);
       setPreview(null);
     } catch (e: any) {
-      show({ title: "Import failed", message: e?.message || "Please try again.", kind: "error" });
+      show({ title: t("seller_bulk_upload.import_failed_title"), message: e?.message || t("seller_bulk_upload.import_failed_body"), kind: "error" });
     } finally {
       setImporting(false);
     }
-  }, [preview]);
+  }, [preview, show]);
 
   const visibleRows = preview
     ? showAll
@@ -324,7 +325,7 @@ export default function BulkUploadScreen() {
         >
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.title}>Bulk upload</Text>
+        <Text style={styles.title}>{t("seller_bulk_upload.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -334,15 +335,11 @@ export default function BulkUploadScreen() {
           <>
             <View style={styles.heroCard}>
               <CloudUpload size={28} color={colors.primary} />
-              <Text style={styles.heroTitle}>Add or edit many listings at once</Text>
-              <Text style={styles.heroBody}>
-                Perfect for big catalogs. Download the template, fill in your products in
-                Excel / Google Sheets, then upload it back. We&apos;ll validate every row before
-                anything is saved.
-              </Text>
+              <Text style={styles.heroTitle}>{t("seller_bulk_upload.hero_title")}</Text>
+              <Text style={styles.heroBody}>{t("seller_bulk_upload.hero_body")}</Text>
             </View>
 
-            <Text style={styles.sectionLabel}>STEP 1 · DOWNLOAD A TEMPLATE</Text>
+            <Text style={styles.sectionLabel}>{t("seller_bulk_upload.step1_label")}</Text>
             <View style={styles.row2}>
               <Pressable
                 testID="bulk-download-csv-template"
@@ -355,8 +352,8 @@ export default function BulkUploadScreen() {
                 style={({ pressed }) => [styles.tile, pressed && { opacity: 0.85 }]}
               >
                 <FileText size={20} color={colors.primary} />
-                <Text style={styles.tileTitle}>CSV template</Text>
-                <Text style={styles.tileSubtitle}>Universal · easy edits</Text>
+                <Text style={styles.tileTitle}>{t("seller_bulk_upload.tile_csv_title")}</Text>
+                <Text style={styles.tileSubtitle}>{t("seller_bulk_upload.tile_csv_sub")}</Text>
               </Pressable>
               <Pressable
                 testID="bulk-download-xlsx-template"
@@ -369,13 +366,13 @@ export default function BulkUploadScreen() {
                 style={({ pressed }) => [styles.tile, pressed && { opacity: 0.85 }]}
               >
                 <FileSpreadsheet size={20} color={colors.primary} />
-                <Text style={styles.tileTitle}>Excel template</Text>
-                <Text style={styles.tileSubtitle}>Opens directly in Excel</Text>
+                <Text style={styles.tileTitle}>{t("seller_bulk_upload.tile_xlsx_title")}</Text>
+                <Text style={styles.tileSubtitle}>{t("seller_bulk_upload.tile_xlsx_sub")}</Text>
               </Pressable>
             </View>
 
             <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>
-              EDITING EXISTING LISTINGS?
+              {t("seller_bulk_upload.editing_label")}
             </Text>
             <View style={styles.row2}>
               <Pressable
@@ -389,8 +386,8 @@ export default function BulkUploadScreen() {
                 style={({ pressed }) => [styles.tile, pressed && { opacity: 0.85 }]}
               >
                 <Download size={20} color={colors.primary} />
-                <Text style={styles.tileTitle}>Export to CSV</Text>
-                <Text style={styles.tileSubtitle}>Edit prices / stock in bulk</Text>
+                <Text style={styles.tileTitle}>{t("seller_bulk_upload.tile_export_csv_title")}</Text>
+                <Text style={styles.tileSubtitle}>{t("seller_bulk_upload.tile_export_csv_sub")}</Text>
               </Pressable>
               <Pressable
                 testID="bulk-export-xlsx"
@@ -403,22 +400,24 @@ export default function BulkUploadScreen() {
                 style={({ pressed }) => [styles.tile, pressed && { opacity: 0.85 }]}
               >
                 <Download size={20} color={colors.primary} />
-                <Text style={styles.tileTitle}>Export to Excel</Text>
-                <Text style={styles.tileSubtitle}>Round-trip via XLSX</Text>
+                <Text style={styles.tileTitle}>{t("seller_bulk_upload.tile_export_xlsx_title")}</Text>
+                <Text style={styles.tileSubtitle}>{t("seller_bulk_upload.tile_export_xlsx_sub")}</Text>
               </Pressable>
             </View>
 
             <View style={styles.tipBox}>
               <Info size={16} color={colors.accent} />
               <Text style={styles.tipBody}>
-                Each row becomes one product. Leave <Text style={styles.mono}>product_id</Text>{" "}
-                empty to create new listings, or keep it to update existing ones. Use{" "}
-                <Text style={styles.mono}>|</Text> to separate sizes, colors and image URLs.
+                {t("seller_bulk_upload.tip_prefix")}
+                <Text style={styles.mono}>{t("seller_bulk_upload.tip_pid")}</Text>
+                {t("seller_bulk_upload.tip_middle")}
+                <Text style={styles.mono}>{t("seller_bulk_upload.tip_pipe")}</Text>
+                {t("seller_bulk_upload.tip_suffix")}
               </Text>
             </View>
 
             <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>
-              STEP 2 · UPLOAD IMAGES ZIP (OPTIONAL)
+              {t("seller_bulk_upload.step2_label")}
             </Text>
             <Pressable
               testID="bulk-pick-zip"
@@ -445,20 +444,20 @@ export default function BulkUploadScreen() {
                 {imagesZipSummary ? (
                   <>
                     <Text style={styles.zipTitleDone}>
-                      ✓ {imagesZipSummary.uploaded} images uploaded
+                      {t("seller_bulk_upload.zip_done_title", { n: imagesZipSummary.uploaded })}
                     </Text>
                     <Text style={styles.zipSubtitle} numberOfLines={1}>
                       {imagesZipSummary.name}
                       {imagesZipSummary.skipped > 0
-                        ? ` · ${imagesZipSummary.skipped} skipped`
+                        ? t("seller_bulk_upload.zip_done_skipped", { n: imagesZipSummary.skipped })
                         : ""}
                     </Text>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.zipTitle}>Upload images (.zip)</Text>
+                    <Text style={styles.zipTitle}>{t("seller_bulk_upload.zip_title")}</Text>
                     <Text style={styles.zipSubtitle}>
-                      Reference filenames in your sheet — we&apos;ll swap them for real URLs.
+                      {t("seller_bulk_upload.zip_subtitle")}
                     </Text>
                   </>
                 )}
@@ -479,7 +478,7 @@ export default function BulkUploadScreen() {
             </Pressable>
 
             <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>
-              STEP 3 · UPLOAD YOUR FILE
+              {t("seller_bulk_upload.step3_label")}
             </Text>
             <Pressable
               testID="bulk-pick-file"
@@ -496,13 +495,11 @@ export default function BulkUploadScreen() {
               ) : (
                 <>
                   <CloudUpload size={20} color="#fff" />
-                  <Text style={styles.uploadCtaText}>Choose CSV / XLSX file</Text>
+                  <Text style={styles.uploadCtaText}>{t("seller_bulk_upload.upload_btn")}</Text>
                 </>
               )}
             </Pressable>
-            <Text style={styles.hint}>
-              Up to 1000 rows · max 8 MB · uses image URLs (we&apos;ll host them automatically).
-            </Text>
+            <Text style={styles.hint}>{t("seller_bulk_upload.upload_hint")}</Text>
           </>
         ) : null}
 
@@ -511,7 +508,7 @@ export default function BulkUploadScreen() {
           <>
             <View style={styles.summaryHeader}>
               <Text style={styles.summaryTitle}>
-                Preview of {fileName || "your file"}
+                {t("seller_bulk_upload.preview_of", { file: fileName || t("seller_bulk_upload.fallback_file") })}
               </Text>
               <Pressable onPress={reset} hitSlop={8} testID="bulk-reset">
                 <RotateCcw size={18} color={colors.textMuted} />
@@ -519,15 +516,15 @@ export default function BulkUploadScreen() {
             </View>
 
             <View style={styles.statRow}>
-              <Stat label="Rows" value={preview.total} />
-              <Stat label="Valid" value={preview.valid} tone="success" />
-              <Stat label="Errors" value={preview.errors} tone="error" />
+              <Stat label={t("seller_bulk_upload.stat_rows")} value={preview.total} />
+              <Stat label={t("seller_bulk_upload.stat_valid")} value={preview.valid} tone="success" />
+              <Stat label={t("seller_bulk_upload.stat_errors")} value={preview.errors} tone="error" />
             </View>
             <View style={styles.statRow}>
-              <Stat label="New" value={preview.will_create} />
-              <Stat label="Updates" value={preview.will_update} />
+              <Stat label={t("seller_bulk_upload.stat_new")} value={preview.will_create} />
+              <Stat label={t("seller_bulk_upload.stat_updates")} value={preview.will_update} />
               <Stat
-                label="Skipped"
+                label={t("seller_bulk_upload.stat_skipped")}
                 value={preview.total - preview.valid}
                 tone={preview.errors > 0 ? "error" : "muted"}
               />
@@ -547,14 +544,14 @@ export default function BulkUploadScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.commitCtaText}>
-                  Import {preview.valid} {preview.valid === 1 ? "row" : "rows"}
-                  {preview.errors > 0 ? ` · skip ${preview.errors}` : ""}
+                  {t(preview.valid === 1 ? "seller_bulk_upload.commit_btn_one" : "seller_bulk_upload.commit_btn_other", { n: preview.valid })}
+                  {preview.errors > 0 ? t("seller_bulk_upload.commit_skip_suffix", { n: preview.errors }) : ""}
                 </Text>
               )}
             </Pressable>
 
             <Text style={[styles.sectionLabel, { marginTop: spacing.xl }]}>
-              ROW-BY-ROW REPORT
+              {t("seller_bulk_upload.rows_label")}
             </Text>
             <FlatList
               data={visibleRows}
@@ -570,7 +567,7 @@ export default function BulkUploadScreen() {
                 testID="bulk-show-more"
               >
                 <Text style={styles.showMoreText}>
-                  Show {hiddenCount} more {hiddenCount === 1 ? "row" : "rows"}
+                  {t(hiddenCount === 1 ? "seller_bulk_upload.show_more_one" : "seller_bulk_upload.show_more_other", { n: hiddenCount })}
                 </Text>
               </Pressable>
             ) : null}
@@ -582,26 +579,24 @@ export default function BulkUploadScreen() {
           <>
             <View style={styles.successCard}>
               <CheckCircle2 size={28} color={colors.success} />
-              <Text style={styles.successTitle}>Import complete</Text>
+              <Text style={styles.successTitle}>{t("seller_bulk_upload.success_title")}</Text>
               <Text style={styles.successBody}>
-                {result.created} created · {result.updated} updated · {result.errors.length}{" "}
-                skipped
+                {t("seller_bulk_upload.success_body", { c: result.created, u: result.updated, s: result.errors.length })}
               </Text>
             </View>
             {result.errors.length > 0 ? (
               <View style={styles.errorBox}>
                 <Text style={styles.errorBoxTitle}>
-                  {result.errors.length} {result.errors.length === 1 ? "row was" : "rows were"}{" "}
-                  skipped
+                  {t(result.errors.length === 1 ? "seller_bulk_upload.err_box_title_one" : "seller_bulk_upload.err_box_title_other", { n: result.errors.length })}
                 </Text>
                 {result.errors.slice(0, 10).map((e) => (
                   <Text key={e.row_number} style={styles.errorBoxItem}>
-                    Row {e.row_number}: {e.errors.join(", ")}
+                    {t("seller_bulk_upload.err_box_row", { n: e.row_number, errs: e.errors.join(", ") })}
                   </Text>
                 ))}
                 {result.errors.length > 10 ? (
                   <Text style={styles.errorBoxItem}>
-                    …and {result.errors.length - 10} more.
+                    {t("seller_bulk_upload.err_box_more", { n: result.errors.length - 10 })}
                   </Text>
                 ) : null}
               </View>
@@ -616,7 +611,7 @@ export default function BulkUploadScreen() {
                   pressed && { transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Text style={styles.commitCtaText}>View listings</Text>
+                <Text style={styles.commitCtaText}>{t("seller_bulk_upload.view_listings_btn")}</Text>
               </Pressable>
               <Pressable
                 testID="bulk-do-another"
@@ -627,7 +622,7 @@ export default function BulkUploadScreen() {
                   pressed && { transform: [{ scale: 0.98 }] },
                 ]}
               >
-                <Text style={styles.secondaryCtaText}>Upload another</Text>
+                <Text style={styles.secondaryCtaText}>{t("seller_bulk_upload.upload_another_btn")}</Text>
               </Pressable>
             </View>
           </>
@@ -663,6 +658,7 @@ function Stat({
 }
 
 function RowReport({ row }: { row: PreviewRow }) {
+  const { t } = useTranslation();
   const okColor = row.ok ? colors.success : colors.error;
   return (
     <View
@@ -679,7 +675,7 @@ function RowReport({ row }: { row: PreviewRow }) {
           <AlertTriangle size={16} color={okColor} />
         )}
         <Text style={[styles.rowLabel, { color: okColor }]}>
-          Row {row.row_number} · {row.mode === "create" ? "NEW" : "UPDATE"}
+          {t(row.mode === "create" ? "seller_bulk_upload.row_label_new" : "seller_bulk_upload.row_label_update", { n: row.row_number })}
         </Text>
         <View style={{ flex: 1 }} />
         {typeof row.data.price_nzd === "number" ? (
@@ -687,7 +683,7 @@ function RowReport({ row }: { row: PreviewRow }) {
         ) : null}
       </View>
       <Text style={styles.rowName} numberOfLines={1}>
-        {row.data.name || (row.mode === "update" ? "(no change to name)" : "(missing name)")}
+        {row.data.name || (row.mode === "update" ? t("seller_bulk_upload.row_name_missing_update") : t("seller_bulk_upload.row_name_missing_create"))}
       </Text>
       {row.data.category ? (
         <Text style={styles.rowCategory}>{row.data.category.toUpperCase()}</Text>

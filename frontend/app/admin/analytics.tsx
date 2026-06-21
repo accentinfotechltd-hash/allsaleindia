@@ -26,6 +26,7 @@ import {
   adminApi,
 } from "@/src/lib/adminApi";
 import { useToast } from "@/src/components/UiOverlayProvider";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Funnel = {
@@ -73,6 +74,7 @@ const WINDOW_OPTIONS = [
 export default function AdminAnalytics() {
   const router = useRouter();
   const { show } = useToast();
+  const { t } = useTranslation();
 
   const [experiment, setExperiment] = useState("personalised_rail_v1");
   const [conversionEvent, setConversionEvent] =
@@ -100,15 +102,15 @@ export default function AdminAnalytics() {
       setFunnel(data);
     } catch (e: any) {
       if (e instanceof AdminUnauthorized || e instanceof AdminForbidden) {
-        show({ title: "Manager access required", kind: "error" });
+        show({ title: t("admin_analytics.err_manager_required"), kind: "error" });
         router.replace("/admin");
         return;
       }
-      show({ title: e?.message || "Failed to load funnel", kind: "error" });
+      show({ title: e?.message || t("admin_analytics.err_load_funnel"), kind: "error" });
     } finally {
       setLoadingFunnel(false);
     }
-  }, [experiment, conversionEvent, windowDays, router, show]);
+  }, [experiment, conversionEvent, windowDays, router, show, t]);
 
   // ------------------ Load recent ------------------
   const loadRecent = useCallback(async () => {
@@ -121,12 +123,12 @@ export default function AdminAnalytics() {
       setRecent(data.events || []);
     } catch (e: any) {
       if (!(e instanceof AdminForbidden)) {
-        show({ title: e?.message || "Failed to load recent", kind: "error" });
+        show({ title: e?.message || t("admin_analytics.err_load_recent"), kind: "error" });
       }
     } finally {
       setLoadingRecent(false);
     }
-  }, [show]);
+  }, [show, t]);
 
   useEffect(() => {
     loadFunnel();
@@ -163,7 +165,7 @@ export default function AdminAnalytics() {
         <Pressable onPress={() => router.back()} style={styles.headerBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>A/B Analytics</Text>
+        <Text style={styles.headerTitle}>{t("admin_analytics.title")}</Text>
         <Pressable
           onPress={() => {
             loadFunnel();
@@ -177,7 +179,7 @@ export default function AdminAnalytics() {
 
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Experiment picker */}
-        <Text style={styles.sectionLabel}>Experiment</Text>
+        <Text style={styles.sectionLabel}>{t("admin_analytics.label_experiment")}</Text>
         <View style={styles.pillRow}>
           {SUGGESTED_EXPERIMENTS.map((exp) => (
             <Pressable
@@ -202,22 +204,22 @@ export default function AdminAnalytics() {
             testID="analytics-custom-exp"
             value={customExperiment}
             onChangeText={setCustomExperiment}
-            placeholder="Or paste an experiment id…"
+            placeholder={t("admin_analytics.placeholder_experiment")}
             placeholderTextColor={colors.textFaint}
             autoCapitalize="none"
             style={styles.customInput}
             onSubmitEditing={onApplyCustom}
           />
           <Pressable onPress={onApplyCustom} style={styles.customBtn}>
-            <Text style={styles.customBtnText}>Set</Text>
+            <Text style={styles.customBtnText}>{t("admin_analytics.btn_set")}</Text>
           </Pressable>
         </View>
         <Text style={styles.currentExpTag}>
-          Showing: <Text style={{ fontWeight: "800" }}>{experiment}</Text>
+          {t("admin_analytics.showing_label")} <Text style={{ fontWeight: "800" }}>{experiment}</Text>
         </Text>
 
         {/* Window + Conversion picker */}
-        <Text style={styles.sectionLabel}>Window</Text>
+        <Text style={styles.sectionLabel}>{t("admin_analytics.label_window")}</Text>
         <View style={styles.pillRow}>
           {WINDOW_OPTIONS.map((w) => (
             <Pressable
@@ -240,7 +242,7 @@ export default function AdminAnalytics() {
           ))}
         </View>
 
-        <Text style={styles.sectionLabel}>Conversion event</Text>
+        <Text style={styles.sectionLabel}>{t("admin_analytics.label_conversion_event")}</Text>
         <View style={styles.pillRow}>
           <Pressable
             onPress={() => setConversionEvent("")}
@@ -255,7 +257,7 @@ export default function AdminAnalytics() {
                 conversionEvent === "" && styles.pillTextActive,
               ]}
             >
-              none
+              {t("admin_analytics.conv_none")}
             </Text>
           </Pressable>
           {SUGGESTED_CONVERSION_EVENTS.map((ev) => (
@@ -282,7 +284,7 @@ export default function AdminAnalytics() {
         {/* FUNNEL RESULTS */}
         <View style={styles.headlineRow}>
           <Activity size={18} color={colors.primary} />
-          <Text style={styles.headline}>Funnel</Text>
+          <Text style={styles.headline}>{t("admin_analytics.funnel_title")}</Text>
           {loadingFunnel && (
             <ActivityIndicator size="small" color={colors.primary} />
           )}
@@ -291,29 +293,29 @@ export default function AdminAnalytics() {
         {!funnel || (!funnel.total_exposures && !loadingFunnel) ? (
           <View style={styles.emptyCard}>
             <Eye size={28} color={colors.textMuted} />
-            <Text style={styles.emptyTitle}>No exposures yet</Text>
+            <Text style={styles.emptyTitle}>{t("admin_analytics.empty_title")}</Text>
             <Text style={styles.emptyBody}>
-              Fire `ab.exposure` events with{" "}
+              {t("admin_analytics.empty_body_prefix")}
               <Text style={{ fontWeight: "700" }}>
                 {`{ experiment: "${experiment}", variant: "control" | "treatment" }`}
-              </Text>{" "}
-              from your client.  Data appears here within seconds.
+              </Text>
+              {t("admin_analytics.empty_body_suffix")}
             </Text>
           </View>
         ) : (
           <>
             <View style={styles.headerStatsRow}>
               <SummaryStat
-                label="Total exposures"
+                label={t("admin_analytics.stat_total_exposures")}
                 value={funnel.total_exposures}
               />
               {!!conversionEvent && (
                 <SummaryStat
-                  label={`Conversions (${conversionEvent})`}
+                  label={t("admin_analytics.stat_conversions", { event: conversionEvent })}
                   value={funnel.total_conversions}
                 />
               )}
-              <SummaryStat label="Window" value={`${windowDays}d`} text />
+              <SummaryStat label={t("admin_analytics.stat_window")} value={`${windowDays}d`} text />
             </View>
 
             {variantStats.map((v) => (
@@ -337,20 +339,20 @@ export default function AdminAnalytics() {
         {/* RECENT EXPOSURES (debug tail) */}
         <View style={styles.headlineRow}>
           <Zap size={18} color={colors.primary} />
-          <Text style={styles.headline}>Recent exposures</Text>
+          <Text style={styles.headline}>{t("admin_analytics.recent_title")}</Text>
           {loadingRecent && (
             <ActivityIndicator size="small" color={colors.primary} />
           )}
         </View>
 
         {recent.length === 0 ? (
-          <Text style={styles.subtleNote}>No recent ab.exposure events.</Text>
+          <Text style={styles.subtleNote}>{t("admin_analytics.recent_empty")}</Text>
         ) : (
           recent.slice(0, 8).map((e) => (
             <View key={e.id} style={styles.eventRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.eventTitle} numberOfLines={1}>
-                  {String(e.props?.experiment || "(unknown)")} ·{" "}
+                  {String(e.props?.experiment || t("admin_analytics.unknown_label"))} ·{" "}
                   <Text style={{ fontWeight: "800" }}>
                     {String(e.props?.variant || "?")}
                   </Text>
@@ -361,7 +363,7 @@ export default function AdminAnalytics() {
                   {e.page ? `· ${e.page}` : ""}
                 </Text>
               </View>
-              <Text style={styles.eventTime}>{shortTime(e.created_at)}</Text>
+              <Text style={styles.eventTime}>{shortTime(e.created_at, t)}</Text>
             </View>
           ))
         )}
@@ -409,6 +411,7 @@ function VariantCard({
   conversionEvent: string;
   liftVsControl: number | null;
 }) {
+  const { t } = useTranslation();
   const isWinner =
     liftVsControl !== null && liftVsControl > 0.01 && conversions >= 10;
   const isLoser =
@@ -437,14 +440,14 @@ function VariantCard({
                 { color: liftVsControl >= 0 ? "#10B981" : "#DC2626" },
               ]}
             >
-              {(liftVsControl * 100).toFixed(1)}% vs control
+              {t("admin_analytics.lift_vs_control", { pct: (liftVsControl * 100).toFixed(1) })}
             </Text>
           </View>
         )}
       </View>
       <View style={styles.variantStats}>
         <View style={styles.variantStatCol}>
-          <Text style={styles.variantStatLabel}>Exposures</Text>
+          <Text style={styles.variantStatLabel}>{t("admin_analytics.variant_exposures")}</Text>
           <Text style={styles.variantStatValue}>
             {exposures.toLocaleString()}
           </Text>
@@ -452,13 +455,13 @@ function VariantCard({
         {!!conversionEvent && (
           <>
             <View style={styles.variantStatCol}>
-              <Text style={styles.variantStatLabel}>Conversions</Text>
+              <Text style={styles.variantStatLabel}>{t("admin_analytics.variant_conversions")}</Text>
               <Text style={styles.variantStatValue}>
                 {conversions.toLocaleString()}
               </Text>
             </View>
             <View style={styles.variantStatCol}>
-              <Text style={styles.variantStatLabel}>Rate</Text>
+              <Text style={styles.variantStatLabel}>{t("admin_analytics.variant_rate")}</Text>
               <Text style={[styles.variantStatValue, { color: colors.primary }]}>
                 {(rate * 100).toFixed(2)}%
               </Text>
@@ -475,23 +478,20 @@ function SignificanceHint({
 }: {
   stats: Array<{ name: string; exposures: number; conversions: number }>;
 }) {
+  const { t } = useTranslation();
   const minConv = Math.min(...stats.map((s) => s.conversions));
   const minExp = Math.min(...stats.map((s) => s.exposures));
   let msg = "";
   let kind: "success" | "warn" = "warn";
   if (minExp < 100) {
-    msg =
-      "⚠️  Sample size too small for any conclusion — wait for more exposures.";
+    msg = t("admin_analytics.sig_small");
   } else if (minConv < 30) {
-    msg =
-      "⚠️  Conversions are still thin.  Aim for ≥ 30 per arm before judging.";
+    msg = t("admin_analytics.sig_thin");
   } else if (minExp >= 1000 && minConv >= 50) {
-    msg =
-      "✅  Sample size looks healthy.  Calculate p-value externally for a formal call.";
+    msg = t("admin_analytics.sig_healthy");
     kind = "success";
   } else {
-    msg =
-      "ℹ️  Sample looks reasonable but still gathering.  Keep monitoring.";
+    msg = t("admin_analytics.sig_gathering");
   }
   return (
     <View style={[styles.hintCard, kind === "success" && styles.hintCardOk]}>
@@ -500,11 +500,11 @@ function SignificanceHint({
   );
 }
 
-function shortTime(iso: string): string {
+function shortTime(iso: string, t: (k: string) => string): string {
   try {
     const d = new Date(iso);
     const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (diffMin < 1) return "just now";
+    if (diffMin < 1) return t("admin_analytics.time_just_now");
     if (diffMin < 60) return `${diffMin}m`;
     if (diffMin < 60 * 24) return `${Math.floor(diffMin / 60)}h`;
     return `${Math.floor(diffMin / (60 * 24))}d`;

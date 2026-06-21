@@ -38,6 +38,7 @@ import {
   SaleRow,
   submitContent,
 } from "@/src/lib/ambassadors";
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 type Tab = "sales" | "sellers" | "profile";
@@ -45,6 +46,7 @@ type Tab = "sales" | "sellers" | "profile";
 export default function AmbassadorDashboard() {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useTranslation();
   const [me, setMe] = useState<AmbassadorMe | null>(null);
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [sellers, setSellers] = useState<ReferredSellerRow[]>([]);
@@ -99,26 +101,26 @@ export default function AmbassadorDashboard() {
         // @ts-ignore
         await navigator.clipboard.writeText(code);
       }
-      toast.show({ title: "Code copied!", body: `${code} is ready to paste.`, kind: "success" });
+      toast.show({ title: t("ambassadors_dashboard.toast_code_copied_title"), body: t("ambassadors_dashboard.toast_code_copied_body", { code }), kind: "success" });
     } catch {
-      toast.show({ title: "Your code", body: code, kind: "success" });
+      toast.show({ title: t("ambassadors_dashboard.toast_your_code"), body: code, kind: "success" });
     }
   };
 
   const onShareCode = async (code: string, suffix: string) => {
     try {
       await Share.share({
-        message: `Use my code ${code} on Allsale for ${suffix}! https://allsale.co.nz/?ref=${code}`,
+        message: t("ambassadors_dashboard.share_msg", { code, suffix }),
       });
     } catch (e: any) {
-      toast.show({ title: "Couldn't share", body: e?.message || "Try again.", kind: "error" });
+      toast.show({ title: t("ambassadors_dashboard.toast_share_failed_title"), body: e?.message || t("ambassadors_dashboard.toast_share_failed_body"), kind: "error" });
     }
   };
 
   const onSubmitPost = async () => {
     const url = postUrl.trim();
     if (!/^https?:\/\//.test(url)) {
-      toast.show({ title: "Paste a full https:// link", kind: "error" });
+      toast.show({ title: t("ambassadors_dashboard.err_post_url"), kind: "error" });
       return;
     }
     setPosting(true);
@@ -126,12 +128,12 @@ export default function AmbassadorDashboard() {
       const item = await submitContent(url);
       setContent((prev) => [item, ...prev]);
       setPostUrl("");
-      toast.show({ title: "Post submitted ✓", body: "We'll verify it shortly.", kind: "success" });
+      toast.show({ title: t("ambassadors_dashboard.post_submitted_title"), body: t("ambassadors_dashboard.post_submitted_body"), kind: "success" });
       // Refresh `me` so the posts-this-month counter ticks up.
       const fresh = await getMe();
       setMe(fresh);
     } catch (e: any) {
-      toast.show({ title: "Submission failed", body: e?.message || "Try again.", kind: "error" });
+      toast.show({ title: t("ambassadors_dashboard.post_failed_title"), body: e?.message || t("ambassadors_dashboard.post_failed_body"), kind: "error" });
     } finally {
       setPosting(false);
     }
@@ -142,18 +144,18 @@ export default function AmbassadorDashboard() {
     try {
       const res = await requestWithdraw();
       if (res.status === "blocked") {
-        toast.show({ title: "Withdrawal blocked", body: res.reason || "", kind: "info" });
+        toast.show({ title: t("ambassadors_dashboard.withdraw_blocked_title"), body: res.reason || "", kind: "info" });
       } else {
         toast.show({
-          title: "Payout queued 🏦",
-          body: `${formatMoney(res.requested_amount, res.currency)} — you'll receive it within a few business days.`,
+          title: t("ambassadors_dashboard.withdraw_queued_title"),
+          body: t("ambassadors_dashboard.withdraw_queued_body", { amount: formatMoney(res.requested_amount, res.currency) }),
           kind: "success",
         });
         const fresh = await getMe();
         setMe(fresh);
       }
     } catch (e: any) {
-      toast.show({ title: "Couldn't withdraw", body: e?.message || "", kind: "error" });
+      toast.show({ title: t("ambassadors_dashboard.withdraw_failed_title"), body: e?.message || "", kind: "error" });
     } finally {
       setWithdrawing(false);
     }
@@ -212,7 +214,7 @@ export default function AmbassadorDashboard() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Ambassador</Text>
+        <Text style={styles.headerTitle}>{t("ambassadors_dashboard.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -225,28 +227,28 @@ export default function AmbassadorDashboard() {
           <View style={styles.heroIcon}>
             <Sparkles size={22} color="#fff" />
           </View>
-          <Text style={styles.heroGreeting}>Hi {me.name.split(" ")[0] || "there"} 👋</Text>
+          <Text style={styles.heroGreeting}>{t("ambassadors_dashboard.hero_hi", { name: me.name.split(" ")[0] || t("ambassadors_dashboard.hero_default_name") })}</Text>
           <Text style={styles.heroBig}>
             {formatMoney(me.lifetime_commission, me.payout_currency)}
           </Text>
-          <Text style={styles.heroLabel}>Lifetime earnings</Text>
+          <Text style={styles.heroLabel}>{t("ambassadors_dashboard.hero_lifetime")}</Text>
         </View>
 
         {/* Share code cards */}
-        <Text style={styles.sectionTitle}>Your code{me.code_b2b ? "s" : ""}</Text>
+        <Text style={styles.sectionTitle}>{me.code_b2b ? t("ambassadors_dashboard.your_codes_plural") : t("ambassadors_dashboard.your_code_single")}</Text>
         <CodeCard
           code={me.code}
-          subtitle={`Customer code · 5% off for shoppers`}
+          subtitle={t("ambassadors_dashboard.code_subtitle_b2c")}
           onCopy={() => onCopyCode(me.code)}
-          onShare={() => onShareCode(me.code, "5% off your first order")}
+          onShare={() => onShareCode(me.code, t("ambassadors_dashboard.share_suffix_b2c"))}
           testIDPrefix="amb-code-b2c"
         />
         {me.code_b2b && (
           <CodeCard
             code={me.code_b2b}
-            subtitle="Seller-recruit code · Refer Indian businesses"
+            subtitle={t("ambassadors_dashboard.code_subtitle_b2b")}
             onCopy={() => onCopyCode(me.code_b2b!)}
-            onShare={() => onShareCode(me.code_b2b!, "3 months Pro free when you join as a seller")}
+            onShare={() => onShareCode(me.code_b2b!, t("ambassadors_dashboard.share_suffix_b2b"))}
             testIDPrefix="amb-code-b2b"
           />
         )}
@@ -254,18 +256,18 @@ export default function AmbassadorDashboard() {
         {/* KPI tiles */}
         <View style={styles.kpiGrid}>
           <Kpi
-            label="Available"
+            label={t("ambassadors_dashboard.kpi_available")}
             value={formatMoney(me.unpaid_balance, me.payout_currency)}
             color={colors.success}
           />
           <Kpi
-            label="Pending"
+            label={t("ambassadors_dashboard.kpi_pending")}
             value={formatMoney(me.pending_commission, me.payout_currency)}
             color={colors.textMuted}
           />
-          <Kpi label="Orders / 30d" value={String(me.orders_30d)} />
+          <Kpi label={t("ambassadors_dashboard.kpi_orders_30d")} value={String(me.orders_30d)} />
           <Kpi
-            label="Posts / mo"
+            label={t("ambassadors_dashboard.kpi_posts_mo")}
             value={`${me.posts_this_month}/${me.posts_required}`}
             color={me.posts_this_month >= me.posts_required ? colors.success : colors.textMuted}
           />
@@ -283,18 +285,18 @@ export default function AmbassadorDashboard() {
                 <View style={[styles.progressFill, { width: `${tierProgressPct}%` }]} />
               </View>
               <Text style={styles.tierHint}>
-                {Math.max(0, tierTo - me.orders_30d)} more orders to {me.next_tier.label} ({me.next_tier.rate_pct}%)
+                {t("ambassadors_dashboard.tier_more_orders", { n: Math.max(0, tierTo - me.orders_30d), label: me.next_tier.label, pct: me.next_tier.rate_pct })}
               </Text>
             </>
           ) : (
-            <Text style={styles.tierHint}>🏆 Top tier — you&apos;ve maxed out!</Text>
+            <Text style={styles.tierHint}>{t("ambassadors_dashboard.tier_top")}</Text>
           )}
         </View>
 
         {/* Withdraw card */}
         <View style={styles.withdrawCard}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.withdrawLabel}>Available to withdraw</Text>
+            <Text style={styles.withdrawLabel}>{t("ambassadors_dashboard.withdraw_label")}</Text>
             <Text style={styles.withdrawAmount}>
               {formatMoney(me.unpaid_balance, me.payout_currency)}
             </Text>
@@ -309,7 +311,7 @@ export default function AmbassadorDashboard() {
             ]}
           >
             <Wallet size={14} color="#fff" />
-            <Text style={styles.withdrawText}>Withdraw</Text>
+            <Text style={styles.withdrawText}>{t("ambassadors_dashboard.withdraw_btn")}</Text>
           </Pressable>
         </View>
 
@@ -317,18 +319,17 @@ export default function AmbassadorDashboard() {
         <View style={styles.contentCard}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Camera size={16} color={colors.primary} />
-            <Text style={styles.contentTitle}>Log a post</Text>
+            <Text style={styles.contentTitle}>{t("ambassadors_dashboard.content_title")}</Text>
           </View>
           <Text style={styles.contentSub}>
-            Paste any social post URL where you tagged Allsale.
-            We need {me.posts_required}/mo to keep your tier active.
+            {t("ambassadors_dashboard.content_sub", { n: me.posts_required })}
           </Text>
           <TextInput
             testID="amb-post-url"
             style={styles.contentInput}
             value={postUrl}
             onChangeText={setPostUrl}
-            placeholder="https://instagram.com/p/..."
+            placeholder={t("ambassadors_dashboard.content_placeholder")}
             autoCapitalize="none"
             placeholderTextColor={colors.textFaint}
           />
@@ -341,7 +342,7 @@ export default function AmbassadorDashboard() {
             {posting ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.contentBtnText}>Submit post</Text>
+              <Text style={styles.contentBtnText}>{t("ambassadors_dashboard.content_submit_btn")}</Text>
             )}
           </Pressable>
           {content.length > 0 && (
@@ -360,22 +361,22 @@ export default function AmbassadorDashboard() {
 
         {/* Tabs */}
         <View style={styles.tabsRow}>
-          <TabBtn label="Sales" active={tab === "sales"} onPress={() => setTab("sales")} />
+          <TabBtn label={t("ambassadors_dashboard.tab_sales")} testIDKey="sales" active={tab === "sales"} onPress={() => setTab("sales")} />
           {(me.program === "B2B" || me.program === "BOTH") && (
             <TabBtn
-              label="Sellers"
+              label={t("ambassadors_dashboard.tab_sellers")} testIDKey="sellers"
               active={tab === "sellers"}
               onPress={() => setTab("sellers")}
             />
           )}
-          <TabBtn label="Profile" active={tab === "profile"} onPress={() => setTab("profile")} />
+          <TabBtn label={t("ambassadors_dashboard.tab_profile")} testIDKey="profile" active={tab === "profile"} onPress={() => setTab("profile")} />
         </View>
 
         {tab === "sales" && (
           <View style={{ gap: spacing.xs }}>
             {sales.length === 0 ? (
               <View style={styles.empty}>
-                <Text style={styles.emptyText}>No sales yet. Share your code to start earning!</Text>
+                <Text style={styles.emptyText}>{t("ambassadors_dashboard.sales_empty")}</Text>
               </View>
             ) : (
               <>
@@ -392,7 +393,7 @@ export default function AmbassadorDashboard() {
                         +{formatMoney(s.commission, s.currency)}
                       </Text>
                       <Text style={styles.saleLocked}>
-                        {s.locked_at && new Date(s.locked_at) <= new Date() ? "available" : "on hold"}
+                        {s.locked_at && new Date(s.locked_at) <= new Date() ? t("ambassadors_dashboard.sales_locked_available") : t("ambassadors_dashboard.sales_locked_on_hold")}
                       </Text>
                     </View>
                   </View>
@@ -403,7 +404,7 @@ export default function AmbassadorDashboard() {
                   style={styles.viewAllBtn}
                 >
                   <Text style={styles.viewAllText}>
-                    View all sales {sales.length >= 5 ? `(${sales.length}+)` : ""} →
+                    {sales.length >= 5 ? t("ambassadors_dashboard.sales_view_all_n", { n: sales.length }) : t("ambassadors_dashboard.sales_view_all")}
                   </Text>
                 </Pressable>
               </>
@@ -415,9 +416,7 @@ export default function AmbassadorDashboard() {
           <View style={{ gap: spacing.xs }}>
             {sellers.length === 0 ? (
               <View style={styles.empty}>
-                <Text style={styles.emptyText}>
-                  No referred sellers yet. Share your business code with founders you know.
-                </Text>
+                <Text style={styles.emptyText}>{t("ambassadors_dashboard.sellers_empty")}</Text>
               </View>
             ) : (
               <>
@@ -426,7 +425,7 @@ export default function AmbassadorDashboard() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.saleId}>{s.seller_name}</Text>
                       <Text style={styles.saleMeta}>
-                        {s.orders_to_date} orders · {s.months_since_onboard}mo old
+                        {t("ambassadors_dashboard.sellers_meta", { orders: s.orders_to_date, mo: s.months_since_onboard })}
                       </Text>
                     </View>
                     <View style={{ alignItems: "flex-end" }}>
@@ -434,7 +433,7 @@ export default function AmbassadorDashboard() {
                         ₹{s.earnings_to_date_inr.toLocaleString("en-IN")}
                       </Text>
                       <Text style={styles.saleLocked}>
-                        {s.bounty_paid ? "bounty paid" : "bounty pending"}
+                        {s.bounty_paid ? t("ambassadors_dashboard.sellers_bounty_paid") : t("ambassadors_dashboard.sellers_bounty_pending")}
                       </Text>
                     </View>
                   </View>
@@ -444,7 +443,7 @@ export default function AmbassadorDashboard() {
                   onPress={() => router.push("/ambassadors/dashboard/sellers")}
                   style={styles.viewAllBtn}
                 >
-                  <Text style={styles.viewAllText}>View all sellers →</Text>
+                  <Text style={styles.viewAllText}>{t("ambassadors_dashboard.sellers_view_all")}</Text>
                 </Pressable>
               </>
             )}
@@ -459,7 +458,7 @@ export default function AmbassadorDashboard() {
               onPress={() => router.push("/ambassadors/dashboard/profile")}
               style={styles.viewAllBtn}
             >
-              <Text style={styles.viewAllText}>Open full profile editor →</Text>
+              <Text style={styles.viewAllText}>{t("ambassadors_dashboard.profile_open_full")}</Text>
             </Pressable>
           </View>
         )}
@@ -477,10 +476,10 @@ function Kpi({ label, value, color = colors.text }: { label: string; value: stri
   );
 }
 
-function TabBtn({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function TabBtn({ label, active, onPress, testIDKey }: { label: string; active: boolean; onPress: () => void; testIDKey?: string }) {
   return (
     <Pressable
-      testID={`amb-tab-${label.toLowerCase()}`}
+      testID={`amb-tab-${testIDKey || label.toLowerCase()}`}
       onPress={onPress}
       style={[styles.tabBtn, active && styles.tabBtnActive]}
     >
@@ -509,11 +508,11 @@ function CodeCard({
       <View style={styles.codeActions}>
         <Pressable testID={`${testIDPrefix}-copy`} onPress={onCopy} style={styles.codeCopy}>
           <Copy size={14} color={colors.primary} />
-          <Text style={styles.codeCopyText}>Copy</Text>
+          <Text style={styles.codeCopyText}>{t("ambassadors_dashboard.code_copy")}</Text>
         </Pressable>
         <Pressable testID={`${testIDPrefix}-share`} onPress={onShare} style={styles.codeShare}>
           <Share2 size={14} color="#fff" />
-          <Text style={styles.codeShareText}>Share</Text>
+          <Text style={styles.codeShareText}>{t("ambassadors_dashboard.code_share")}</Text>
         </Pressable>
       </View>
     </View>
@@ -522,6 +521,7 @@ function CodeCard({
 
 function ProfileEditor({ me, onSaved }: { me: AmbassadorMe; onSaved: (m: AmbassadorMe) => void }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [handle, setHandle] = useState(me.social_handle || "");
   const [phone, setPhone] = useState(me.phone || "");
   const [audience, setAudience] = useState(
@@ -546,9 +546,9 @@ function ProfileEditor({ me, onSaved }: { me: AmbassadorMe; onSaved: (m: Ambassa
       if (ccy !== me.payout_currency) patch.payout_currency = ccy;
       const fresh = await updateMe(patch);
       onSaved(fresh);
-      toast.show({ title: "Profile saved ✓", kind: "success" });
+      toast.show({ title: t("ambassadors_dashboard.profile_saved_title"), kind: "success" });
     } catch (e: any) {
-      toast.show({ title: "Couldn't save", body: e?.message || "", kind: "error" });
+      toast.show({ title: t("ambassadors_dashboard.profile_save_failed"), body: e?.message || "", kind: "error" });
     } finally {
       setSaving(false);
     }
@@ -556,40 +556,40 @@ function ProfileEditor({ me, onSaved }: { me: AmbassadorMe; onSaved: (m: Ambassa
 
   return (
     <View style={{ gap: spacing.sm }}>
-      <Text style={styles.label}>Social handle</Text>
+      <Text style={styles.label}>{t("ambassadors_dashboard.profile_label_handle")}</Text>
       <TextInput
         testID="amb-edit-handle"
         style={styles.input}
         value={handle}
         onChangeText={setHandle}
-        placeholder="@sarahjenkins"
+        placeholder={t("ambassadors_dashboard.profile_placeholder_handle")}
         autoCapitalize="none"
         placeholderTextColor={colors.textFaint}
       />
 
-      <Text style={styles.label}>Phone</Text>
+      <Text style={styles.label}>{t("ambassadors_dashboard.profile_label_phone")}</Text>
       <TextInput
         testID="amb-edit-phone"
         style={styles.input}
         value={phone}
         onChangeText={setPhone}
-        placeholder="+64 21 555 1234"
+        placeholder={t("ambassadors_dashboard.profile_placeholder_phone")}
         keyboardType="phone-pad"
         placeholderTextColor={colors.textFaint}
       />
 
-      <Text style={styles.label}>Audience size</Text>
+      <Text style={styles.label}>{t("ambassadors_dashboard.profile_label_audience")}</Text>
       <TextInput
         testID="amb-edit-audience"
         style={styles.input}
         value={audience}
         onChangeText={setAudience}
-        placeholder="14500"
+        placeholder={t("ambassadors_dashboard.profile_placeholder_audience")}
         keyboardType="number-pad"
         placeholderTextColor={colors.textFaint}
       />
 
-      <Text style={styles.label}>Payout currency</Text>
+      <Text style={styles.label}>{t("ambassadors_dashboard.profile_label_currency")}</Text>
       <View style={styles.platformWrap}>
         {(isIndia ? ["INR"] : ["NZD", "AUD", "USD", "GBP", "CAD"]).map((c) => (
           <Pressable
@@ -608,9 +608,7 @@ function ProfileEditor({ me, onSaved }: { me: AmbassadorMe; onSaved: (m: Ambassa
         ))}
       </View>
       {isIndia && (
-        <Text style={{ color: colors.textFaint, fontSize: 11 }}>
-          India is INR-only (Razorpay).
-        </Text>
+        <Text style={{ color: colors.textFaint, fontSize: 11 }}>{t("ambassadors_dashboard.profile_india_inr_only")}</Text>
       )}
 
       <Pressable
@@ -619,7 +617,7 @@ function ProfileEditor({ me, onSaved }: { me: AmbassadorMe; onSaved: (m: Ambassa
         onPress={onSave}
         style={[styles.submitBtn, saving && { opacity: 0.6 }]}
       >
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Save changes</Text>}
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{t("ambassadors_dashboard.profile_save_btn")}</Text>}
       </Pressable>
     </View>
   );
@@ -640,6 +638,7 @@ function RejectedDashboard({
   onReapply: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation();
   const isPermanent = me.status === "permanently_banned";
   const canReapplyAt = me.can_reapply_at ? new Date(me.can_reapply_at) : null;
   const now = new Date();
@@ -654,7 +653,7 @@ function RejectedDashboard({
         <Pressable onPress={onBack} style={styles.backBtn} testID="amb-rejected-back">
           <ChevronLeft size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Ambassador</Text>
+        <Text style={styles.headerTitle}>{t("ambassadors_dashboard.title")}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -668,19 +667,17 @@ function RejectedDashboard({
           testID={isPermanent ? "amb-status-banned" : "amb-status-rejected"}
         >
           <Text style={styles.rejectedHeroTitle}>
-            {isPermanent ? "Account ineligible" : "Application not accepted"}
+            {isPermanent ? t("ambassadors_dashboard.rej_title_banned") : t("ambassadors_dashboard.rej_title_rejected")}
           </Text>
           <Text style={styles.rejectedHeroSub}>
-            {isPermanent
-              ? "This account is no longer eligible for the Ambassador Programme."
-              : `Hi ${me.name.split(" ")[0] || "there"} — we've reviewed your application and it didn't meet our current criteria.`}
+            {isPermanent ? t("ambassadors_dashboard.rej_sub_banned") : t("ambassadors_dashboard.rej_sub_rejected", { name: me.name.split(" ")[0] || t("ambassadors_dashboard.hero_default_name") })}
           </Text>
         </View>
 
         {/* Reason card */}
         {me.rejected_reason && (
           <View style={styles.rejectedReasonCard} testID="amb-rejected-reason">
-            <Text style={styles.rejectedReasonLabel}>Reason</Text>
+            <Text style={styles.rejectedReasonLabel}>{t("ambassadors_dashboard.rej_reason_label")}</Text>
             <Text style={styles.rejectedReasonText}>{me.rejected_reason}</Text>
           </View>
         )}
@@ -689,7 +686,7 @@ function RejectedDashboard({
         {!isPermanent && canReapplyAt && (
           <View style={styles.rejectedReapplyCard}>
             <Text style={styles.rejectedReapplyLabel}>
-              {canReapplyNow ? "You can re-apply now" : "You can re-apply on"}
+              {canReapplyNow ? t("ambassadors_dashboard.rej_can_reapply_now") : t("ambassadors_dashboard.rej_can_reapply_on")}
             </Text>
             <Text style={styles.rejectedReapplyDate} testID="amb-rejected-reapply-date">
               {canReapplyAt.toLocaleDateString(undefined, {
@@ -700,7 +697,7 @@ function RejectedDashboard({
             </Text>
             {!canReapplyNow && (
               <Text style={styles.rejectedReapplyHint}>
-                {daysUntil} day{daysUntil === 1 ? "" : "s"} remaining
+                {t(daysUntil === 1 ? "ambassadors_dashboard.rej_days_remaining_one" : "ambassadors_dashboard.rej_days_remaining_other", { n: daysUntil })}
               </Text>
             )}
             <Pressable
@@ -710,7 +707,7 @@ function RejectedDashboard({
               style={[styles.rejectedReapplyBtn, !canReapplyNow && { opacity: 0.4 }]}
             >
               <Text style={styles.rejectedReapplyBtnText}>
-                {canReapplyNow ? "Re-apply now" : "Re-apply unavailable"}
+                {canReapplyNow ? t("ambassadors_dashboard.rej_btn_reapply_now") : t("ambassadors_dashboard.rej_btn_unavailable")}
               </Text>
             </Pressable>
           </View>
@@ -753,6 +750,7 @@ function PendingDashboard({
   onBack: () => void;
 }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [acceptingTerms, setAcceptingTerms] = useState(false);
   const [resending, setResending] = useState(false);
   // Local cooldown countdown (seconds remaining). Seeded from a 429
@@ -774,12 +772,12 @@ function PendingDashboard({
       const fresh = await getMe();
       onChange(fresh);
       toast.show({
-        title: "Terms accepted ✓",
-        body: "Our team will review your application within 2 business days.",
+        title: t("ambassadors_dashboard.pend_terms_accepted_title"),
+        body: t("ambassadors_dashboard.pend_terms_accepted_body"),
         kind: "success",
       });
     } catch (e: any) {
-      toast.show({ title: "Couldn't accept", body: e?.message || "", kind: "error" });
+      toast.show({ title: t("ambassadors_dashboard.pend_terms_failed"), body: e?.message || "", kind: "error" });
     } finally {
       setAcceptingTerms(false);
     }
@@ -796,8 +794,8 @@ function PendingDashboard({
         setCooldownSecs(secs);
       }
       toast.show({
-        title: "Email sent 📨",
-        body: "Check your inbox (and your spam folder, just in case).",
+        title: t("ambassadors_dashboard.pend_resend_sent_title"),
+        body: t("ambassadors_dashboard.pend_resend_sent_body"),
         kind: "success",
       });
     } catch (e: any) {
@@ -805,17 +803,17 @@ function PendingDashboard({
         if (e.status === 429 && e.retryAfter) {
           setCooldownSecs(e.retryAfter);
           toast.show({
-            title: "Slow down — please wait",
+            title: t("ambassadors_dashboard.pend_resend_slow_title"),
             body: e.message,
             kind: "info",
           });
         } else if (e.status === 401 || e.status === 403) {
-          toast.show({ title: "Sign-in required", body: e.message, kind: "error" });
+          toast.show({ title: t("ambassadors_dashboard.pend_resend_signin_title"), body: e.message, kind: "error" });
         } else {
-          toast.show({ title: "Couldn't resend", body: e.message, kind: "error" });
+          toast.show({ title: t("ambassadors_dashboard.pend_resend_failed_title"), body: e.message, kind: "error" });
         }
       } else {
-        toast.show({ title: "Couldn't resend", body: String(e), kind: "error" });
+        toast.show({ title: t("ambassadors_dashboard.pend_resend_failed_title"), body: String(e), kind: "error" });
       }
     } finally {
       setResending(false);
@@ -838,23 +836,20 @@ function PendingDashboard({
       <ScrollView contentContainerStyle={styles.pendingScroll}>
         {/* Status hero */}
         <View style={styles.pendingHero} testID="amb-status-pending">
-          <View style={styles.pendingPill}><Text style={styles.pendingPillText}>● In review</Text></View>
-          <Text style={styles.pendingHeroTitle}>
-            Your application is in review
-          </Text>
+          <View style={styles.pendingPill}><Text style={styles.pendingPillText}>{t("ambassadors_dashboard.pend_in_review")}</Text></View>
+          <Text style={styles.pendingHeroTitle}>{t("ambassadors_dashboard.pend_title")}</Text>
           <Text style={styles.pendingHeroSub}>
-            Thanks {me.name.split(" ")[0] || "there"} — we typically review applications within 2 business days.
-            We&apos;ll email you the moment your code goes live.
+            {t("ambassadors_dashboard.pend_sub", { name: me.name.split(" ")[0] || t("ambassadors_dashboard.hero_default_name") })}
           </Text>
         </View>
 
         {/* Code preview (greyed) */}
         <View style={styles.pendingCodeCard}>
-          <Text style={styles.pendingCodeLabel}>Your code (not active yet)</Text>
+          <Text style={styles.pendingCodeLabel}>{t("ambassadors_dashboard.pend_code_label")}</Text>
           <Text style={styles.pendingCodeValue}>{me.code}</Text>
           {me.code_b2b && (
             <>
-              <Text style={[styles.pendingCodeLabel, { marginTop: 10 }]}>B2B code</Text>
+              <Text style={[styles.pendingCodeLabel, { marginTop: 10 }]}>{t("ambassadors_dashboard.pend_code_b2b_label")}</Text>
               <Text style={styles.pendingCodeValue}>{me.code_b2b}</Text>
             </>
           )}
@@ -871,12 +866,10 @@ function PendingDashboard({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.taskTitle}>
-                {termsAccepted ? "Terms accepted" : "Accept Ambassador Terms"}
+                {termsAccepted ? t("ambassadors_dashboard.pend_terms_done") : t("ambassadors_dashboard.pend_terms_pending")}
               </Text>
               <Text style={styles.taskSub}>
-                {termsAccepted
-                  ? `Accepted ${new Date(me.terms_accepted_at!).toLocaleDateString()}`
-                  : "Quick read — payout rules, content requirements, code of conduct."}
+                {termsAccepted ? t("ambassadors_dashboard.pend_terms_done_sub", { date: new Date(me.terms_accepted_at!).toLocaleDateString() }) : t("ambassadors_dashboard.pend_terms_pending_sub")}
               </Text>
             </View>
           </View>
@@ -890,7 +883,7 @@ function PendingDashboard({
               {acceptingTerms ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.taskBtnText}>Read & accept</Text>
+                <Text style={styles.taskBtnText}>{t("ambassadors_dashboard.pend_terms_btn")}</Text>
               )}
             </Pressable>
           )}
@@ -903,9 +896,9 @@ function PendingDashboard({
               <Text style={{ fontSize: 16 }}>📨</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.taskTitle}>Didn&apos;t get the email?</Text>
+              <Text style={styles.taskTitle}>{t("ambassadors_dashboard.pend_resend_title")}</Text>
               <Text style={styles.taskSub}>
-                Re-send the application confirmation to {me.email}
+                {t("ambassadors_dashboard.pend_resend_sub", { email: me.email })}
               </Text>
             </View>
           </View>
@@ -926,28 +919,26 @@ function PendingDashboard({
                 testID="amb-pending-resend-label"
                 style={[styles.taskBtnText, cooldownSecs > 0 && { color: colors.textMuted }]}
               >
-                {cooldownSecs > 0 ? `Try again in ${mmss}` : "Resend email"}
+                {cooldownSecs > 0 ? t("ambassadors_dashboard.pend_resend_try_again_in", { mmss }) : t("ambassadors_dashboard.pend_resend_btn")}
               </Text>
             )}
           </Pressable>
           {cooldownSecs > 0 && (
-            <Text testID="amb-pending-cooldown-hint" style={styles.cooldownHint}>
-              Rate-limited to one send per hour.
-            </Text>
+            <Text testID="amb-pending-cooldown-hint" style={styles.cooldownHint}>{t("ambassadors_dashboard.pend_resend_rate_limit")}</Text>
           )}
         </View>
 
         {/* What happens next */}
         <View style={styles.timelineCard}>
-          <Text style={styles.timelineTitle}>What happens next</Text>
-          <TimelineRow num={1} done text="You applied" />
+          <Text style={styles.timelineTitle}>{t("ambassadors_dashboard.pend_timeline_title")}</Text>
+          <TimelineRow num={1} done text={t("ambassadors_dashboard.pend_timeline_1")} />
           <TimelineRow
             num={2}
             done={termsAccepted}
-            text={termsAccepted ? "You accepted the T&Cs" : "Accept the T&Cs"}
+            text={termsAccepted ? t("ambassadors_dashboard.pend_timeline_2_done") : t("ambassadors_dashboard.pend_timeline_2_pending")}
           />
-          <TimelineRow num={3} done={false} text="We review (1-2 business days)" />
-          <TimelineRow num={4} done={false} text="You get an email & your code goes live" />
+          <TimelineRow num={3} done={false} text={t("ambassadors_dashboard.pend_timeline_3")} />
+          <TimelineRow num={4} done={false} text={t("ambassadors_dashboard.pend_timeline_4")} />
         </View>
 
         <Text style={styles.rejectedSupport}>
