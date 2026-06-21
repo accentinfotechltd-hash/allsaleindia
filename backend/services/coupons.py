@@ -49,6 +49,23 @@ async def find_coupon(code: str) -> Optional[dict]:
     return await db.coupons.find_one({"code": code}, {"_id": 0})
 
 
+async def is_ambassador_b2b_code(code: str) -> bool:
+    """True if ``code`` matches an ambassador's seller-recruit (B2B) code.
+
+    Used by checkout to give a clear error instead of "coupon not found"
+    when a buyer accidentally pastes a B2B recruit code where a customer
+    discount code (B2C) is expected.
+    """
+    code = (code or "").strip().upper()
+    if not code:
+        return False
+    hit = await db.users.find_one(
+        {"ambassador_profile.code_b2b": code},
+        {"_id": 0, "id": 1},
+    )
+    return hit is not None
+
+
 async def validate_for_cart(
     code: str,
     items: list[dict],

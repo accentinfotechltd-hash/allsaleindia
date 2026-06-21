@@ -23,22 +23,50 @@ router = APIRouter(tags=["seller"])
 
 
 async def _link_ambassador_referral(user_id: str, referral_code: str | None) -> None:
-    """If ``referral_code`` resolves to an active ambassador (B2C *or* B2B
-    code), set ``referred_by_ambassador_id`` on the seller's user doc and
-    increment the ambassador's ``referred_sellers_count``. Idempotent."""
+    """Wire a seller signup to the recruiting ambassador.
+
+    STRICT separation: this only accepts **B2B** ambassador codes
+    (``ambassador_profile.code_b2b``). If the supplied code matches an
+    ambassador's B2C (customer-discount) code instead, raise a 400 so the
+    seller knows they typed the wrong code — mixing the two has real
+    economic consequences (B2C codes are for shopper discount, B2B codes
+    are for seller-recruit bounty + rev-share).
+
+    On a clean match: set ``referred_by_ambassador_id`` on the seller's
+    user doc and increment ``referred_sellers_count`` on the ambassador.
+    Idempotent — re-running with the same input is harmless.
+    """
     code = (referral_code or "").strip().upper()
     if not code:
         return
+    # First try the legitimate B2B field
     amb = await db.users.find_one(
-        {"$or": [
-            {"ambassador_profile.code": code},
-            {"ambassador_profile.code_b2b": code},
-        ],
-         "ambassador_profile.status": {"$ne": "suspended"}},
+        {
+            "ambassador_profile.code_b2b": code,
+            "ambassador_profile.status": {"$ne": "suspended"},
+        },
         {"_id": 0, "id": 1},
     )
     if not amb:
-        return  # invalid / suspended → silently ignore
+        # Defensive: was a B2C code pasted into the seller signup form?
+        # Surface a clear error so the seller knows what to fix.
+        b2c_match = await db.users.find_one(
+            {
+                "ambassador_profile.code": code,
+                "ambassador_profile.status": {"$ne": "suspended"},
+            },
+            {"_id": 0, "id": 1},
+        )
+        if b2c_match:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "That looks like a customer-discount code (B2C). "
+                    "Ask your ambassador for their seller-recruit code "
+                    "(it has a different format)."
+                ),
+            )
+        return  # Unknown code — silently ignore so signup isn't blocked
     res = await db.users.update_one(
         {"id": user_id, "referred_by_ambassador_id": {"$exists": False}},
         {"$set": {

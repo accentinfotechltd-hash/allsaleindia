@@ -87,6 +87,17 @@ async def apply_coupon_to_cart(
     code = (body.code or "").strip().upper()
     _, result = await validate_for_cart(code, cart.items, cart.subtotal_nzd, current)
     if not result.get("ok"):
+        # Defensive: surface a clear message if the buyer pasted a B2B
+        # seller-recruit code (which never has a coupon doc).
+        from services.coupons import is_ambassador_b2b_code
+        if await is_ambassador_b2b_code(code):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "That's a seller-recruit code, not a customer-discount "
+                    "code. Ask your ambassador for their B2C code."
+                ),
+            )
         raise HTTPException(status_code=400, detail=result.get("error") or "Invalid coupon")
 
     await db.carts.update_one(
