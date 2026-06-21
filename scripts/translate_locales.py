@@ -13,7 +13,7 @@ from pathlib import Path
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
-KEY = "sk-emergent-aD30cB518A377D7958"
+KEY = os.environ.get("EMERGENT_LLM_KEY", "sk-emergent-a9d96A438Fb133c367")
 
 ROOT = Path("/app/frontend/src/i18n/locales")
 
@@ -74,7 +74,7 @@ async def translate_one(locale: str, language: str, source: str) -> str:
     chat = (
         LlmChat(api_key=KEY, session_id=f"tx-{locale}", system_message=prompt)
         .with_model("anthropic", "claude-sonnet-4-5-20250929")
-        .with_params(max_tokens=16000)
+        .with_params(max_tokens=64000)
     )
     out = await chat.send_message(UserMessage(text=source))
     text = out.strip()
