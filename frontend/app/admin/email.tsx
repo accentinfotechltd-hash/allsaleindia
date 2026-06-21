@@ -128,9 +128,9 @@ export default function AdminEmailScreen() {
             </View>
 
             <View style={styles.detailCard}>
-              <Detail label="SDK installed" ok={status.sdk_installed} />
+              <Detail label={t("admin_email_diag.sdk_installed")} ok={status.sdk_installed} />
               <Detail
-                label="API key configured"
+                label={t("admin_email_diag.api_key_configured")}
                 ok={status.api_key_set}
                 value={status.api_key_preview || undefined}
               />

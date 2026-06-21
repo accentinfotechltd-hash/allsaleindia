@@ -78,7 +78,7 @@ export default function AdminDashboard() {
         await clearAdminAuth();
         show({ title: t("admin.access_denied"), kind: "error" });
       } else {
-        show({ title: e?.message || "Failed to load", kind: "error" });
+        show({ title: e?.message || t("admin_index.err_load_failed"), kind: "error" });
       }
     } finally {
       setLoading(false);
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
 
   const onLoginPassword = async () => {
     if (!email.trim() || password.length < 8) {
-      show({ title: "Email + 8-char password required", kind: "error" });
+      show({ title: t("admin_index.err_email_password"), kind: "error" });
       return;
     }
     setAuthBusy(true);
@@ -122,7 +122,7 @@ export default function AdminDashboard() {
       setPassword("");
       await loadData();
     } catch (e: any) {
-      show({ title: e?.message || "Login failed", kind: "error" });
+      show({ title: e?.message || t("admin_index.err_login_failed"), kind: "error" });
     } finally {
       setAuthBusy(false);
     }
@@ -130,7 +130,7 @@ export default function AdminDashboard() {
 
   const onLoginSecret = async () => {
     if (secret.length < 4) {
-      show({ title: "Enter your admin secret", kind: "error" });
+      show({ title: t("admin_index.err_secret_required"), kind: "error" });
       return;
     }
     setAuthBusy(true);
@@ -139,7 +139,7 @@ export default function AdminDashboard() {
       setIdentity(bootstrapIdentity());
       await loadData();
     } catch (e: any) {
-      show({ title: e?.message || "Failed", kind: "error" });
+      show({ title: e?.message || t("admin_index.err_failed"), kind: "error" });
     } finally {
       setAuthBusy(false);
     }
@@ -171,9 +171,7 @@ export default function AdminDashboard() {
           <ShieldAlert size={42} color={colors.primary} />
           <Text style={styles.lockTitle}>{t("admin_index.admin_access")}</Text>
           <Text style={styles.lockSub}>
-            {authMode === "password"
-              ? "Sign in with your admin email and password."
-              : "Use the bootstrap owner secret (legacy)."}
+            {authMode === "password" ? t("admin_index.lock_sub_password") : t("admin_index.lock_sub_secret")}
           </Text>
 
           <View style={styles.tabRow}>
@@ -181,17 +179,13 @@ export default function AdminDashboard() {
               onPress={() => setAuthMode("password")}
               style={[styles.tab, authMode === "password" && styles.tabActive]}
             >
-              <Text style={[styles.tabText, authMode === "password" && styles.tabTextActive]}>
-                Email + password
-              </Text>
+              <Text style={[styles.tabText, authMode === "password" && styles.tabTextActive]}>{t("admin_index.tab_password")}</Text>
             </Pressable>
             <Pressable
               onPress={() => setAuthMode("secret")}
               style={[styles.tab, authMode === "secret" && styles.tabActive]}
             >
-              <Text style={[styles.tabText, authMode === "secret" && styles.tabTextActive]}>
-                Owner secret
-              </Text>
+              <Text style={[styles.tabText, authMode === "secret" && styles.tabTextActive]}>{t("admin_index.tab_secret")}</Text>
             </Pressable>
           </View>
 
@@ -201,7 +195,7 @@ export default function AdminDashboard() {
                 testID="admin-login-email"
                 value={email}
                 onChangeText={setEmail}
-                placeholder="Email"
+                placeholder={t("admin_index.placeholder_email")}
                 placeholderTextColor={colors.textFaint}
                 autoCapitalize="none"
                 autoComplete="email"
@@ -212,7 +206,7 @@ export default function AdminDashboard() {
                 testID="admin-login-password"
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Password"
+                placeholder={t("admin_index.placeholder_password")}
                 placeholderTextColor={colors.textFaint}
                 secureTextEntry
                 style={styles.input}
@@ -235,7 +229,7 @@ export default function AdminDashboard() {
                 testID="admin-secret-input"
                 value={secret}
                 onChangeText={setSecret}
-                placeholder="Admin secret"
+                placeholder={t("admin_index.placeholder_secret")}
                 placeholderTextColor={colors.textFaint}
                 secureTextEntry
                 style={styles.input}
@@ -312,25 +306,25 @@ export default function AdminDashboard() {
         )}
         {overview && (
           <View style={styles.grid}>
-            <Stat label="Users" value={String(overview.users)} />
-            <Stat label="Sellers" value={String(overview.sellers)} />
-            <Stat label="Products" value={String(overview.products)} />
-            <Stat label="Paid orders" value={String(overview.orders_paid)} />
-            <Stat label="Revenue" value={formatNZD(overview.revenue_nzd)} emphasis />
+            <Stat label={t("admin_index.stat_users")} value={String(overview.users)} />
+            <Stat label={t("admin_index.stat_sellers")} value={String(overview.sellers)} />
+            <Stat label={t("admin_index.stat_products")} value={String(overview.products)} />
+            <Stat label={t("admin_index.stat_paid_orders")} value={String(overview.orders_paid)} />
+            <Stat label={t("admin_index.stat_revenue")} value={formatNZD(overview.revenue_nzd)} emphasis />
             {canSeePayouts && (
               <Stat
-                label="Pending payouts"
+                label={t("admin_index.stat_pending_payouts")}
                 value={String(overview.pending_payouts)}
                 warn={overview.pending_payouts > 0}
               />
             )}
             <Stat
-              label="Pending sellers"
+              label={t("admin_index.stat_pending_sellers")}
               value={String(overview.pending_sellers)}
               warn={overview.pending_sellers > 0}
             />
             <Stat
-              label="Open returns"
+              label={t("admin_index.stat_open_returns")}
               value={String(overview.open_returns)}
               warn={overview.open_returns > 0}
             />
@@ -372,7 +366,7 @@ export default function AdminDashboard() {
             style={({ pressed }) => [styles.analyticsBtn, pressed && { opacity: 0.85 }]}
           >
             <LineChart size={18} color="#fff" />
-            <Text style={styles.reviewBtnText}>A/B Analytics</Text>
+            <Text style={styles.reviewBtnText}>{t("admin_index.btn_ab_analytics")}</Text>
           </Pressable>
         )}
 
@@ -392,7 +386,7 @@ export default function AdminDashboard() {
             style={({ pressed }) => [styles.teamBtn, pressed && { opacity: 0.85 }]}
           >
             <Users size={18} color="#fff" />
-            <Text style={styles.reviewBtnText}>Team & Sub-admins</Text>
+            <Text style={styles.reviewBtnText}>{t("admin_index.btn_team")}</Text>
           </Pressable>
         )}
 
@@ -402,7 +396,7 @@ export default function AdminDashboard() {
           style={({ pressed }) => [styles.usersBtn, pressed && { opacity: 0.85 }]}
         >
           <Users size={18} color="#fff" />
-          <Text style={styles.reviewBtnText}>Users · search & filter</Text>
+          <Text style={styles.reviewBtnText}>{t("admin_index.btn_users_search")}</Text>
         </Pressable>
 
         <Pressable
@@ -454,7 +448,7 @@ export default function AdminDashboard() {
                 s.seller_verification_status === "auto_verified" ? styles.chipGood : styles.chipPend,
               ]}
             >
-              <Text style={styles.chipText}>{s.seller_verification_status || "pending"}</Text>
+              <Text style={styles.chipText}>{s.seller_verification_status || t("admin_index.chip_pending")}</Text>
             </View>
           </View>
         ))}
