@@ -119,6 +119,13 @@ async def invoice_json(order_id: str, current=Depends(get_current_user)):
         "shipping_nzd": order.get("shipping_nzd"),
         "discount_nzd": order.get("discount_nzd"),
         "points_discount_nzd": order.get("points_discount_nzd"),
+        "tax_nzd": order.get("tax_nzd"),
+        "tax_rate": order.get("tax_rate"),
+        "tax_country": order.get("tax_country"),
+        "tax_label_key": order.get("tax_label_key"),
+        "tax_at_border": order.get("tax_at_border"),
+        "tax_inclusive": order.get("tax_inclusive"),
+        "tax_over_threshold": order.get("tax_over_threshold"),
         "total_nzd": order.get("total_nzd"),
         "charge_amount": order.get("charge_amount"),
         "buyer_currency": order.get("buyer_currency") or "NZD",
@@ -293,6 +300,28 @@ def _build_pdf_bytes(order: dict, buyer_email: str | None) -> bytes:
             f"Points redeemed ({int(order.get('points_used') or 0)} pts)",
             -float(order.get("points_discount_nzd") or 0),
         ))
+    # Tax / consumption duty (NZ GST, AU GST, UK VAT, etc.)
+    _tax_nzd = float(order.get("tax_nzd") or 0)
+    _tax_country = order.get("tax_country")
+    if _tax_nzd > 0:
+        _tax_pct = round(float(order.get("tax_rate") or 0) * 100)
+        _tax_label = {
+            "NZ": f"NZ GST {_tax_pct}%",
+            "AU": f"AU GST {_tax_pct}%",
+            "GB": f"UK VAT {_tax_pct}%",
+        }.get(_tax_country or "", f"Tax {_tax_pct}%")
+        totals_rows.append(_totals_row(_tax_label, _tax_nzd))
+    elif order.get("tax_inclusive"):
+        totals_rows.append([
+            Paragraph("GST included in price (18% IGST)", small),
+            Paragraph("—", small),
+        ])
+    elif order.get("tax_at_border") and order.get("tax_over_threshold"):
+        # High-value parcel — customs collects at the border.
+        totals_rows.append([
+            Paragraph("Customs duty (collected at border)", small),
+            Paragraph("—", small),
+        ])
     totals_rows.append([Paragraph("", small), Paragraph("", small)])  # spacer
     totals_rows.append(_totals_row(
         "TOTAL (NZD)", float(order.get("total_nzd") or 0), bold=True,

@@ -32,6 +32,14 @@ type Order = {
   subtotal_nzd: number;
   shipping_nzd: number;
   total_nzd: number;
+  // Tax / consumption duty (NZ GST, AU GST, UK VAT, etc.)
+  tax_nzd?: number;
+  tax_rate?: number;
+  tax_country?: string | null;
+  tax_label_key?: string | null;
+  tax_at_border?: boolean;
+  tax_inclusive?: boolean;
+  tax_over_threshold?: boolean;
   address: {
     full_name: string;
     line1: string;
@@ -1454,6 +1462,25 @@ const styles = StyleSheet.create({
   confirmedText: { color: colors.success, fontWeight: "700", fontSize: 13, flex: 1 },
   actionGrid: {
     marginTop: spacing.md,
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  actionTile: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  actionTileText: { color: colors.text, fontSize: 13, fontWeight: "800" },
+  actionTileSub: { color: colors.textMuted, fontSize: 11, textAlign: "center" },
+});
+rginTop: spacing.md,
     flexDirection: "row",
     gap: spacing.sm,
   },
