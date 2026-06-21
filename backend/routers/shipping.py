@@ -1,8 +1,6 @@
 """Shipping quote endpoints — buyer-facing rate selector at checkout."""
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, HTTPException, Query
 
 from services.shipping_quotes import quote as quote_engine
@@ -43,7 +41,9 @@ async def get_shipping_quote(
 
 async def _get_inr_per_unit(currency: str) -> float:
     """Return INR per 1 unit of the given currency."""
-    # Static fallback rates if FX service unavailable
+    # Static fallback rates if FX service unavailable. Pacific currencies are
+    # included so /shipping/quote works for FJ/WS/TO/PG buyers even when the
+    # live FX feeds are down.
     FALLBACK_INR = {
         "NZD": 50.0,
         "AUD": 56.0,
@@ -51,6 +51,11 @@ async def _get_inr_per_unit(currency: str) -> float:
         "GBP": 105.0,
         "CAD": 60.0,
         "INR": 1.0,
+        # Pacific tail — calibrated against open.er-api.com snapshots
+        "FJD": 37.0,   # ~50 / 1.32 (NZD→FJD)
+        "WST": 30.0,   # ~50 / 1.65
+        "TOP": 34.0,   # ~50 / 1.45
+        "PGK": 22.0,   # ~50 / 2.30
     }
     try:
         # Try to use the existing FX service if it exposes INR rates
