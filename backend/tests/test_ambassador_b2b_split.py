@@ -123,6 +123,7 @@ async def test_suspended_ambassador_no_attribution():
         {"id": amb_id},
         {"$set": {
             "id": amb_id,
+            "email": f"{amb_id}@example.com",
             "ambassador_profile": {
                 "code": "BANNED-NZ", "code_b2b": "BANNED-RECRUIT",
                 "status": "suspended", "referred_sellers_count": 0,
