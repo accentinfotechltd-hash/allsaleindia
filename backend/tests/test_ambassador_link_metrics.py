@@ -184,16 +184,14 @@ async def test_link_clicks_daily_returns_contiguous_series(transport):
     code = f"DAILY{uuid.uuid4().hex[:4].upper()}"
     uid = await _seed_ambassador(name="Daily Tester", code=code)
     now = datetime.now(timezone.utc)
-    # Click distribution across the last 6 days, plus an old click far outside the window
-    # to ensure it gets filtered.
     rows = [
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                            "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                            "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2b", "ts": now - timedelta(days=1),        "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=2),        "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                            "ip_hash": "hA", "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                            "ip_hash": "hA", "user_agent": ""},  # same visitor
+        {"user_id": uid, "code": code, "type": "b2b", "ts": now - timedelta(days=1),        "ip_hash": "hB", "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=2),        "ip_hash": "hC", "user_agent": ""},
         # day -3 intentionally empty
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=4),        "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=120),      "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=4),        "ip_hash": "hD", "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=120),      "ip_hash": "hE", "user_agent": ""},
     ]
     await db.ambassador_link_clicks.insert_many(rows)
     try:
@@ -205,19 +203,20 @@ async def test_link_clicks_daily_returns_contiguous_series(transport):
             )
         assert r.status_code == 200, r.text
         series = r.json()
-        # 7 contiguous days, each with date/b2c/b2b/total
         assert len(series) == 7
         for row in series:
-            assert set(row.keys()) == {"date", "b2c", "b2b", "total"}
+            assert set(row.keys()) == {"date", "b2c", "b2b", "total", "uniques"}
         # Total clicks in last 7 days = 5 (excluded the day -120 row)
         assert sum(s["total"] for s in series) == 5
-        # Most recent day (last in array) should have 2 b2c clicks
-        assert series[-1]["b2c"] == 2
+        # Today: 2 clicks but only 1 unique visitor (hA × 2).
         assert series[-1]["total"] == 2
-        # Day -1 had a b2b click
+        assert series[-1]["uniques"] == 1
+        # Day -1 had a single visitor.
         assert series[-2]["b2b"] == 1
-        # Day -3 in the past = index (7-1-3) = 3 should be all zero
+        assert series[-2]["uniques"] == 1
+        # Day -3 was empty.
         assert series[3]["total"] == 0
+        assert series[3]["uniques"] == 0
     finally:
         await _cleanup(uid)
 

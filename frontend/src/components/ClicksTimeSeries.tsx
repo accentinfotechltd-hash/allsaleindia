@@ -7,11 +7,11 @@
  */
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { G, Rect, Svg, Text as SvgText } from "react-native-svg";
+import { Circle, G, Polyline, Rect, Svg, Text as SvgText } from "react-native-svg";
 
-import { colors, radius, spacing } from "@/src/lib/theme";
+import { colors, spacing } from "@/src/lib/theme";
 
-export type DailyPoint = { date: string; b2c: number; b2b: number; total: number };
+export type DailyPoint = { date: string; b2c: number; b2b: number; total: number; uniques: number };
 
 const CHART_HEIGHT = 110;
 const PADDING_TOP = 14;
@@ -50,6 +50,20 @@ export function ClicksTimeSeries({
   const innerBarWidth = Math.max(barWidth - 2, 1);
   const innerH = CHART_HEIGHT - PADDING_TOP - PADDING_BOTTOM;
   const yScale = maxVal > 0 ? innerH / maxVal : 0;
+
+  // Uniques overlay: a polyline using the same y-axis as the bars (uniques
+  // are always ≤ total clicks so reusing the click scale keeps the line
+  // readable). Computed inline since this branch only runs when data is
+  // non-empty — Hooks must always be called unconditionally.
+  const uniquesPoints = yScale
+    ? data
+        .map((d, i) => {
+          const cx = i * barWidth + barWidth / 2;
+          const cy = PADDING_TOP + innerH - d.uniques * yScale;
+          return `${cx.toFixed(1)},${cy.toFixed(1)}`;
+        })
+        .join(" ")
+    : "";
 
   // Show day-of-week tick every nth bar so X-axis labels don't collide.
   const tickStep = Math.max(1, Math.ceil(barCount / 6));
@@ -122,6 +136,26 @@ export function ClicksTimeSeries({
               </G>
             );
           })}
+          {uniquesPoints ? (
+            <Polyline
+              points={uniquesPoints}
+              fill="none"
+              stroke="#16A34A"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ) : null}
+          {yScale > 0
+            ? data.map((d, i) => {
+                if (d.uniques === 0) return null;
+                const cx = i * barWidth + barWidth / 2;
+                const cy = PADDING_TOP + innerH - d.uniques * yScale;
+                return (
+                  <Circle key={`u-${d.date}`} cx={cx} cy={cy} r={1.8} fill="#16A34A" />
+                );
+              })
+            : null}
         </G>
       </Svg>
       {!hasAny ? (
@@ -140,6 +174,10 @@ export function ClicksTimeSeries({
               <Text style={styles.legendText}>Seller (B2B)</Text>
             </View>
           ) : null}
+          <View style={styles.legendItem}>
+            <View style={[styles.lineSwatch, { backgroundColor: "#16A34A" }]} />
+            <Text style={styles.legendText}>Unique visitors</Text>
+          </View>
         </View>
       )}
     </View>
@@ -169,5 +207,6 @@ const styles = StyleSheet.create({
   },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   swatch: { width: 8, height: 8, borderRadius: 2 },
+  lineSwatch: { width: 12, height: 2, borderRadius: 1 },
   legendText: { fontSize: 11, color: colors.textMuted },
 });

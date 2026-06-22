@@ -196,6 +196,7 @@ export type DailyClicks = {
   b2c: number;
   b2b: number;
   total: number;
+  uniques: number;
 };
 
 export const getMyLinkClicksDaily = (days = 30) =>

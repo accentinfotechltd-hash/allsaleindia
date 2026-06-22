@@ -902,3 +902,45 @@ agent_communication:
       after Metro bundle.
 
 
+
+
+  - agent: main
+    message: |
+      Daily uniques chart overlay — COMPLETE.
+
+      Backend (1 file changed):
+        • /app/backend/routers/ambassadors.py:
+            - `DailyClicks` model extended with `uniques: int`.
+            - `/me/link-clicks-daily` aggregation now collects `ip_hash`
+              via `$addToSet` per day, then computes `len(non_null_hashes)`
+              for each bucket. Days with no clicks return `uniques: 0`.
+
+      Frontend (3 files changed):
+        • /app/frontend/src/lib/ambassadors.ts — added `uniques: number` to
+          the `DailyClicks` type.
+        • /app/frontend/src/components/ClicksTimeSeries.tsx:
+            - Imported `Polyline` and `Circle` from react-native-svg.
+            - Computed `uniquesPoints` inline (post-early-return) so React
+              Hooks rules stay satisfied — the previous useMemo placement
+              violated the hooks contract.
+            - Added a green `<Polyline>` overlay using the same y-scale as
+              the bars (uniques are always ≤ total, so reusing the scale
+              keeps the line on-chart and readable).
+            - Added small `<Circle>` markers on each day with uniques > 0
+              so very-low-density data still reads as a trend.
+            - Added "Unique visitors" legend item with a horizontal-line
+              swatch matching the polyline color (#16A34A).
+        • Removed an unused `radius` import.
+
+      Backend tests:
+        • `test_link_clicks_daily_returns_contiguous_series` strengthened
+          to use 5 distinct ip_hashes (one repeated visitor on day 0) and
+          assert that today's row reads `{total: 2, uniques: 1}`. Verifies
+          dedup logic, empty-day zero-fill, and the new `uniques` key on
+          every row's shape.
+
+      All 21 ambassador/cart/smart-link/sources tests pass.
+
+      Live verification: Sarah's `/api/ambassadors/me/link-clicks-daily?days=3`
+      returns today's bucket as `{total: 5, uniques: 2}` — proving the per-day
+      dedup runs over real production data.
