@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -126,11 +127,34 @@ export default function AmbassadorDashboard() {
     }
   };
 
-  const onShareCode = async (code: string, suffix: string) => {
+  // Share dialog with channel picker — open a modal that lets the ambassador
+  // pick a channel (Instagram / WhatsApp / Twitter / …) so we can pre-tag the
+  // URL with `?utm_source=<channel>` and attribute the clicks back to the
+  // right traffic source on the dashboard's Top Channels card.
+  const [shareSheet, setShareSheet] = useState<{ code: string; suffix: string } | null>(null);
+
+  const onShareCode = (code: string, suffix: string) => {
+    setShareSheet({ code, suffix });
+  };
+
+  const onShareViaChannel = async (channel: { source: string; medium: string; label: string; emoji: string }) => {
+    if (!shareSheet) return;
+    const { code, suffix } = shareSheet;
+    const url = `https://allsale.co.nz/a/${encodeURIComponent(code)}?utm_source=${encodeURIComponent(channel.source)}&utm_medium=${encodeURIComponent(channel.medium)}`;
+    const msg = `Use my code ${code} on Allsale for ${suffix}! ${url}`;
+    setShareSheet(null);
+    if (channel.source === "copy_link") {
+      try {
+        const Clipboard = await import("expo-clipboard");
+        await Clipboard.setStringAsync(url);
+        toast.show({ title: "Link copied", body: url, kind: "success" });
+      } catch {
+        toast.show({ title: "Copy failed", body: url, kind: "error" });
+      }
+      return;
+    }
     try {
-      await Share.share({
-        message: t("ambassadors_dashboard.share_msg", { code, suffix }),
-      });
+      await Share.share({ message: msg });
     } catch (e: any) {
       toast.show({ title: t("ambassadors_dashboard.toast_share_failed_title"), body: e?.message || t("ambassadors_dashboard.toast_share_failed_body"), kind: "error" });
     }
@@ -565,9 +589,63 @@ export default function AmbassadorDashboard() {
           </View>
         )}
       </ScrollView>
+
+      {/* Channel picker modal — opens when ambassador taps Share. Lets them
+          pick Instagram / WhatsApp / Twitter / etc. so we pre-tag the link
+          with `?utm_source=<channel>` for traffic-source attribution. */}
+      <Modal
+        visible={!!shareSheet}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShareSheet(null)}
+      >
+        <Pressable style={styles.shareBackdrop} onPress={() => setShareSheet(null)}>
+          <Pressable style={styles.shareSheet} onPress={() => { /* swallow */ }}>
+            <Text style={styles.shareSheetTitle}>Share where?</Text>
+            <Text style={styles.shareSheetSub}>
+              Picking a channel pre-tags your link so you can see exactly which platform drives the most clicks.
+            </Text>
+            <View style={styles.shareGrid}>
+              {SHARE_CHANNELS.map((ch) => (
+                <Pressable
+                  key={ch.source}
+                  testID={`share-channel-${ch.source}`}
+                  onPress={() => onShareViaChannel(ch)}
+                  style={({ pressed }) => [
+                    styles.shareTile,
+                    pressed && { transform: [{ scale: 0.96 }], opacity: 0.85 },
+                  ]}
+                >
+                  <Text style={styles.shareTileEmoji}>{ch.emoji}</Text>
+                  <Text style={styles.shareTileLabel}>{ch.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable onPress={() => setShareSheet(null)} style={styles.shareCancel}>
+              <Text style={styles.shareCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+// Channels the ambassador can pick from in the share sheet. Each generates
+// a `?utm_source=<source>&utm_medium=<medium>` query so the backend's
+// `_normalize_source()` attributes the click correctly on the dashboard.
+const SHARE_CHANNELS: { source: string; medium: string; label: string; emoji: string }[] = [
+  { source: "instagram", medium: "story",   label: "Instagram",   emoji: "📸" },
+  { source: "whatsapp",  medium: "dm",      label: "WhatsApp",    emoji: "💬" },
+  { source: "facebook",  medium: "post",    label: "Facebook",    emoji: "📘" },
+  { source: "twitter",   medium: "tweet",   label: "X / Twitter", emoji: "𝕏" },
+  { source: "tiktok",    medium: "bio",     label: "TikTok",      emoji: "🎵" },
+  { source: "youtube",   medium: "video",   label: "YouTube",     emoji: "▶" },
+  { source: "telegram",  medium: "dm",      label: "Telegram",    emoji: "✈" },
+  { source: "email",     medium: "email",   label: "Email",       emoji: "✉" },
+  { source: "sms",       medium: "sms",     label: "SMS",         emoji: "💌" },
+  { source: "copy_link", medium: "manual",  label: "Copy link",   emoji: "🔗" },
+];
 
 function channelIcon(source: string): string {
   switch (source) {
@@ -1208,6 +1286,46 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   channelBarFill: { backgroundColor: colors.primary, height: 6, borderRadius: 3 },
+  shareBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+  },
+  shareSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    maxHeight: "85%",
+  },
+  shareSheetTitle: { fontSize: 18, fontWeight: "900", color: colors.text },
+  shareSheetSub: { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
+  shareGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  shareTile: {
+    width: "30%",
+    aspectRatio: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  shareTileEmoji: { fontSize: 26 },
+  shareTileLabel: { fontSize: 11, fontWeight: "700", color: colors.text, textAlign: "center" },
+  shareCancel: {
+    paddingVertical: spacing.md,
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: 4,
+  },
+  shareCancelText: { color: colors.textMuted, fontWeight: "700", fontSize: 14 },
   kpi: {
     flexBasis: "48%",
     flexGrow: 1,

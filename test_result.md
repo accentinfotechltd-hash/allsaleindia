@@ -824,3 +824,51 @@ agent_communication:
          {source: "whatsapp", clicks: 1, uniques: 1}]
 
 
+  - agent: main
+    message: |
+      UTM-link builder UI for ambassador share dialog — COMPLETE.
+
+      Closes the loop on click-source attribution: ambassadors no longer
+      need to manually type `?utm_source=…`. The share button now opens a
+      channel picker sheet, and tapping a tile pre-tags the shareable link
+      with the correct UTM params, then opens the native share dialog
+      (or copies-to-clipboard).
+
+      File changed: /app/frontend/app/ambassadors/dashboard.tsx
+        • Added `<Modal>` import to the existing react-native imports.
+        • Refactored `onShareCode()` to open a channel-picker modal
+          instead of immediately calling Share.share(). Stores the
+          {code, suffix} pair in `shareSheet` state.
+        • Added `onShareViaChannel(channel)` handler that builds:
+            `https://allsale.co.nz/a/{CODE}?utm_source=<src>&utm_medium=<med>`
+          then either:
+            - copies to clipboard (for the "Copy link" tile), OR
+            - calls native Share.share() with a templated message.
+        • Added new modal JSX with a 3-column grid of share tiles
+          (Instagram, WhatsApp, Facebook, X/Twitter, TikTok, YouTube,
+          Telegram, Email, SMS, Copy link), plus a Cancel button and a
+          friendly subtitle explaining why picking a channel helps.
+        • Added matching styles: shareBackdrop, shareSheet, shareGrid,
+          shareTile (square, 30% width), shareTileEmoji (26px), etc.
+        • Added the SHARE_CHANNELS array at module bottom defining all
+          available channels with their (source, medium, label, emoji).
+
+      Why this closes the loop end-to-end:
+        1. Ambassador taps Share → picks "Instagram" 📸
+        2. URL `https://allsale.co.nz/a/SARAHJENKINS5?utm_source=instagram&utm_medium=story`
+           opens in OS share sheet → Sarah posts to her IG story
+        3. Visitor taps → /a/[code].tsx reads `utm_source` from
+           window.location.search → includes it in track-visit body
+        4. Backend stores `source: "instagram"` on the click row
+        5. Sarah opens her dashboard → "Top channels" card shows
+           Instagram driving the most clicks. 🎯
+
+      No new backend tests (all UI work in this iteration). All 21
+      existing ambassador/cart/smart-link/sources tests still pass.
+
+      Linted clean. Metro bundled the changes successfully (verified via
+      page load — only error was the expected "Missing bearer token"
+      from anonymous viewing of /ambassadors/dashboard, which requires
+      ambassador auth).
+
+
