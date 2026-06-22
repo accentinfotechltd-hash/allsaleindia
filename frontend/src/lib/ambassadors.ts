@@ -206,6 +206,8 @@ export type SourceBreakdownRow = {
   source: string;
   clicks: number;
   uniques: number;
+  /** Paid-order conversions attributed to this channel in the window. */
+  conversions: number;
 };
 
 export const getMyLinkSources = (days = 30) =>

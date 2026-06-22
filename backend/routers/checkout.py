@@ -129,6 +129,14 @@ async def create_checkout_session_route(
         "total_nzd": cart.total_nzd,
         "coupon_code": getattr(cart, "coupon_code", None),
         "coupon_label": getattr(cart, "coupon_label", None),
+        # Ambassador smart-link attribution: copy `attribution_source` (set
+        # by /api/cart/coupon when the buyer arrived via /a/{code}?utm_source=…)
+        # onto the order so the dashboard's Top-Channels card can roll up
+        # conversions per channel.
+        "attribution_source": (
+            (await db.carts.find_one({"user_id": current["id"]}, {"_id": 0, "attribution_source": 1})
+             or {}).get("attribution_source")
+        ),
         "points_used": int(getattr(cart, "points_used", 0) or 0),
         "points_discount_nzd": float(getattr(cart, "points_discount_nzd", 0.0) or 0.0),
         "address": body.address.model_dump(),

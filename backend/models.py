@@ -526,6 +526,11 @@ class Coupon(BaseModel):
 
 class CouponValidateRequest(BaseModel):
     code: str = Field(..., min_length=2, max_length=20)
+    # Optional traffic-source tag flowed in from `/a/{code}` ambassador
+    # smart-link landing. Stored on the cart and copied to the resulting
+    # order at checkout so the Top-Channels dashboard can show conversions
+    # per channel (instagram / whatsapp / direct / …).
+    source: Optional[str] = Field(default=None, max_length=32)
 
 
 class CouponApplyResult(BaseModel):

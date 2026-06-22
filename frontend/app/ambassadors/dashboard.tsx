@@ -374,19 +374,33 @@ export default function AmbassadorDashboard() {
             {linkSources.length > 0 ? (
               <View style={styles.linkPerfChart} testID="ambassadors-top-channels">
                 <Text style={styles.linkPerfChartTitle}>Top channels · last 30 days</Text>
+                <View style={styles.channelLegend}>
+                  <Text style={styles.channelLegendText}>
+                    Each row shows clicks → uniques → paid orders. Tap a code share button to add UTM tags so traffic gets bucketed here.
+                  </Text>
+                </View>
                 {linkSources.slice(0, 5).map((row, i) => {
                   const max = Math.max(...linkSources.map((r) => r.clicks), 1);
                   const widthPct = (row.clicks / max) * 100;
+                  const conv = row.conversions ?? 0;
+                  const convRate = row.clicks > 0 ? (conv / row.clicks) * 100 : 0;
                   return (
                     <View key={`${row.source}-${i}`} style={styles.channelRow}>
                       <Text style={styles.channelIcon}>{channelIcon(row.source)}</Text>
                       <View style={{ flex: 1 }}>
                         <View style={styles.channelHeader}>
                           <Text style={styles.channelName}>{channelLabel(row.source)}</Text>
-                          <Text style={styles.channelCount}>
-                            {`${row.clicks} click${row.clicks === 1 ? "" : "s"} · ${row.uniques} unique`}
-                          </Text>
+                          {conv > 0 ? (
+                            <View style={styles.channelConvBadge} testID={`channel-conv-${row.source}`}>
+                              <Text style={styles.channelConvBadgeText}>
+                                {`${conv} order${conv === 1 ? "" : "s"} · ${convRate.toFixed(1)}%`}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
+                        <Text style={styles.channelCount}>
+                          {`${row.clicks} click${row.clicks === 1 ? "" : "s"} · ${row.uniques} unique${conv === 0 ? " · 0 orders" : ""}`}
+                        </Text>
                         <View style={styles.channelBarTrack}>
                           <View style={[styles.channelBarFill, { width: `${widthPct}%` }]} />
                         </View>
@@ -1286,6 +1300,20 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   channelBarFill: { backgroundColor: colors.primary, height: 6, borderRadius: 3 },
+  channelConvBadge: {
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  channelConvBadgeText: {
+    color: colors.success,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.2,
+  },
+  channelLegend: { paddingBottom: 4 },
+  channelLegendText: { fontSize: 10, color: colors.textFaint, lineHeight: 14 },
   shareBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",

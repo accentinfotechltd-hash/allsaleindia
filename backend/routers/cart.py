@@ -85,6 +85,7 @@ async def apply_coupon_to_cart(
         raise HTTPException(status_code=400, detail="Your cart is empty")
 
     code = (body.code or "").strip().upper()
+    src = (body.source or "").strip().lower()[:32] or None
     _, result = await validate_for_cart(code, cart.items, cart.subtotal_nzd, current)
     if not result.get("ok"):
         # Defensive: surface a clear message if the buyer pasted a B2B
@@ -107,9 +108,12 @@ async def apply_coupon_to_cart(
             )
         raise HTTPException(status_code=400, detail=result.get("error") or "Invalid coupon")
 
+    set_doc: dict = {"coupon_code": code, "updated_at": now_utc()}
+    if src:
+        set_doc["attribution_source"] = src
     await db.carts.update_one(
         {"user_id": current["id"]},
-        {"$set": {"coupon_code": code, "updated_at": now_utc()}},
+        {"$set": set_doc},
         upsert=True,
     )
     return await hydrate_cart(current["id"])

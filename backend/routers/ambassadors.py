@@ -678,6 +678,7 @@ class SourceBreakdownRow(BaseModel):
     source: str    # normalized: "instagram", "whatsapp", "direct", ...
     clicks: int
     uniques: int
+    conversions: int = 0    # paid orders attributed to this source (last `days`)
 
 
 @router.get("/ambassadors/me/link-sources", response_model=list[SourceBreakdownRow])
@@ -688,14 +689,16 @@ async def my_link_sources(
     """Aggregate clicks-by-source for the calling ambassador's smart-links.
 
     Returns the top channels (sorted by clicks desc) so the dashboard can
-    show "Top channels (30d)". Each row has both raw clicks and distinct
-    visitor count (via the same ip_hash dedup used by uniques_30d).
+    show "Top channels (30d)". Each row has raw clicks, distinct visitor
+    count, AND paid-order conversions attributed to that source so
+    ambassadors see which channel actually drives revenue (not just clicks).
     """
     days = max(1, min(int(days or 30), 90))
     user_id = current.id if hasattr(current, "id") else current["id"]
     now = datetime.now(timezone.utc)
     since = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
+    # Clicks-by-source aggregation (existing pipeline).
     pipeline = [
         {"$match": {"user_id": user_id, "ts": {"$gte": since}}},
         {"$group": {
@@ -703,23 +706,46 @@ async def my_link_sources(
             "clicks": {"$sum": 1},
             "uniques": {"$addToSet": {"$ifNull": ["$ip_hash", "$_id"]}},
         }},
-        {"$project": {
-            "source": "$_id",
-            "clicks": 1,
-            "uniques": {"$size": "$uniques"},
-            "_id": 0,
-        }},
-        {"$sort": {"clicks": -1}},
-        {"$limit": 12},
+        {"$project": {"source": "$_id", "clicks": 1, "uniques": {"$size": "$uniques"}, "_id": 0}},
     ]
-    out: list[SourceBreakdownRow] = []
+    by_src: dict[str, dict[str, int]] = {}
     async for row in db.ambassador_link_clicks.aggregate(pipeline):
-        out.append(SourceBreakdownRow(
-            source=str(row.get("source") or "direct"),
-            clicks=int(row.get("clicks", 0)),
-            uniques=int(row.get("uniques", 0)),
-        ))
-    return out
+        s = str(row.get("source") or "direct")
+        by_src[s] = {"clicks": int(row["clicks"]), "uniques": int(row["uniques"]), "conversions": 0}
+
+    # Conversions-by-source: paid orders attributed to this ambassador,
+    # bucketed by `attribution_source` (set at cart-coupon time and copied
+    # to the order at checkout). Falls back to "direct" for legacy orders.
+    conv_pipeline = [
+        {"$match": {
+            "ambassador_user_id": user_id,
+            "payment_status": {"$in": ["paid", "succeeded", "captured"]},
+            "created_at": {"$gte": since},
+        }},
+        {"$group": {
+            "_id": {"$ifNull": ["$attribution_source", "direct"]},
+            "conversions": {"$sum": 1},
+        }},
+    ]
+    async for row in db.orders.aggregate(conv_pipeline):
+        s = str(row.get("_id") or "direct")
+        if s not in by_src:
+            by_src[s] = {"clicks": 0, "uniques": 0, "conversions": 0}
+        by_src[s]["conversions"] = int(row["conversions"])
+
+    out = [
+        SourceBreakdownRow(
+            source=s,
+            clicks=v["clicks"],
+            uniques=v["uniques"],
+            conversions=v["conversions"],
+        )
+        for s, v in by_src.items()
+    ]
+    # Sort: clicks desc, then conversions desc as tiebreak (so a 0-click
+    # but 1-conversion legacy bucket stays visible at the bottom).
+    out.sort(key=lambda r: (r.clicks, r.conversions), reverse=True)
+    return out[:12]
 
 
 # ---------------------------------------------------------------------------
