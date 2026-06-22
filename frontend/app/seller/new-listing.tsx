@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, ChevronLeft, Image as ImageIcon, Plus, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -55,6 +56,42 @@ export default function NewListing() {
   const [sizeDraft, setSizeDraft] = useState("");
   const [stockCount, setStockCount] = useState("25");
 
+  /**
+   * Downscale a picked photo so it fits comfortably under our upload + AI
+   * size caps. We target max 1600px on the longest side at JPEG q=0.7 —
+   * enough resolution for product listings AND for Claude vision to read
+   * details, while always producing a payload under ~600 KB on most phones.
+   * Falls back to the original asset on any error.
+   */
+  const compressForUpload = async (
+    asset: ImagePicker.ImagePickerAsset,
+  ): Promise<{ uri: string; base64: string | null; mime: string }> => {
+    const originalUri = asset.uri;
+    const originalMime = asset.mimeType || "image/jpeg";
+    const tooBig =
+      (asset.width && asset.width > 1600) ||
+      (asset.height && asset.height > 1600) ||
+      // Heuristic: if base64 length is > 2 MB, assume the file is too big.
+      (asset.base64 ? asset.base64.length > 2_000_000 : false);
+    if (!tooBig) {
+      return { uri: originalUri, base64: asset.base64 ?? null, mime: originalMime };
+    }
+    try {
+      const out = await ImageManipulator.manipulateAsync(
+        originalUri,
+        [{ resize: { width: 1600 } }],
+        {
+          compress: 0.7,
+          format: ImageManipulator.SaveFormat.JPEG,
+          base64: true,
+        },
+      );
+      return { uri: out.uri, base64: out.base64 ?? null, mime: "image/jpeg" };
+    } catch {
+      return { uri: originalUri, base64: asset.base64 ?? null, mime: originalMime };
+    }
+  };
+
   const pickPhotos = async () => {
     if (photos.length >= MAX_PHOTOS) {
       show({ title: t("seller_new_listing.photo_limit_title"), message: t("seller_new_listing.photo_limit_msg", { max: MAX_PHOTOS }), kind: "error" });
@@ -83,12 +120,9 @@ export default function NewListing() {
       // for snappy UI feedback, then swap it for the CDN URL on success.
       for (const a of result.assets) {
         if (!a.base64 && !a.uri) continue;
-        const mime = a.mimeType || "image/jpeg";
-        const dataUri = a.base64 ? `data:${mime};base64,${a.base64}` : a.uri!;
-        // Save the ORIGINAL local URI (or data URI fallback) for AI fill —
-        // expo-image-picker on Android sometimes returns null base64, so we
-        // read the file on demand later via FileSystem.
-        const sourceUri = a.uri || dataUri;
+        const { uri: localUri, base64: localBase64, mime } = await compressForUpload(a);
+        const dataUri = localBase64 ? `data:${mime};base64,${localBase64}` : localUri;
+        const sourceUri = localUri || dataUri;
         try {
           const res = await api<{ url: string; provider: string }>("/uploads/image", {
             method: "POST",
@@ -97,10 +131,9 @@ export default function NewListing() {
           setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
           setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
         } catch (e: any) {
-          // Fall back to local data URI so the form is not dead-ended.
           setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
           setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
-          show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
+          show({ title: t("seller_new_listing.upload_warning_title"), body: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
         }
       }
     } catch (e: any) {
@@ -124,9 +157,9 @@ export default function NewListing() {
       if (result.canceled) return;
       const a = result.assets[0];
       if (!a?.base64 && !a?.uri) return;
-      const mime = a.mimeType || "image/jpeg";
-      const dataUri = a.base64 ? `data:${mime};base64,${a.base64}` : a.uri!;
-      const sourceUri = a.uri || dataUri;
+      const { uri: localUri, base64: localBase64, mime } = await compressForUpload(a);
+      const dataUri = localBase64 ? `data:${mime};base64,${localBase64}` : localUri;
+      const sourceUri = localUri || dataUri;
       try {
         const res = await api<{ url: string; provider: string }>("/uploads/image", {
           method: "POST",
@@ -137,7 +170,7 @@ export default function NewListing() {
       } catch (e: any) {
         setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
         setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
-        show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
+        show({ title: t("seller_new_listing.upload_warning_title"), body: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
       }
     } catch (e: any) {
       show({ title: t("seller_new_listing.couldnt_open_camera"), message: e?.message || t("seller_new_listing.try_again"), kind: "error" });
@@ -213,7 +246,7 @@ export default function NewListing() {
     } catch (e: any) {
       const status = e?.status as number | undefined;
       const detail = e?.message || e?.detail || (typeof e === "string" ? e : "") || "Unknown error";
-      // eslint-disable-next-line no-console
+      // diagnostic for prod issues — Sentry breadcrumb only
       console.warn("[ai-draft] failed:", { status, message: e?.message, detail: e?.detail, sources });
 
       // 401 here usually means the seller's JWT expired (e.g. after pairing
