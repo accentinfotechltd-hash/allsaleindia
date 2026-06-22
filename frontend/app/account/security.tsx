@@ -212,8 +212,23 @@ function Row({
   busy?: boolean;
   testID?: string;
 }) {
+  const blocked = !!disabled || !!busy;
+  // Tap-anywhere-on-the-row toggles the Switch. The native <Switch> stays
+  // wired up so the swipe gesture continues to work; this just gives users
+  // a 100%-width tap target which is the expected mobile UX for settings.
   return (
-    <View style={[styles.row, disabled && { opacity: 0.6 }]} testID={testID}>
+    <Pressable
+      onPress={() => {
+        if (!blocked) onChange(!value);
+      }}
+      android_ripple={!blocked ? { color: "rgba(0,0,0,0.06)" } : undefined}
+      style={({ pressed }) => [
+        styles.row,
+        disabled && { opacity: 0.6 },
+        pressed && !blocked && { backgroundColor: colors.surfaceMuted },
+      ]}
+      testID={testID}
+    >
       <View style={styles.rowIcon}>{icon}</View>
       <View style={{ flex: 1 }}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -228,9 +243,11 @@ function Row({
           disabled={disabled}
           trackColor={{ false: colors.surfaceMuted, true: colors.primarySoft }}
           thumbColor={value ? colors.primary : "#fff"}
+          // iOS sets ios_backgroundColor; harmless on Android.
+          ios_backgroundColor={colors.surfaceMuted}
         />
       )}
-    </View>
+    </Pressable>
   );
 }
 
