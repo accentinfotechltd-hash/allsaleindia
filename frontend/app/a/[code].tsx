@@ -55,8 +55,28 @@ export default function AmbassadorSmartLink() {
         if (!active) return;
         setResolved(r);
         // Fire-and-forget impression beacon for ambassador-dashboard analytics.
+        // Pass UTM params + referrer so the dashboard can show which channel
+        // (Instagram / WhatsApp / DM / …) drove this click.
+        const sourceBody: Record<string, string> = {};
+        try {
+          if (typeof window !== "undefined" && window.location) {
+            const q = new URLSearchParams(window.location.search);
+            const utmSource = q.get("utm_source");
+            const utmMedium = q.get("utm_medium");
+            const utmCampaign = q.get("utm_campaign");
+            if (utmSource) sourceBody.utm_source = utmSource;
+            if (utmMedium) sourceBody.utm_medium = utmMedium;
+            if (utmCampaign) sourceBody.utm_campaign = utmCampaign;
+            const ref = (document?.referrer || "").trim();
+            if (ref) sourceBody.referrer = ref;
+          }
+        } catch {
+          /* no-op — beacon is fire-and-forget */
+        }
         api(`/ambassadors/track-visit/${encodeURIComponent(r.code)}`, {
-          method: "POST", auth: false,
+          method: "POST",
+          auth: false,
+          body: sourceBody,
         }).catch(() => { /* analytics are best-effort */ });
         // Persist to the canonical `allsale_ref_v1` storage so the cart
         // auto-apply (CartContext.maybeAutoApplyRef) and seller-signup

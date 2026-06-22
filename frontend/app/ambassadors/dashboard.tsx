@@ -35,8 +35,10 @@ import {
   getMe,
   getMyLinkClicksDaily,
   getMyLinkMetrics,
+  getMyLinkSources,
   type DailyClicks,
   LinkMetrics,
+  type SourceBreakdownRow,
   listContent,
   listReferredSellers,
   listSales,
@@ -61,6 +63,7 @@ export default function AmbassadorDashboard() {
   const [content, setContent] = useState<ContentSubmission[]>([]);
   const [linkMetrics, setLinkMetrics] = useState<LinkMetrics | null>(null);
   const [clicksDaily, setClicksDaily] = useState<DailyClicks[]>([]);
+  const [linkSources, setLinkSources] = useState<SourceBreakdownRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("sales");
@@ -72,7 +75,7 @@ export default function AmbassadorDashboard() {
     try {
       const m = await getMe();
       setMe(m);
-      const [s, sl, c, lm, cd] = await Promise.all([
+      const [s, sl, c, lm, cd, ls] = await Promise.all([
         listSales(20),
         m.program === "B2B" || m.program === "BOTH"
           ? listReferredSellers()
@@ -80,12 +83,14 @@ export default function AmbassadorDashboard() {
         listContent(),
         getMyLinkMetrics().catch(() => null),
         getMyLinkClicksDaily(30).catch(() => [] as DailyClicks[]),
+        getMyLinkSources(30).catch(() => [] as SourceBreakdownRow[]),
       ]);
       setSales(s);
       setSellers(sl);
       setContent(c);
       setLinkMetrics(lm);
       setClicksDaily(cd);
+      setLinkSources(ls);
     } catch (e: any) {
       const msg = e?.message || "";
       if (msg.toLowerCase().includes("not enrolled")) {
@@ -342,6 +347,31 @@ export default function AmbassadorDashboard() {
                 />
               </View>
             ) : null}
+            {linkSources.length > 0 ? (
+              <View style={styles.linkPerfChart} testID="ambassadors-top-channels">
+                <Text style={styles.linkPerfChartTitle}>Top channels · last 30 days</Text>
+                {linkSources.slice(0, 5).map((row, i) => {
+                  const max = Math.max(...linkSources.map((r) => r.clicks), 1);
+                  const widthPct = (row.clicks / max) * 100;
+                  return (
+                    <View key={`${row.source}-${i}`} style={styles.channelRow}>
+                      <Text style={styles.channelIcon}>{channelIcon(row.source)}</Text>
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.channelHeader}>
+                          <Text style={styles.channelName}>{channelLabel(row.source)}</Text>
+                          <Text style={styles.channelCount}>
+                            {`${row.clicks} click${row.clicks === 1 ? "" : "s"} · ${row.uniques} unique`}
+                          </Text>
+                        </View>
+                        <View style={styles.channelBarTrack}>
+                          <View style={[styles.channelBarFill, { width: `${widthPct}%` }]} />
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -538,6 +568,52 @@ export default function AmbassadorDashboard() {
     </SafeAreaView>
   );
 }
+
+function channelIcon(source: string): string {
+  switch (source) {
+    case "instagram": return "📸";
+    case "facebook": return "📘";
+    case "twitter": return "𝕏";
+    case "tiktok": return "🎵";
+    case "youtube": return "▶";
+    case "whatsapp": return "💬";
+    case "telegram": return "✈";
+    case "linkedin": return "💼";
+    case "reddit": return "🤖";
+    case "pinterest": return "📌";
+    case "google": case "bing": return "🔎";
+    case "duckduckgo": return "🦆";
+    case "email": return "✉";
+    case "sms": case "dm": return "💬";
+    case "direct": return "🔗";
+    default: return "🌐";
+  }
+}
+
+function channelLabel(source: string): string {
+  switch (source) {
+    case "instagram": return "Instagram";
+    case "facebook": return "Facebook";
+    case "twitter": return "X / Twitter";
+    case "tiktok": return "TikTok";
+    case "youtube": return "YouTube";
+    case "whatsapp": return "WhatsApp";
+    case "telegram": return "Telegram";
+    case "linkedin": return "LinkedIn";
+    case "reddit": return "Reddit";
+    case "pinterest": return "Pinterest";
+    case "google": return "Google search";
+    case "bing": return "Bing search";
+    case "duckduckgo": return "DuckDuckGo";
+    case "email": return "Email";
+    case "sms": return "SMS";
+    case "dm": return "Direct message";
+    case "direct": return "Direct visit";
+    case "other": return "Other";
+    default: return source.charAt(0).toUpperCase() + source.slice(1);
+  }
+}
+
 
 function Kpi({ label, value, color = colors.text, sublabel }: { label: string; value: string; color?: string; sublabel?: string }) {
   return (
@@ -1119,6 +1195,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   linkPerfChartTitle: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.3 },
+  channelRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  channelIcon: { fontSize: 18, width: 22, textAlign: "center" },
+  channelHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+  channelName: { fontSize: 12, fontWeight: "700", color: colors.text },
+  channelCount: { fontSize: 11, color: colors.textMuted },
+  channelBarTrack: {
+    backgroundColor: colors.surfaceMuted,
+    height: 6,
+    borderRadius: 3,
+    overflow: "hidden",
+    marginTop: 3,
+  },
+  channelBarFill: { backgroundColor: colors.primary, height: 6, borderRadius: 3 },
   kpi: {
     flexBasis: "48%",
     flexGrow: 1,

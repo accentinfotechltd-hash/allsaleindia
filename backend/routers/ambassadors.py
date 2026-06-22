@@ -374,12 +374,85 @@ async def resolve_code(code: str):
 # ---------------------------------------------------------------------------
 # Public — impression tracking for /a/{code} smart-link analytics
 # ---------------------------------------------------------------------------
+class TrackVisitBody(BaseModel):
+    """Optional UTM + referrer payload for click-source attribution."""
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    referrer: Optional[str] = None
+
+
 class TrackVisitResp(BaseModel):
     ok: bool
 
 
+# Lowercase host substrings → normalized source name.
+_SOURCE_HOST_MAP = {
+    "instagram.com": "instagram",
+    "l.instagram.com": "instagram",
+    "facebook.com": "facebook",
+    "m.facebook.com": "facebook",
+    "fb.com": "facebook",
+    "lm.facebook.com": "facebook",
+    "twitter.com": "twitter",
+    "t.co": "twitter",
+    "x.com": "twitter",
+    "tiktok.com": "tiktok",
+    "vm.tiktok.com": "tiktok",
+    "youtube.com": "youtube",
+    "youtu.be": "youtube",
+    "m.youtube.com": "youtube",
+    "wa.me": "whatsapp",
+    "api.whatsapp.com": "whatsapp",
+    "web.whatsapp.com": "whatsapp",
+    "telegram.org": "telegram",
+    "t.me": "telegram",
+    "linkedin.com": "linkedin",
+    "lnkd.in": "linkedin",
+    "reddit.com": "reddit",
+    "pinterest.com": "pinterest",
+    "google.com": "google",
+    "google.co.nz": "google",
+    "bing.com": "bing",
+    "duckduckgo.com": "duckduckgo",
+}
+
+
+def _normalize_source(utm_source: Optional[str], referrer: Optional[str]) -> str:
+    """Pick the most specific known source from UTM + referrer URL.
+
+    Priority: explicit `utm_source` → host extracted from `referrer` →
+    "direct" (no referrer). Unknown hosts are bucketed as "other" so the
+    dashboard top-channels card stays readable.
+    """
+    if utm_source:
+        s = utm_source.strip().lower()[:32]
+        # Already-normalized values pass through; otherwise map by host substring.
+        if s in {"instagram", "facebook", "twitter", "tiktok", "youtube",
+                 "whatsapp", "telegram", "linkedin", "reddit", "pinterest",
+                 "google", "bing", "duckduckgo", "direct", "email", "sms", "dm"}:
+            return s
+        for k, v in _SOURCE_HOST_MAP.items():
+            if k in s:
+                return v
+        return s if re.match(r"^[a-z0-9_\-]{1,32}$", s) else "other"
+    if not referrer:
+        return "direct"
+    ref = referrer.strip().lower()
+    # Strip protocol and path.
+    ref = re.sub(r"^https?://", "", ref).split("/")[0]
+    for host_key, name in _SOURCE_HOST_MAP.items():
+        if ref == host_key or ref.endswith("." + host_key):
+            return name
+    return "other"
+
+
 @router.post("/ambassadors/track-visit/{code}", response_model=TrackVisitResp)
-async def track_visit(code: str, request: Request):
+async def track_visit(
+    code: str,
+    request: Request,
+    body: Optional[TrackVisitBody] = None,
+):
     """Beacon-style impression counter for the `/a/{code}` smart-link.
 
     Fire-and-forget from the smart-link landing page on mount. Stores a
@@ -387,9 +460,15 @@ async def track_visit(code: str, request: Request):
     plus rolling lifetime counter on the ambassador profile so the
     dashboard can render KPIs without an aggregation pipeline.
 
+    Optionally accepts a JSON body with ``utm_source``, ``utm_medium``,
+    ``utm_campaign``, and ``referrer`` so click-source attribution can
+    tell Instagram clicks apart from WhatsApp DMs etc. Falls back to the
+    HTTP ``Referer`` header when no body is supplied.
+
     Always returns 200 — never blocks the visitor's UX even when the code
     is invalid or the database is briefly unavailable. Aggregations are
-    computed lazily in ``/ambassadors/me/link-metrics``.
+    computed lazily in ``/ambassadors/me/link-metrics`` and
+    ``/ambassadors/me/link-sources``.
     """
     code = (code or "").upper().strip()
     if not code:
@@ -406,16 +485,21 @@ async def track_visit(code: str, request: Request):
     if not user:
         return TrackVisitResp(ok=False)
     prof = user.get("ambassador_profile") or {}
-    # Decide which audience this code targets so analytics can split.
     is_b2b_match = bool(prof.get("code_b2b")) and code == prof["code_b2b"].upper()
     legacy_b2b_only = (prof.get("program") == "B2B") and not prof.get("code_b2b")
     click_type = "b2b" if (is_b2b_match or legacy_b2b_only) else "b2c"
 
-    # Privacy-safe IP hash for unique-visitor estimation (no raw IPs stored).
     import hashlib
     ip_raw = request.client.host if request.client else ""
     ip_hash = hashlib.sha256(f"allsale:{ip_raw}".encode()).hexdigest()[:16] if ip_raw else None
     ua = (request.headers.get("user-agent") or "")[:200]
+
+    # Click-source attribution: UTM (body) → Referer header → "direct".
+    utm_source = (body.utm_source if body else None)
+    utm_medium = (body.utm_medium if body else None)
+    utm_campaign = (body.utm_campaign if body else None)
+    referrer = (body.referrer if body else None) or request.headers.get("referer")
+    source = _normalize_source(utm_source, referrer)
 
     now = datetime.now(timezone.utc)
     try:
@@ -426,8 +510,12 @@ async def track_visit(code: str, request: Request):
             "ts": now,
             "ip_hash": ip_hash,
             "user_agent": ua,
+            "source": source,
+            "utm_source": (utm_source or "")[:64] or None,
+            "utm_medium": (utm_medium or "")[:64] or None,
+            "utm_campaign": (utm_campaign or "")[:64] or None,
+            "referrer": (referrer or "")[:300] or None,
         })
-        # Rolling lifetime counters on the profile for cheap dashboard reads.
         inc_field = "link_clicks_b2b" if click_type == "b2b" else "link_clicks_b2c"
         await db.users.update_one(
             {"id": user["id"]},
@@ -435,7 +523,6 @@ async def track_visit(code: str, request: Request):
                       "ambassador_profile.link_clicks_total": 1}},
         )
     except Exception:
-        # Never fail the visitor's request — analytics are best-effort.
         pass
     return TrackVisitResp(ok=True)
 
@@ -567,6 +654,54 @@ async def my_link_clicks_daily(
         bk = buckets.get(d, {"b2c": 0, "b2b": 0})
         series.append(DailyClicks(date=d, b2c=bk["b2c"], b2b=bk["b2b"], total=bk["b2c"] + bk["b2b"]))
     return series
+
+
+class SourceBreakdownRow(BaseModel):
+    source: str    # normalized: "instagram", "whatsapp", "direct", ...
+    clicks: int
+    uniques: int
+
+
+@router.get("/ambassadors/me/link-sources", response_model=list[SourceBreakdownRow])
+async def my_link_sources(
+    days: int = 30,
+    current=Depends(get_current_user),
+):
+    """Aggregate clicks-by-source for the calling ambassador's smart-links.
+
+    Returns the top channels (sorted by clicks desc) so the dashboard can
+    show "Top channels (30d)". Each row has both raw clicks and distinct
+    visitor count (via the same ip_hash dedup used by uniques_30d).
+    """
+    days = max(1, min(int(days or 30), 90))
+    user_id = current.id if hasattr(current, "id") else current["id"]
+    now = datetime.now(timezone.utc)
+    since = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    pipeline = [
+        {"$match": {"user_id": user_id, "ts": {"$gte": since}}},
+        {"$group": {
+            "_id": {"$ifNull": ["$source", "direct"]},
+            "clicks": {"$sum": 1},
+            "uniques": {"$addToSet": {"$ifNull": ["$ip_hash", "$_id"]}},
+        }},
+        {"$project": {
+            "source": "$_id",
+            "clicks": 1,
+            "uniques": {"$size": "$uniques"},
+            "_id": 0,
+        }},
+        {"$sort": {"clicks": -1}},
+        {"$limit": 12},
+    ]
+    out: list[SourceBreakdownRow] = []
+    async for row in db.ambassador_link_clicks.aggregate(pipeline):
+        out.append(SourceBreakdownRow(
+            source=str(row.get("source") or "direct"),
+            clicks=int(row.get("clicks", 0)),
+            uniques=int(row.get("uniques", 0)),
+        ))
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -201,6 +201,15 @@ export type DailyClicks = {
 export const getMyLinkClicksDaily = (days = 30) =>
   api<DailyClicks[]>(`/ambassadors/me/link-clicks-daily?days=${days}`);
 
+export type SourceBreakdownRow = {
+  source: string;
+  clicks: number;
+  uniques: number;
+};
+
+export const getMyLinkSources = (days = 30) =>
+  api<SourceBreakdownRow[]>(`/ambassadors/me/link-sources?days=${days}`);
+
 export const joinProgram = (body: JoinPayload) =>
   api<JoinResponse>("/ambassadors/join", { method: "POST", body, auth: false });
 

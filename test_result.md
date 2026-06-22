@@ -774,3 +774,53 @@ agent_communication:
         { clicks_30d: 3, uniques_30d: 2 }
       — proving the dedup catches the same visitor across multiple sessions.
 
+  - agent: main
+    message: |
+      Click-source attribution — COMPLETE.
+
+      Backend (1 file changed, 1 new endpoint, 1 new test file):
+        • POST /api/ambassadors/track-visit/{code} now accepts an optional
+          JSON body `{utm_source, utm_medium, utm_campaign, referrer}`.
+          If absent, the endpoint reads the HTTP `Referer` header.
+        • New `_normalize_source()` helper:
+            - Explicit utm_source wins.
+            - Otherwise extracts the host from the referrer and maps known
+              hosts (instagram.com / l.instagram.com / wa.me / t.co / x.com
+              / tiktok.com / youtu.be / linkedin.com / google.com / etc.)
+              to a normalized name.
+            - No referrer → "direct". Unknown host → "other".
+        • Stored on each click row: `source`, `utm_source`, `utm_medium`,
+          `utm_campaign`, `referrer` (truncated to 300 chars for safety).
+        • NEW endpoint `GET /api/ambassadors/me/link-sources?days=N`
+          returns the top 12 channels sorted by clicks desc, each with
+          `{source, clicks, uniques}` (uniques via the same ip_hash dedup
+          used by the unique-visitor KPI).
+
+      Frontend (3 files changed):
+        • /app/frontend/app/a/[code].tsx — reads `?utm_source=…` etc. from
+          window.location.search + `document.referrer` on web, includes
+          them in the track-visit body.
+        • /app/frontend/src/lib/ambassadors.ts — added `getMyLinkSources()`
+          + `SourceBreakdownRow` type.
+        • /app/frontend/app/ambassadors/dashboard.tsx — added a "Top
+          channels · last 30 days" section inside the Link Performance
+          card, showing up to 5 channels with a horizontal-bar visualization
+          and click/unique counts. Includes channel emoji + label helpers
+          (📸 Instagram, 💬 WhatsApp, 𝕏 Twitter, …).
+
+      New backend tests (`test_ambassador_link_sources.py`, 4 tests):
+        ✓ UTM beats Referer (priority)
+        ✓ Referer header normalization (l.instagram.com → instagram,
+          wa.me → whatsapp, missing → direct)
+        ✓ Unknown host buckets to "other"
+        ✓ Sources aggregation returns sorted clicks + correct uniques
+
+      All 21 ambassador/cart/smart-link/sources tests pass together.
+
+      Live verification: Sarah's `/api/ambassadors/me/link-sources` after
+      two manual hits returns:
+        [{source: "direct", clicks: 3, uniques: 2},
+         {source: "instagram", clicks: 1, uniques: 1},
+         {source: "whatsapp", clicks: 1, uniques: 1}]
+
+
