@@ -45,6 +45,11 @@ export type Cart = {
 type CartState = {
   cart: Cart;
   loading: boolean;
+  /** True after the first refresh() completes (success OR failure). Lets
+   * screens distinguish "we haven't fetched yet" from "we fetched and the
+   * cart is genuinely empty" — without this the cart screen flashes the
+   * Empty state for a frame on initial mount before the spinner appears. */
+  hydrated: boolean;
   itemCount: number;
   refresh: () => Promise<void>;
   add: (productId: string, qty?: number) => Promise<void>;
@@ -79,11 +84,12 @@ const EMPTY: Cart = {
 const CartCtx = createContext<CartState | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { country } = useRegion();
   const toast = useToast();
   const [cart, setCart] = useState<Cart>(EMPTY);
   const [loading, setLoading] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   // Track per-user-session whether we've already tried auto-applying the
   // stored ambassador ref code. Prevents loops and respects manual coupon
   // entry — if the user removes a coupon, we don't re-add it.
@@ -147,9 +153,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, [toast]);
 
   const refresh = useCallback(async () => {
+    // Don't make a decision while auth is still hydrating — otherwise we'd
+    // flip into "guest empty cart" for a frame before bootstrap finishes.
+    if (authLoading) return;
     if (!user) {
       setCart(EMPTY);
       autoRefAttemptedFor.current = null;
+      setHydrated(true);
       return;
     }
     setLoading(true);
@@ -164,8 +174,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setCart(EMPTY);
     } finally {
       setLoading(false);
+      setHydrated(true);
     }
-  }, [user, country, maybeAutoApplyRef]);
+  }, [authLoading, user, country, maybeAutoApplyRef]);
 
   useEffect(() => {
     refresh();
@@ -232,7 +243,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CartCtx.Provider
-      value={{ cart, loading, itemCount, refresh, add, update, remove, applyCoupon, removeCoupon, setGiftWrap }}
+      value={{ cart, loading, hydrated, itemCount, refresh, add, update, remove, applyCoupon, removeCoupon, setGiftWrap }}
     >
       {children}
     </CartCtx.Provider>

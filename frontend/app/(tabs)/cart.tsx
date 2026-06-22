@@ -22,10 +22,12 @@ import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 export default function Cart() {
   const { formatPrice, info } = useRegion();
   const router = useRouter();
-  const { cart, loading, update, remove } = useCart();
+  const { cart, loading, hydrated, update, remove } = useCart();
   const { t } = useTranslation();
 
-  if (loading) {
+  // Show the spinner until the first fetch completes — prevents the
+  // "Empty cart" state from flashing for a frame on initial mount.
+  if (loading || !hydrated) {
     return (
       <SafeAreaView style={[styles.container, styles.center]} edges={["top"]}>
         <ActivityIndicator color={colors.primary} />

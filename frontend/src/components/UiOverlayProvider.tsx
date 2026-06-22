@@ -65,7 +65,11 @@ export const useConfirm = (): ConfirmFn => {
 export const useToast = (): { show: ToastShowFn } => {
   const show = useContext(ToastCtx);
   if (!show) throw new Error("useToast must be used inside <UiOverlayProvider>");
-  return { show };
+  // Wrap in useMemo so consumers that include `toast` in a useCallback /
+  // useEffect dependency list don't re-fire on every render (the {show}
+  // literal was a fresh object reference each call → infinite refetch loop
+  // in CartContext/AmbassadorDashboard etc.).
+  return useMemo(() => ({ show }), [show]);
 };
 
 /* ------------------------------------------------------------------ */
