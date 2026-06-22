@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, ChevronLeft, Image as ImageIcon, Plus, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -33,14 +34,15 @@ export default function NewListing() {
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [priceNzd, setPriceNzd] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
-  /** Parallel array of raw base64 strings for any photo the seller has
-   * just picked in this session — used as input to the AI auto-fill
-   * endpoint (`/api/seller/products/ai-draft`). We keep this alongside
-   * `photos` (which holds the CDN URLs we render in the UI) so we don't
-   * have to re-download the image from Cloudinary when the seller taps
-   * "✨ AI fill". A null slot means we don't have base64 (e.g. user
-   * navigated back into a draft with only CDN URLs). */
-  const [photoBase64s, setPhotoBase64s] = useState<(string | null)[]>([]);
+  /**
+   * Parallel array of original local URIs (file:// on native or
+   * data:/blob: on web) for each picked photo. We use this — NOT the CDN
+   * URLs in ``photos`` — as the source for "✨ AI fill from photos" so we
+   * can re-read the original bytes as base64 even if expo-image-picker
+   * didn't return base64 (which happens intermittently on Android).
+   * Entries are kept aligned with ``photos`` by index.
+   */
+  const [photoUris, setPhotoUris] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -81,20 +83,24 @@ export default function NewListing() {
       // store the returned secure URL. We show the data URI immediately
       // for snappy UI feedback, then swap it for the CDN URL on success.
       for (const a of result.assets) {
-        if (!a.base64) continue;
+        if (!a.base64 && !a.uri) continue;
         const mime = a.mimeType || "image/jpeg";
-        const dataUri = `data:${mime};base64,${a.base64}`;
+        const dataUri = a.base64 ? `data:${mime};base64,${a.base64}` : a.uri!;
+        // Save the ORIGINAL local URI (or data URI fallback) for AI fill —
+        // expo-image-picker on Android sometimes returns null base64, so we
+        // read the file on demand later via FileSystem.
+        const sourceUri = a.uri || dataUri;
         try {
           const res = await api<{ url: string; provider: string }>("/uploads/image", {
             method: "POST",
             body: { data: dataUri },
           });
           setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
-          setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
+          setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
         } catch (e: any) {
           // Fall back to local data URI so the form is not dead-ended.
           setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
-          setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
+          setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
           show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
         }
       }
@@ -118,19 +124,20 @@ export default function NewListing() {
       });
       if (result.canceled) return;
       const a = result.assets[0];
-      if (!a?.base64) return;
+      if (!a?.base64 && !a?.uri) return;
       const mime = a.mimeType || "image/jpeg";
-      const dataUri = `data:${mime};base64,${a.base64}`;
+      const dataUri = a.base64 ? `data:${mime};base64,${a.base64}` : a.uri!;
+      const sourceUri = a.uri || dataUri;
       try {
         const res = await api<{ url: string; provider: string }>("/uploads/image", {
           method: "POST",
           body: { data: dataUri },
         });
         setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
-        setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
+        setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
       } catch (e: any) {
         setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
-        setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
+        setPhotoUris((prev) => [...prev, sourceUri].slice(0, MAX_PHOTOS));
         show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
       }
     } catch (e: any) {
@@ -142,17 +149,48 @@ export default function NewListing() {
 
   const removePhoto = (idx: number) => {
     setPhotos(photos.filter((_, i) => i !== idx));
-    setPhotoBase64s((prev) => prev.filter((_, i) => i !== idx));
+    setPhotoUris((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  /** Read a local file URI (or data:/http: URL) as a base64 string. */
+  const uriToBase64 = async (uri: string): Promise<string | null> => {
+    try {
+      // 1) data URI — strip the prefix and return the payload.
+      if (uri.startsWith("data:")) {
+        const idx = uri.indexOf(",");
+        return idx > 0 ? uri.slice(idx + 1) : null;
+      }
+      // 2) On native (iOS/Android), use FileSystem for file:// or content://
+      //    URIs returned by expo-image-picker.
+      if (Platform.OS !== "web" && (uri.startsWith("file:") || uri.startsWith("content:"))) {
+        // Pass the string "base64" directly — expo-file-system v15-19 all
+        // accept it. (v19 removed EncodingType from the default namespace.)
+        return await FileSystem.readAsStringAsync(uri, { encoding: "base64" as never });
+      }
+      // 3) http(s) URLs (web blob, or fallback CDN) — fetch + FileReader.
+      const blob = await (await fetch(uri)).blob();
+      return await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const r = (reader.result as string) || "";
+          const i = r.indexOf(",");
+          resolve(i > 0 ? r.slice(i + 1) : null);
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
   };
 
   /**
-   * One-tap AI fill: send up to 3 of the just-picked photos to
-   * /api/seller/products/ai-draft and pre-fill the form with the LLM's
-   * draft. Only fills fields the seller hasn't already typed in.
+   * One-tap AI fill: pull base64 for up to 3 of the picked photos, POST to
+   * `/api/seller/products/ai-draft`, and pre-fill empty form fields with
+   * the LLM's draft.
    */
   const runAiFill = async () => {
-    const available = photoBase64s.filter((b): b is string => !!b).slice(0, 3);
-    if (available.length === 0) {
+    if (photoUris.length === 0) {
       show({
         title: "Add photos first",
         message: "Snap or pick 1-3 product photos and the AI will draft the listing for you.",
@@ -163,6 +201,12 @@ export default function NewListing() {
     setAiBusy(true);
     setErr("");
     try {
+      const b64s = (await Promise.all(photoUris.slice(0, 3).map(uriToBase64))).filter(
+        (b): b is string => !!b,
+      );
+      if (b64s.length === 0) {
+        throw new Error("Couldn't read the selected photos — try re-picking them.");
+      }
       const res = await api<{
         draft: {
           name: string;
@@ -181,7 +225,7 @@ export default function NewListing() {
         took_ms: number;
       }>("/seller/products/ai-draft", {
         method: "POST",
-        body: { images: available, seller_hint: name || undefined },
+        body: { images: b64s, seller_hint: name || undefined },
       });
       const d = res.draft;
       // Only overwrite fields the seller hasn't already typed into.
@@ -189,7 +233,6 @@ export default function NewListing() {
       if (!description && d.description) setDescription(d.description);
       if (d.category && categories.includes(d.category)) setCategory(d.category);
       if (!priceNzd && d.suggested_price_inr) {
-        // 51 INR/NZD as a rough mark — final number editable by seller
         setPriceNzd(String(Math.max(1, Math.round(d.suggested_price_inr / 51))));
       }
       if (colorsList.length === 0 && d.colors?.length) setColorsList(d.colors.slice(0, 10));
@@ -361,8 +404,11 @@ export default function NewListing() {
             ) : null}
           </View>
 
-          {/* AI auto-fill — call out when we have at least 1 base64 to send. */}
-          {photoBase64s.some((b) => !!b) ? (
+          {/* AI auto-fill — shows the moment the seller has at least one
+              photo, regardless of whether expo-image-picker returned base64
+              (which it sometimes doesn't on Android). When tapped, we
+              re-read the photo URIs as base64 via FileSystem/fetch. */}
+          {photos.length > 0 ? (
             <Pressable
               testID="new-listing-ai-fill"
               onPress={runAiFill}
@@ -379,7 +425,9 @@ export default function NewListing() {
                 <>
                   <Sparkles size={18} color="#fff" />
                   <Text style={styles.aiFillBtnText}>
-                    AI fill from photos
+                    {photos.length === 1
+                      ? "AI fill from photo"
+                      : `AI fill from ${Math.min(photos.length, 3)} photos`}
                   </Text>
                 </>
               )}
