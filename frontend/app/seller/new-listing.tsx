@@ -167,7 +167,7 @@ export default function NewListing() {
     if (sources.length === 0) {
       show({
         title: "Add photos first",
-        message: "Snap or pick 1-3 product photos and the AI will draft the listing for you.",
+        body: "Snap or pick 1-3 product photos and the AI will draft the listing for you.",
         kind: "info",
       });
       return;
@@ -207,15 +207,40 @@ export default function NewListing() {
       if (sizesList.length === 0 && d.sizes?.length) setSizesList(d.sizes.slice(0, 12));
       show({
         title: "AI draft ready",
-        message: `${d.confidence === "high" ? "High confidence" : "Review the fields"} — drafted in ${(res.took_ms / 1000).toFixed(1)}s`,
+        body: `${d.confidence === "high" ? "High confidence" : "Review the fields"} — drafted in ${(res.took_ms / 1000).toFixed(1)}s`,
         kind: "success",
       });
     } catch (e: any) {
-      show({
-        title: "AI fill failed",
-        message: e?.message || "Try again, or fill the form manually.",
-        kind: "error",
-      });
+      const status = e?.status as number | undefined;
+      const detail = e?.message || e?.detail || (typeof e === "string" ? e : "") || "Unknown error";
+      // eslint-disable-next-line no-console
+      console.warn("[ai-draft] failed:", { status, message: e?.message, detail: e?.detail, sources });
+
+      // 401 here usually means the seller's JWT expired (e.g. after pairing
+      // a new biometric device which bumps token_version). Show a clear,
+      // actionable message instead of generic "AI fill failed".
+      if (status === 401) {
+        show({
+          title: "Session expired",
+          body: "Please sign out and sign back in, then try AI fill again.",
+          kind: "error",
+          duration: 9000,
+        });
+      } else if (status === 403) {
+        show({
+          title: "Seller verification needed",
+          body: "Your seller account must be verified before using AI fill.",
+          kind: "error",
+          duration: 9000,
+        });
+      } else {
+        show({
+          title: "AI fill failed",
+          body: status ? `${detail} (HTTP ${status})` : detail,
+          kind: "error",
+          duration: 8000,
+        });
+      }
     } finally {
       setAiBusy(false);
     }
