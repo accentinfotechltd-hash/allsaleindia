@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import { ArrowRight, Globe2, ShieldCheck, Truck } from "lucide-react-native";
 import { useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 import { LanguagePicker, LanguagePill } from "@/src/components/LanguagePicker";
@@ -19,15 +19,23 @@ export default function Welcome() {
   const { t } = useTranslation();
   const router = useRouter();
   const { height: vh } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [langOpen, setLangOpen] = useState(false);
-  // Hero scales between 320px (very small phones) and 460px (tall phones).
-  const heroHeight = Math.max(320, Math.min(460, Math.round(vh * 0.5)));
+  // Compact hero: 42% of viewport, capped at 380px on big phones and 280px
+  // floor on small phones — leaves enough room for the full body content
+  // (USPs + CTAs + Sell banner) to sit above the Android nav bar.
+  const heroHeight = Math.max(280, Math.min(380, Math.round(vh * 0.42)));
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[
+          styles.scroll,
+          // Reserve room for the Android gesture-nav / 3-button bar so the
+          // last CTA (Sell banner / Sign-in link) is never partially hidden.
+          { paddingBottom: Math.max(insets.bottom + 12, spacing.lg) },
+        ]}
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
@@ -164,33 +172,33 @@ const styles = StyleSheet.create({
   },
   brandDot: { width: 10, height: 10, backgroundColor: colors.primary, borderRadius: 999 },
   brandText: { color: "#fff", fontSize: 18, fontWeight: "800", letterSpacing: -0.5 },
-  heroContent: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: spacing.xl },
-  eyebrow: { color: "#FFF8E7", fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 8 },
-  heroTitle: { color: "#fff", fontSize: 30, fontWeight: "800", lineHeight: 36, letterSpacing: -0.8 },
-  heroSubtitle: { color: "rgba(255,255,255,0.85)", fontSize: 14, marginTop: 10, lineHeight: 20 },
-  body: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.lg, gap: spacing.sm },
-  usp: { gap: 12 },
+  heroContent: { position: "absolute", left: spacing.lg, right: spacing.lg, bottom: spacing.lg },
+  eyebrow: { color: "#FFF8E7", fontSize: 11, fontWeight: "800", letterSpacing: 2, marginBottom: 6 },
+  heroTitle: { color: "#fff", fontSize: 26, fontWeight: "800", lineHeight: 32, letterSpacing: -0.6 },
+  heroSubtitle: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 8, lineHeight: 18 },
+  body: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.md, gap: spacing.xs },
+  usp: { gap: 10 },
   bullet: { flexDirection: "row", alignItems: "center", gap: 12 },
   bulletIcon: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 999,
     backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  bulletText: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  bulletText: { color: colors.text, fontSize: 14, fontWeight: "600" },
   cta: {
     backgroundColor: colors.primary,
-    height: 56,
+    height: 52,
     borderRadius: radius.pill,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
-  ctaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  ctaText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -199,7 +207,7 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },
-  secondaryCta: { alignItems: "center", paddingVertical: spacing.sm },
-  secondaryText: { color: colors.textMuted, fontSize: 14 },
+  secondaryCta: { alignItems: "center", paddingVertical: spacing.xs },
+  secondaryText: { color: colors.textMuted, fontSize: 13 },
   secondaryLink: { color: colors.primary, fontWeight: "700" },
 });
