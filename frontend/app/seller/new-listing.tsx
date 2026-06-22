@@ -1,5 +1,4 @@
 import { useRouter } from "expo-router";
-import * as FileSystem from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, ChevronLeft, Image as ImageIcon, Plus, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
@@ -152,45 +151,20 @@ export default function NewListing() {
     setPhotoUris((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  /** Read a local file URI (or data:/http: URL) as a base64 string. */
-  const uriToBase64 = async (uri: string): Promise<string | null> => {
-    try {
-      // 1) data URI — strip the prefix and return the payload.
-      if (uri.startsWith("data:")) {
-        const idx = uri.indexOf(",");
-        return idx > 0 ? uri.slice(idx + 1) : null;
-      }
-      // 2) On native (iOS/Android), use FileSystem for file:// or content://
-      //    URIs returned by expo-image-picker.
-      if (Platform.OS !== "web" && (uri.startsWith("file:") || uri.startsWith("content:"))) {
-        // Pass the string "base64" directly — expo-file-system v15-19 all
-        // accept it. (v19 removed EncodingType from the default namespace.)
-        return await FileSystem.readAsStringAsync(uri, { encoding: "base64" as never });
-      }
-      // 3) http(s) URLs (web blob, or fallback CDN) — fetch + FileReader.
-      const blob = await (await fetch(uri)).blob();
-      return await new Promise<string | null>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const r = (reader.result as string) || "";
-          const i = r.indexOf(",");
-          resolve(i > 0 ? r.slice(i + 1) : null);
-        };
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      return null;
-    }
-  };
-
   /**
-   * One-tap AI fill: pull base64 for up to 3 of the picked photos, POST to
-   * `/api/seller/products/ai-draft`, and pre-fill empty form fields with
-   * the LLM's draft.
+   * One-tap AI fill: send the already-uploaded CDN photo URLs straight to
+   * `/api/seller/products/ai-draft` — the backend fetches and base64-encodes
+   * them. This is way more reliable than reading file:// URIs on Android
+   * (which expo-file-system handles inconsistently across SDK versions).
    */
   const runAiFill = async () => {
-    if (photoUris.length === 0) {
+    // Prefer CDN URLs (https) — they're already public and the backend
+    // fetches them. Fall back to local URIs only if no CDN url exists yet.
+    const sources: string[] = photos
+      .map((p, i) => (p?.startsWith("http") ? p : photoUris[i] || p))
+      .filter((s): s is string => !!s)
+      .slice(0, 3);
+    if (sources.length === 0) {
       show({
         title: "Add photos first",
         message: "Snap or pick 1-3 product photos and the AI will draft the listing for you.",
@@ -201,12 +175,6 @@ export default function NewListing() {
     setAiBusy(true);
     setErr("");
     try {
-      const b64s = (await Promise.all(photoUris.slice(0, 3).map(uriToBase64))).filter(
-        (b): b is string => !!b,
-      );
-      if (b64s.length === 0) {
-        throw new Error("Couldn't read the selected photos — try re-picking them.");
-      }
       const res = await api<{
         draft: {
           name: string;
@@ -225,7 +193,7 @@ export default function NewListing() {
         took_ms: number;
       }>("/seller/products/ai-draft", {
         method: "POST",
-        body: { images: b64s, seller_hint: name || undefined },
+        body: { images: sources, seller_hint: name || undefined },
       });
       const d = res.draft;
       // Only overwrite fields the seller hasn't already typed into.

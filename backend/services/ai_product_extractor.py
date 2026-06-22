@@ -85,6 +85,39 @@ def _compress_image(b64: str) -> Optional[str]:
         return None
 
 
+async def _to_base64(raw: str) -> Optional[str]:
+    """Accept a raw base64 string, a data: URI, or an http(s) URL — return
+    the raw base64 payload. URL fetches are bounded by content-length to
+    keep us from buffering hostile/huge files."""
+    if not raw:
+        return None
+    s = raw.strip()
+    # 1) data URI
+    if s.startswith("data:"):
+        idx = s.find(",")
+        return s[idx + 1 :] if idx > 0 else None
+    # 2) http(s) URL — fetch and base64-encode
+    if s.startswith("http://") or s.startswith("https://"):
+        try:
+            import httpx  # noqa: WPS433 — local import keeps optional dep light
+
+            async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+                r = await client.get(s)
+                if r.status_code != 200:
+                    logger.warning("image fetch failed status=%s url=%s", r.status_code, s[:120])
+                    return None
+                # Defensive size cap (raw bytes) to avoid memory bombs.
+                if len(r.content) > 6 * 1024 * 1024:
+                    logger.warning("image fetch too large (%d bytes) url=%s", len(r.content), s[:120])
+                    return None
+                return base64.b64encode(r.content).decode("ascii")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("image fetch threw: %s", exc)
+            return None
+    # 3) Already-raw base64 (no scheme prefix)
+    return s
+
+
 def _extract_json(text: str) -> Optional[Dict[str, Any]]:
     """Best-effort JSON extractor that survives accidental markdown fencing."""
     if not text:
@@ -141,17 +174,22 @@ def _normalize_draft(d: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def extract_product_draft(
-    images_base64: List[str],
+    images: List[str],
     *,
     seller_hint: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Run a single Sonnet 4-5 vision call → return a draft dict.
 
+    ``images`` may be a mix of:
+      • raw base64 strings (e.g. directly from expo-image-picker)
+      • data:image/...;base64,... data URIs
+      • https://... CDN URLs (we'll fetch them server-side)
+
     Raises ``ValueError`` if the LLM key is missing, no images decoded
     successfully, or the response can't be parsed as JSON.
     """
-    if not images_base64:
+    if not images:
         raise ValueError("At least one image is required")
     api_key = os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
@@ -166,8 +204,11 @@ async def extract_product_draft(
     )
 
     image_contents: List[Any] = []
-    for raw_b64 in images_base64[:3]:
-        compressed = _compress_image(raw_b64)
+    for raw in images[:3]:
+        b64 = await _to_base64(raw)
+        if not b64:
+            continue
+        compressed = _compress_image(b64)
         if compressed:
             image_contents.append(ImageContent(image_base64=compressed))
     if not image_contents:
