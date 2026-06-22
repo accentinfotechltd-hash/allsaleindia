@@ -1,6 +1,6 @@
 import { Link, useRouter } from "expo-router";
-import { ChevronLeft, Eye, EyeOff } from "lucide-react-native";
-import { useState } from "react";
+import { ChevronLeft, Eye, EyeOff, Fingerprint } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,17 +17,59 @@ import { useAuth } from "@/src/contexts/AuthContext";
 import { GoogleSignInButton } from "@/src/components/GoogleSignInButton";
 import { AppleSignInButton } from "@/src/components/AppleSignInButton";
 import { useTranslation } from "@/src/i18n";
+import {
+  type BiometricCapability,
+  getBiometricCapability,
+  hasPairedDevice,
+  pairedEmail,
+} from "@/src/lib/biometric";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function Login() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithBiometric } = useAuth();
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [bioCap, setBioCap] = useState<BiometricCapability | null>(null);
+  const [bioReady, setBioReady] = useState(false);          // device is paired
+  const [bioEmail, setBioEmail] = useState<string | null>(null);
+  const [bioBusy, setBioBusy] = useState(false);
+
+  // Probe biometric availability + pairing on mount so we can offer a
+  // "Sign in with Face ID" button. Web/unsupported devices simply hide it.
+  useEffect(() => {
+    (async () => {
+      const [cap, paired, em] = await Promise.all([
+        getBiometricCapability(),
+        hasPairedDevice(),
+        pairedEmail(),
+      ]);
+      setBioCap(cap);
+      setBioReady(paired);
+      setBioEmail(em);
+    })();
+  }, []);
+
+  const onBiometricSignIn = async () => {
+    setErr("");
+    setBioBusy(true);
+    try {
+      const ok = await loginWithBiometric();
+      if (ok) {
+        router.replace("/(tabs)/home");
+      } else {
+        setErr("Biometric sign-in cancelled or failed. Please use your password.");
+      }
+    } catch (e: any) {
+      setErr(e?.message || "Biometric sign-in failed");
+    } finally {
+      setBioBusy(false);
+    }
+  };
 
   const submit = async () => {
     setErr("");
@@ -134,6 +176,28 @@ export default function Login() {
             <View style={styles.dividerLine} />
           </View>
 
+          {bioReady && bioCap?.available ? (
+            <Pressable
+              testID="login-biometric-btn"
+              disabled={bioBusy || busy}
+              onPress={onBiometricSignIn}
+              style={({ pressed }) => [
+                styles.bioBtn,
+                pressed && { transform: [{ scale: 0.98 }] },
+                (bioBusy || busy) && { opacity: 0.7 },
+              ]}
+            >
+              <Fingerprint size={20} color={colors.primary} />
+              <Text style={styles.bioBtnText}>
+                {bioBusy
+                  ? "Authenticating…"
+                  : bioEmail
+                  ? `Sign in as ${bioEmail} with ${bioCap.label}`
+                  : `Sign in with ${bioCap.label}`}
+              </Text>
+            </Pressable>
+          ) : null}
+
           <GoogleSignInButton
             testID="login-google-btn"
             label="Continue with Google"
@@ -204,6 +268,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   ctaText: { color: "#fff", fontSize: 17, fontWeight: "700" },
+  bioBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: "#fff",
+    height: 52,
+    borderRadius: radius.pill,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    marginBottom: spacing.md,
+  },
+  bioBtnText: { color: colors.primary, fontSize: 15, fontWeight: "700" },
   dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: spacing.lg },
   dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: { color: colors.textFaint, fontSize: 11, fontWeight: "700", letterSpacing: 1 },

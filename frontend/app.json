@@ -23,6 +23,7 @@
         "NSLocationWhenInUseUsageDescription": "Show nearby sellers and accurate delivery times",
         "NSContactsUsageDescription": "Invite friends to shop with you",
         "NSUserTrackingUsageDescription": "Personalise your home feed and deal recommendations",
+        "NSFaceIDUsageDescription": "Sign in and confirm purchases with Face ID",
         "ITSAppUsesNonExemptEncryption": false
       },
       "config": {

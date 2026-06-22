@@ -13,6 +13,7 @@ import { CartProvider } from "@/src/contexts/CartContext";
 import { RegionProvider } from "@/src/contexts/RegionContext";
 import { WishlistProvider } from "@/src/contexts/WishlistContext";
 import { UiOverlayProvider } from "@/src/components/UiOverlayProvider";
+import { AppLockProvider } from "@/src/components/AppLockProvider";
 import { loadStoredLanguage } from "@/src/i18n";
 import { captureRefFromUrl } from "@/src/lib/ref";
 import { initSentry, wrap as sentryWrap } from "@/src/lib/sentry";
@@ -56,15 +57,17 @@ function RootLayout() {
       <SafeAreaProvider>
         <UiOverlayProvider>
           <AuthProvider>
-            <RegionProvider>
-              <CartProvider>
-                <WishlistProvider>
-                  <StatusBar style="dark" />
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
-                  <OnboardingTour />
-                </WishlistProvider>
-              </CartProvider>
-            </RegionProvider>
+            <AppLockProvider>
+              <RegionProvider>
+                <CartProvider>
+                  <WishlistProvider>
+                    <StatusBar style="dark" />
+                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" } }} />
+                    <OnboardingTour />
+                  </WishlistProvider>
+                </CartProvider>
+              </RegionProvider>
+            </AppLockProvider>
           </AuthProvider>
         </UiOverlayProvider>
       </SafeAreaProvider>

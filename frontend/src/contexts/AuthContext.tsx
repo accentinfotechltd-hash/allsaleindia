@@ -4,6 +4,10 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 
 import { api, clearToken, setToken } from "@/src/lib/api";
+import {
+  biometricLogin as runBiometricLogin,
+  clearPairedDevice,
+} from "@/src/lib/biometric";
 
 export type User = {
   id: string;
@@ -29,6 +33,9 @@ type AuthState = {
   register: (email: string, password: string, fullName: string) => Promise<void>;
   loginWithGoogle: () => Promise<{ cancelled: boolean }>;
   loginWithApple: (identityToken: string, fullName?: string | null) => Promise<void>;
+  /** Sign in via a paired biometric device. Returns true on success. Caller
+   * should fall back to password login if this returns false. */
+  loginWithBiometric: () => Promise<boolean>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -228,14 +235,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
   }, []);
 
+  const loginWithBiometric = useCallback(async (): Promise<boolean> => {
+    const res = await runBiometricLogin();
+    if (!res) return false;
+    await setToken(res.access_token);
+    setUser(res.user as User);
+    return true;
+  }, []);
+
   const logout = useCallback(async () => {
     await clearToken();
+    // Best-effort: clear local biometric pairing so the next launch goes to
+    // password login. Server-side pairing is preserved unless the user
+    // explicitly revokes it from Settings (matches Apple Wallet / banking UX).
+    await clearPairedDevice();
     setUser(null);
   }, []);
 
   return (
     <AuthCtx.Provider
-      value={{ user, loading, googleSigningIn, login, loginVerify2FA, resend2FACode, register, loginWithGoogle, loginWithApple, logout, refresh, refreshMe: refresh }}
+      value={{ user, loading, googleSigningIn, login, loginVerify2FA, resend2FACode, register, loginWithGoogle, loginWithApple, loginWithBiometric, logout, refresh, refreshMe: refresh }}
     >
       {children}
     </AuthCtx.Provider>

@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Bell, BadgeCheck, ChevronRight, CreditCard, FileText, Gift, Globe2, Heart, HelpCircle, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
+import { Bell, BadgeCheck, ChevronRight, CreditCard, FileText, Fingerprint, Gift, Globe2, Heart, HelpCircle, LogOut, Mail, MapPin, MessageCircle, Package, RefreshCcw, Search, Settings, ShieldCheck, ShieldAlert, Sparkles, Store, XCircle } from "lucide-react-native";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -260,6 +260,13 @@ export default function Account() {
             subtitle={t("account_sub.two_factor")}
             onPress={() => router.push("/account/two-factor")}
             testID="account-2fa-btn"
+          />
+          <Row
+            icon={<Fingerprint size={18} color={colors.primary} />}
+            label="Security & biometrics"
+            subtitle="Face ID / Touch ID login, auto-lock, checkout confirmation"
+            onPress={() => router.push("/account/security")}
+            testID="account-security-btn"
           />
           <Row
             icon={<ShieldCheck size={18} color={colors.text} />}

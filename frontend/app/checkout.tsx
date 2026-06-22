@@ -1,4 +1,5 @@
 import * as WebBrowser from "expo-web-browser";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import {
   Bookmark,
@@ -37,6 +38,7 @@ import { useToast } from "@/src/components/UiOverlayProvider";
 import { useCart } from "@/src/contexts/CartContext";
 import { useTranslation } from "@/src/i18n";
 import { api, ORIGIN_URL } from "@/src/lib/api";
+import { getBiometricCapability, promptBiometric } from "@/src/lib/biometric";
 import { colors, formatNZD, radius, spacing } from "@/src/lib/theme";
 
 // ISO-2 → long name expected by the checkout/session backend.
@@ -128,6 +130,24 @@ export default function Checkout() {
     if (!fullName || !phone || !line1 || !city || !postcode) {
       setErr(t("checkout.complete_shipping"));
       return;
+    }
+    // Optional biometric checkout confirmation — silently skipped if the
+    // user hasn't enabled it in Settings → Security or the device doesn't
+    // support biometrics (web, no enrolled Face ID, etc.).
+    try {
+      const wantsConfirm = (await AsyncStorage.getItem("allsale.bio_checkout_confirm")) === "1";
+      if (wantsConfirm) {
+        const cap = await getBiometricCapability();
+        if (cap.available) {
+          const ok = await promptBiometric("Confirm this purchase");
+          if (!ok) {
+            setErr("Checkout cancelled — biometric authentication required.");
+            return;
+          }
+        }
+      }
+    } catch {
+      /* never block checkout because of biometric machinery */
     }
     setBusy(true);
     try {
