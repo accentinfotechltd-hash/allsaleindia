@@ -872,3 +872,33 @@ agent_communication:
       ambassador auth).
 
 
+  - agent: main
+    message: |
+      Toast on cart auto-apply success — COMPLETE.
+
+      File changed: /app/frontend/src/contexts/CartContext.tsx
+        • Imported `useToast` from `UiOverlayProvider` (safe because
+          `CartProvider` is nested inside `UiOverlayProvider` in
+          `/app/_layout.tsx`).
+        • `maybeAutoApplyRef` now fires a green success toast when the
+          stored ambassador ref code successfully auto-applies, including:
+            - Title: `Applied {Sarah}'s code: SARAHJENKINS5`
+              (or "your referrer's" if the name isn't stored)
+            - Body: `You saved NZ$5.00 on this order.` when the backend
+              returns a non-zero `discount_nzd`; otherwise a neutral
+              "Discount applied at checkout." line.
+        • Toast emission is wrapped in try/catch — silent failure if the
+          toast provider isn't mounted (defensive, shouldn't happen).
+        • `useCallback` deps updated to include `toast`.
+
+      Why this matters: closes the visual feedback loop for shoppers who
+      arrive via /a/{code}. Without the toast, the cart discount line
+      item appears mysteriously; with it, the shopper sees explicit
+      attribution ("Sarah recommended you — here's her 5% off") which
+      reinforces the social-proof selling point.
+
+      Backend: NO changes. All 21 ambassador/cart/smart-link/sources
+      tests still pass. Lint clean. Welcome screen renders correctly
+      after Metro bundle.
+
+

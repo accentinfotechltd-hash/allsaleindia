@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import { api } from "@/src/lib/api";
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useRegion } from "@/src/contexts/RegionContext";
+import { useToast } from "@/src/components/UiOverlayProvider";
 import { getStoredRef } from "@/src/lib/ref";
 
 export type CartItem = {
@@ -80,6 +81,7 @@ const CartCtx = createContext<CartState | undefined>(undefined);
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const { country } = useRegion();
+  const toast = useToast();
   const [cart, setCart] = useState<Cart>(EMPTY);
   const [loading, setLoading] = useState(false);
   // Track per-user-session whether we've already tried auto-applying the
@@ -122,12 +124,27 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         body: { code: stored.code },
       });
       setCart(next);
+      // Confirm to the shopper that an ambassador's code was auto-applied so
+      // the discount line item in the cart isn't a mystery. Includes the
+      // ambassador's name when available for warm fuzzies.
+      try {
+        const who = stored.name ? `${stored.name}'s` : "your referrer's";
+        toast.show({
+          title: `Applied ${who} code: ${stored.code}`,
+          body: typeof next.discount_nzd === "number" && next.discount_nzd > 0
+            ? `You saved NZ$${next.discount_nzd.toFixed(2)} on this order.`
+            : "Discount applied at checkout.",
+          kind: "success",
+        });
+      } catch {
+        /* toast is best-effort */
+      }
       return next;
     } catch {
       // Invalid/expired code — silently leave the cart alone.
       return currentCart;
     }
-  }, []);
+  }, [toast]);
 
   const refresh = useCallback(async () => {
     if (!user) {
