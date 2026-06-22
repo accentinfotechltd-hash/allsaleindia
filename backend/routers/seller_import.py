@@ -77,7 +77,8 @@ async def preview_import(
             status_code=400,
             detail=(
                 "Couldn't detect file format. Supported: Amazon (.xlsx/.xlsm), "
-                "Flipkart (.xls/.xlsx), generic CSV."
+                "Flipkart (.xls/.xlsx), Myntra (.xlsx), Meesho (.csv/.xlsx), "
+                "or a generic CSV with name/price/image columns."
             ),
         )
 

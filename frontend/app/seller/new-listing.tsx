@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { Camera, ChevronLeft, Image as ImageIcon, Plus, X } from "lucide-react-native";
+import { Camera, ChevronLeft, Image as ImageIcon, Plus, Sparkles, X } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -33,10 +33,19 @@ export default function NewListing() {
   const [category, setCategory] = useState(DEFAULT_CATEGORIES[0]);
   const [priceNzd, setPriceNzd] = useState("");
   const [photos, setPhotos] = useState<string[]>([]);
+  /** Parallel array of raw base64 strings for any photo the seller has
+   * just picked in this session — used as input to the AI auto-fill
+   * endpoint (`/api/seller/products/ai-draft`). We keep this alongside
+   * `photos` (which holds the CDN URLs we render in the UI) so we don't
+   * have to re-download the image from Cloudinary when the seller taps
+   * "✨ AI fill". A null slot means we don't have base64 (e.g. user
+   * navigated back into a draft with only CDN URLs). */
+  const [photoBase64s, setPhotoBase64s] = useState<(string | null)[]>([]);
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [picking, setPicking] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
 
   // New: colors, sizes, stock
   const [colorsList, setColorsList] = useState<string[]>([]);
@@ -81,9 +90,11 @@ export default function NewListing() {
             body: { data: dataUri },
           });
           setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
+          setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
         } catch (e: any) {
           // Fall back to local data URI so the form is not dead-ended.
           setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
+          setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
           show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
         }
       }
@@ -116,8 +127,10 @@ export default function NewListing() {
           body: { data: dataUri },
         });
         setPhotos((prev) => [...prev, res.url].slice(0, MAX_PHOTOS));
+        setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
       } catch (e: any) {
         setPhotos((prev) => [...prev, dataUri].slice(0, MAX_PHOTOS));
+        setPhotoBase64s((prev) => [...prev, a.base64 ?? null].slice(0, MAX_PHOTOS));
         show({ title: t("seller_new_listing.upload_warning_title"), message: e?.message || t("seller_new_listing.upload_warning_msg"), kind: "error" });
       }
     } catch (e: any) {
@@ -127,7 +140,75 @@ export default function NewListing() {
     }
   };
 
-  const removePhoto = (idx: number) => setPhotos(photos.filter((_, i) => i !== idx));
+  const removePhoto = (idx: number) => {
+    setPhotos(photos.filter((_, i) => i !== idx));
+    setPhotoBase64s((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  /**
+   * One-tap AI fill: send up to 3 of the just-picked photos to
+   * /api/seller/products/ai-draft and pre-fill the form with the LLM's
+   * draft. Only fills fields the seller hasn't already typed in.
+   */
+  const runAiFill = async () => {
+    const available = photoBase64s.filter((b): b is string => !!b).slice(0, 3);
+    if (available.length === 0) {
+      show({
+        title: "Add photos first",
+        message: "Snap or pick 1-3 product photos and the AI will draft the listing for you.",
+        kind: "info",
+      });
+      return;
+    }
+    setAiBusy(true);
+    setErr("");
+    try {
+      const res = await api<{
+        draft: {
+          name: string;
+          description: string;
+          category: string;
+          subcategory: string | null;
+          bullets: string[];
+          colors: string[];
+          sizes: string[];
+          materials: string[];
+          suggested_price_inr: number | null;
+          confidence: string;
+          notes_for_seller: string;
+        };
+        model: string;
+        took_ms: number;
+      }>("/seller/products/ai-draft", {
+        method: "POST",
+        body: { images: available, seller_hint: name || undefined },
+      });
+      const d = res.draft;
+      // Only overwrite fields the seller hasn't already typed into.
+      if (!name && d.name) setName(d.name);
+      if (!description && d.description) setDescription(d.description);
+      if (d.category && categories.includes(d.category)) setCategory(d.category);
+      if (!priceNzd && d.suggested_price_inr) {
+        // 51 INR/NZD as a rough mark — final number editable by seller
+        setPriceNzd(String(Math.max(1, Math.round(d.suggested_price_inr / 51))));
+      }
+      if (colorsList.length === 0 && d.colors?.length) setColorsList(d.colors.slice(0, 10));
+      if (sizesList.length === 0 && d.sizes?.length) setSizesList(d.sizes.slice(0, 12));
+      show({
+        title: "AI draft ready",
+        message: `${d.confidence === "high" ? "High confidence" : "Review the fields"} — drafted in ${(res.took_ms / 1000).toFixed(1)}s`,
+        kind: "success",
+      });
+    } catch (e: any) {
+      show({
+        title: "AI fill failed",
+        message: e?.message || "Try again, or fill the form manually.",
+        kind: "error",
+      });
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const addColor = () => {
     const v = colorDraft.trim();
@@ -279,6 +360,31 @@ export default function NewListing() {
               </Pressable>
             ) : null}
           </View>
+
+          {/* AI auto-fill — call out when we have at least 1 base64 to send. */}
+          {photoBase64s.some((b) => !!b) ? (
+            <Pressable
+              testID="new-listing-ai-fill"
+              onPress={runAiFill}
+              disabled={aiBusy || busy}
+              style={({ pressed }) => [
+                styles.aiFillBtn,
+                pressed && { opacity: 0.85 },
+                (aiBusy || busy) && { opacity: 0.7 },
+              ]}
+            >
+              {aiBusy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <Sparkles size={18} color="#fff" />
+                  <Text style={styles.aiFillBtnText}>
+                    AI fill from photos
+                  </Text>
+                </>
+              )}
+            </Pressable>
+          ) : null}
 
           <Field label={t("seller_new_listing.field_name")} testID="new-listing-name" value={name} onChangeText={setName} placeholder={t("seller_new_listing.name_placeholder")} />
 
@@ -553,6 +659,18 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   photoAddText: { fontSize: 11, fontWeight: "700", color: colors.primary },
+  aiFillBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#7B3FE4",
+    height: 46,
+    borderRadius: radius.pill,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  aiFillBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
   photoRemove: {
     position: "absolute",
     top: 4,

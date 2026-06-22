@@ -9,6 +9,8 @@ Public surface (used by ``routers/seller_import.py``):
 """
 from .amazon_parser import parse_amazon
 from .flipkart_parser import parse_flipkart
+from .myntra_parser import parse_myntra
+from .meesho_parser import parse_meesho
 from .csv_parser import parse_csv
 from .models import ParsedCatalog, ParsedRow, RowIssue
 from .detect import detect_format
@@ -20,6 +22,10 @@ def parse(file_bytes: bytes, fmt: str) -> ParsedCatalog:
         return parse_amazon(file_bytes)
     if fmt == "flipkart":
         return parse_flipkart(file_bytes)
+    if fmt == "myntra":
+        return parse_myntra(file_bytes)
+    if fmt == "meesho":
+        return parse_meesho(file_bytes)
     if fmt == "csv":
         return parse_csv(file_bytes)
     raise ValueError(f"Unsupported import format: {fmt}")
@@ -33,5 +39,7 @@ __all__ = [
     "parse",
     "parse_amazon",
     "parse_flipkart",
+    "parse_myntra",
+    "parse_meesho",
     "parse_csv",
 ]

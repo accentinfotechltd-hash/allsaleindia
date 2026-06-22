@@ -67,6 +67,7 @@ from routers import (
     auth_pwd_reset,
     auth_email_verify,
     biometric_auth,
+    seller_ai_draft,
     events,
     auth_2fa,
     auth_sso,
@@ -137,6 +138,7 @@ api.include_router(auth.router)
 api.include_router(auth_2fa.router)
 api.include_router(auth_sso.router)
 api.include_router(biometric_auth.router)
+api.include_router(seller_ai_draft.router)
 api.include_router(b2b_gamification.router)
 api.include_router(products.router)
 api.include_router(product_extras.router)

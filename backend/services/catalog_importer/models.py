@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 
 IssueSeverity = Literal["error", "warning", "info"]
-ImportSource = Literal["amazon", "flipkart", "csv", "unknown"]
+ImportSource = Literal["amazon", "flipkart", "myntra", "meesho", "csv", "unknown"]
 
 
 class RowIssue(BaseModel):
