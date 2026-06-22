@@ -742,6 +742,7 @@ function CodeCard({
   onShare: () => void;
   testIDPrefix: string;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={styles.codeCard}>
       <Text style={styles.codeSubtitle}>{subtitle}</Text>
