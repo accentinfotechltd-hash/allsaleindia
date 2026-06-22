@@ -741,3 +741,36 @@ agent_communication:
 
       Budget used: ~$15–18 of Universal Key (auto-recharge active).
 
+
+  - agent: main
+    message: |
+      Unique-visitor estimation for ambassador click analytics — COMPLETE.
+
+      Backend (1 file changed):
+        • /app/backend/routers/ambassadors.py:
+            - LinkMetrics model extended with `uniques_7d` and `uniques_30d`.
+            - Both computed via `db.ambassador_link_clicks.distinct("ip_hash", …)`
+              inside the same 7d/30d windows already used for raw clicks.
+            - Filters out `ip_hash: None` rows (some platforms strip
+              request.client.host) so the count reflects real visitors.
+            - Privacy-safe: the hash is the existing SHA-256(salt + raw IP),
+              never the raw IP.
+
+      Frontend (2 files updated):
+        • /app/frontend/src/lib/ambassadors.ts: added `uniques_7d` / `uniques_30d`
+          to the `LinkMetrics` type.
+        • /app/frontend/app/ambassadors/dashboard.tsx:
+            - `<Kpi>` component now accepts an optional `sublabel` prop.
+            - "Clicks · 7d" / "Clicks · 30d" tiles now show "N unique" sublabel
+              underneath the click count.
+
+      Backend test updates:
+        • `test_me_link_metrics` strengthened to use 3 distinct `ip_hash` values
+          (hashA × 2, hashB × 1, hashC × 1 at -40d) so the assertion verifies
+          both clicks (3 in 30d) and uniques (2 in 30d, 1 in 7d). All 17 tests
+          in the smart-link/cart/metrics suite still pass.
+
+      Live verification: Sarah Jenkins's profile now returns
+        { clicks_30d: 3, uniques_30d: 2 }
+      — proving the dedup catches the same visitor across multiple sessions.
+

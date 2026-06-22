@@ -447,6 +447,8 @@ class LinkMetrics(BaseModel):
     clicks_b2b: int
     clicks_7d: int
     clicks_30d: int
+    uniques_7d: int                # distinct ip_hash visitors in last 7d
+    uniques_30d: int               # distinct ip_hash visitors in last 30d
     conversions_30d: int           # attributed paid orders (B2C) in last 30d
     seller_signups_30d: int        # referred sellers in last 30d (B2B)
     conversion_rate_30d: float     # conversions / clicks_30d × 100
@@ -482,6 +484,15 @@ async def my_link_metrics(current=Depends(get_current_user)):
         {"user_id": user_id, "ts": {"$gte": since_30d}}
     )
 
+    # Unique-visitor estimation: distinct non-null ip_hash within each window.
+    # Privacy-safe (the raw IP is hashed via SHA-256 at insert time).
+    uniques_7d_rows = await db.ambassador_link_clicks.distinct(
+        "ip_hash", {"user_id": user_id, "ts": {"$gte": since_7d}, "ip_hash": {"$ne": None}}
+    )
+    uniques_30d_rows = await db.ambassador_link_clicks.distinct(
+        "ip_hash", {"user_id": user_id, "ts": {"$gte": since_30d}, "ip_hash": {"$ne": None}}
+    )
+
     # Conversions = B2C attributed paid orders in last 30d
     conversions_30d = await db.orders.count_documents({
         "ambassador_user_id": user_id,
@@ -502,6 +513,8 @@ async def my_link_metrics(current=Depends(get_current_user)):
         clicks_b2b=int(prof.get("link_clicks_b2b", 0)),
         clicks_7d=clicks_7d,
         clicks_30d=clicks_30d,
+        uniques_7d=len(uniques_7d_rows),
+        uniques_30d=len(uniques_30d_rows),
         conversions_30d=conversions_30d,
         seller_signups_30d=seller_signups_30d,
         conversion_rate_30d=rate,

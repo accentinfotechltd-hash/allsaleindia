@@ -181,6 +181,8 @@ export type LinkMetrics = {
   clicks_b2b: number;
   clicks_7d: number;
   clicks_30d: number;
+  uniques_7d: number;
+  uniques_30d: number;
   conversions_30d: number;
   seller_signups_30d: number;
   conversion_rate_30d: number;

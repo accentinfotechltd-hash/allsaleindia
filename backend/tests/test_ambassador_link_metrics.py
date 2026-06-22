@@ -107,11 +107,12 @@ async def test_me_link_metrics(transport):
     # Backdate one click to 14d ago (still inside 30d) and one to 40d ago
     # (outside both 7d and 30d windows) to verify the count buckets.
     now = datetime.now(timezone.utc)
+    # Three distinct visitors, one of which visits 3 times (so clicks > uniques).
     await db.ambassador_link_clicks.insert_many([
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                                "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=3),            "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=14),           "ip_hash": None, "user_agent": ""},
-        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=40),           "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                                "ip_hash": "hashA", "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=3),            "ip_hash": "hashA", "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=14),           "ip_hash": "hashB", "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=40),           "ip_hash": "hashC", "user_agent": ""},
     ])
     # Also drop in a paid order so conversions_30d ticks up.
     oid = f"order_{uuid.uuid4().hex[:8]}"
@@ -145,6 +146,10 @@ async def test_me_link_metrics(transport):
         # inserted rows directly bypassing the counter), so total may be 0.
         assert m["clicks_7d"] == 2
         assert m["clicks_30d"] == 3
+        # Two distinct visitors in last 7d (but hashA appeared twice → 1 unique).
+        assert m["uniques_7d"] == 1
+        # Three distinct visitors in last 30d (hashA + hashB; hashC is at -40d).
+        assert m["uniques_30d"] == 2
         assert m["conversions_30d"] == 1
         assert m["seller_signups_30d"] == 1
         # 1 conversion / 3 clicks_30d → 33.3%

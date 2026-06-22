@@ -297,8 +297,16 @@ export default function AmbassadorDashboard() {
               </Text>
             </View>
             <View style={styles.linkPerfGrid}>
-              <Kpi label="Clicks · 7d" value={String(linkMetrics.clicks_7d)} />
-              <Kpi label="Clicks · 30d" value={String(linkMetrics.clicks_30d)} />
+              <Kpi
+                label="Clicks · 7d"
+                value={String(linkMetrics.clicks_7d)}
+                sublabel={`${linkMetrics.uniques_7d} unique`}
+              />
+              <Kpi
+                label="Clicks · 30d"
+                value={String(linkMetrics.clicks_30d)}
+                sublabel={`${linkMetrics.uniques_30d} unique`}
+              />
               {me.program === "B2B" || me.program === "BOTH" ? (
                 <Kpi
                   label="Seller signups · 30d"
@@ -531,11 +539,12 @@ export default function AmbassadorDashboard() {
   );
 }
 
-function Kpi({ label, value, color = colors.text }: { label: string; value: string; color?: string }) {
+function Kpi({ label, value, color = colors.text, sublabel }: { label: string; value: string; color?: string; sublabel?: string }) {
   return (
     <View style={styles.kpi}>
       <Text style={[styles.kpiValue, { color }]}>{value}</Text>
       <Text style={styles.kpiLabel}>{label}</Text>
+      {sublabel ? <Text style={styles.kpiSublabel}>{sublabel}</Text> : null}
     </View>
   );
 }
@@ -1121,6 +1130,7 @@ const styles = StyleSheet.create({
   },
   kpiValue: { fontSize: 18, fontWeight: "800", color: colors.text },
   kpiLabel: { color: colors.textMuted, fontSize: 11, marginTop: 2 },
+  kpiSublabel: { color: colors.textFaint, fontSize: 10, marginTop: 1 },
   tierBox: {
     backgroundColor: "#fff",
     padding: spacing.md,
