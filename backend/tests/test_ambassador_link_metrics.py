@@ -170,3 +170,66 @@ async def test_me_link_metrics_404_for_non_ambassador(transport):
         assert r.status_code == 404
     finally:
         await db.users.delete_one({"id": uid})
+
+
+async def test_link_clicks_daily_returns_contiguous_series(transport):
+    """Daily aggregation endpoint should return one row per day (no gaps)
+    even when some days had zero clicks, so the dashboard chart can render
+    a flat-baseline bar series without client-side gap-filling."""
+    code = f"DAILY{uuid.uuid4().hex[:4].upper()}"
+    uid = await _seed_ambassador(name="Daily Tester", code=code)
+    now = datetime.now(timezone.utc)
+    # Click distribution across the last 6 days, plus an old click far outside the window
+    # to ensure it gets filtered.
+    rows = [
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                            "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now,                            "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2b", "ts": now - timedelta(days=1),        "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=2),        "ip_hash": None, "user_agent": ""},
+        # day -3 intentionally empty
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=4),        "ip_hash": None, "user_agent": ""},
+        {"user_id": uid, "code": code, "type": "b2c", "ts": now - timedelta(days=120),      "ip_hash": None, "user_agent": ""},
+    ]
+    await db.ambassador_link_clicks.insert_many(rows)
+    try:
+        token = _token_for(uid)
+        async with AsyncClient(transport=transport, base_url="http://t") as c:
+            r = await c.get(
+                "/api/ambassadors/me/link-clicks-daily?days=7",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert r.status_code == 200, r.text
+        series = r.json()
+        # 7 contiguous days, each with date/b2c/b2b/total
+        assert len(series) == 7
+        for row in series:
+            assert set(row.keys()) == {"date", "b2c", "b2b", "total"}
+        # Total clicks in last 7 days = 5 (excluded the day -120 row)
+        assert sum(s["total"] for s in series) == 5
+        # Most recent day (last in array) should have 2 b2c clicks
+        assert series[-1]["b2c"] == 2
+        assert series[-1]["total"] == 2
+        # Day -1 had a b2b click
+        assert series[-2]["b2b"] == 1
+        # Day -3 in the past = index (7-1-3) = 3 should be all zero
+        assert series[3]["total"] == 0
+    finally:
+        await _cleanup(uid)
+
+
+async def test_link_clicks_daily_caps_at_90(transport):
+    """Caller-provided `days` should be clamped to [1, 90] to avoid expensive
+    Mongo aggregations on a public-facing dashboard endpoint."""
+    code = f"CAP{uuid.uuid4().hex[:4].upper()}"
+    uid = await _seed_ambassador(name="Cap Tester", code=code)
+    try:
+        token = _token_for(uid)
+        async with AsyncClient(transport=transport, base_url="http://t") as c:
+            r = await c.get(
+                "/api/ambassadors/me/link-clicks-daily?days=9999",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+        assert r.status_code == 200
+        assert len(r.json()) == 90
+    finally:
+        await _cleanup(uid)

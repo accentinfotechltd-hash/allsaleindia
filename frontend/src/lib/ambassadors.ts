@@ -189,6 +189,16 @@ export type LinkMetrics = {
 export const getMyLinkMetrics = () =>
   api<LinkMetrics>("/ambassadors/me/link-metrics");
 
+export type DailyClicks = {
+  date: string;
+  b2c: number;
+  b2b: number;
+  total: number;
+};
+
+export const getMyLinkClicksDaily = (days = 30) =>
+  api<DailyClicks[]>(`/ambassadors/me/link-clicks-daily?days=${days}`);
+
 export const joinProgram = (body: JoinPayload) =>
   api<JoinResponse>("/ambassadors/join", { method: "POST", body, auth: false });
 

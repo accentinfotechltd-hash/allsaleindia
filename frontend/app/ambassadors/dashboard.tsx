@@ -19,9 +19,12 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { ClicksTimeSeries } from "@/src/components/ClicksTimeSeries";
 
 import { useToast } from "@/src/components/UiOverlayProvider";
 import { ApiError } from "@/src/lib/api";
@@ -30,7 +33,9 @@ import {
   ContentSubmission,
   formatMoney,
   getMe,
+  getMyLinkClicksDaily,
   getMyLinkMetrics,
+  type DailyClicks,
   LinkMetrics,
   listContent,
   listReferredSellers,
@@ -49,11 +54,13 @@ export default function AmbassadorDashboard() {
   const router = useRouter();
   const toast = useToast();
   const { t } = useTranslation();
+  const { width: screenWidth } = useWindowDimensions();
   const [me, setMe] = useState<AmbassadorMe | null>(null);
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [sellers, setSellers] = useState<ReferredSellerRow[]>([]);
   const [content, setContent] = useState<ContentSubmission[]>([]);
   const [linkMetrics, setLinkMetrics] = useState<LinkMetrics | null>(null);
+  const [clicksDaily, setClicksDaily] = useState<DailyClicks[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("sales");
@@ -65,18 +72,20 @@ export default function AmbassadorDashboard() {
     try {
       const m = await getMe();
       setMe(m);
-      const [s, sl, c, lm] = await Promise.all([
+      const [s, sl, c, lm, cd] = await Promise.all([
         listSales(20),
         m.program === "B2B" || m.program === "BOTH"
           ? listReferredSellers()
           : Promise.resolve<ReferredSellerRow[]>([]),
         listContent(),
         getMyLinkMetrics().catch(() => null),
+        getMyLinkClicksDaily(30).catch(() => [] as DailyClicks[]),
       ]);
       setSales(s);
       setSellers(sl);
       setContent(c);
       setLinkMetrics(lm);
+      setClicksDaily(cd);
     } catch (e: any) {
       const msg = e?.message || "";
       if (msg.toLowerCase().includes("not enrolled")) {
@@ -315,6 +324,16 @@ export default function AmbassadorDashboard() {
                 ? ` · 🛒 ${linkMetrics.clicks_b2c} customer · 🏪 ${linkMetrics.clicks_b2b} seller`
                 : null}
             </Text>
+            {clicksDaily.length > 0 ? (
+              <View style={styles.linkPerfChart}>
+                <Text style={styles.linkPerfChartTitle}>Daily clicks · last 30 days</Text>
+                <ClicksTimeSeries
+                  data={clicksDaily}
+                  showB2B={me.program === "B2B" || me.program === "BOTH"}
+                  width={Math.min(screenWidth, 480) - spacing.lg * 2 - spacing.md * 2}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -1084,6 +1103,13 @@ const styles = StyleSheet.create({
   linkPerfHint: { fontSize: 11, color: colors.textMuted },
   linkPerfGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   linkPerfFootnote: { fontSize: 11, color: colors.textFaint, paddingTop: 2 },
+  linkPerfChart: {
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 4,
+  },
+  linkPerfChartTitle: { fontSize: 11, fontWeight: "700", color: colors.textMuted, letterSpacing: 0.3 },
   kpi: {
     flexBasis: "48%",
     flexGrow: 1,

@@ -698,5 +698,46 @@ agent_communication:
 
       strings — falls back to English in all locales as before.
 
+
+  - agent: main
+    message: |
+      Daily click time-series chart on ambassador dashboard — COMPLETE.
+
+      Backend (1 endpoint added):
+        • GET /api/ambassadors/me/link-clicks-daily?days=N
+            - Aggregates `ambassador_link_clicks` by UTC date via Mongo
+              `$dateToString` group, returning one row per day for the
+              caller's last N days (clamped to [1, 90]).
+            - Always returns a CONTIGUOUS series — fills zero-rows for
+              days with no clicks so the dashboard chart renders a flat
+              baseline without client-side gap-filling.
+            - Shape: `[{date, b2c, b2b, total}]`.
+
+      Frontend (2 files changed, 1 added):
+        • /app/frontend/src/components/ClicksTimeSeries.tsx (NEW):
+            Lightweight react-native-svg stacked-bar chart. Orange = B2C
+            clicks, Blue = B2B clicks. Auto-labels the max-bar value,
+            renders day-of-week ticks every ~7 bars, includes an empty
+            state ("No clicks yet. Share your link to start seeing the
+            trend.") and a color legend.
+        • /app/frontend/src/lib/ambassadors.ts: added
+          `getMyLinkClicksDaily()` API client + `DailyClicks` type.
+        • /app/frontend/app/ambassadors/dashboard.tsx: imports the chart
+          and renders it inside the existing "Link Performance" card,
+          right below the KPI tiles. Uses `useWindowDimensions` to size
+          to the available viewport with a max of 480px.
+
+      New backend tests (2 added to `test_ambassador_link_metrics.py`):
+        ✓ test_link_clicks_daily_returns_contiguous_series — verifies
+          day-by-day buckets, zero-fill on quiet days, exclusion of
+          out-of-window clicks.
+        ✓ test_link_clicks_daily_caps_at_90 — verifies the days param is
+          clamped to 90 to prevent expensive aggregations.
+
+      All 17 ambassador/smart-link/cart tests still pass; no regressions.
+
+      Live API verification: Sarah Jenkins's 7-day series correctly returns
+      6 zero-rows + today's `b2c: 3` (matching the lifetime counter).
+
       Budget used: ~$15–18 of Universal Key (auto-recharge active).
 

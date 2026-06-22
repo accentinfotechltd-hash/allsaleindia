@@ -508,6 +508,54 @@ async def my_link_metrics(current=Depends(get_current_user)):
     )
 
 
+class DailyClicks(BaseModel):
+    date: str            # ISO date e.g. "2026-06-21"
+    b2c: int
+    b2b: int
+    total: int
+
+
+@router.get("/ambassadors/me/link-clicks-daily", response_model=list[DailyClicks])
+async def my_link_clicks_daily(
+    days: int = 30,
+    current=Depends(get_current_user),
+):
+    """Daily click time-series for the calling ambassador's smart-links.
+
+    Returns one row per day (UTC) for the last ``days`` (max 90, min 1),
+    including zero-rows for days with no clicks so the dashboard chart can
+    render a contiguous bar series without client-side gap-filling.
+    """
+    days = max(1, min(int(days or 30), 90))
+    user_id = current.id if hasattr(current, "id") else current["id"]
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Mongo aggregation: group by UTC date.
+    pipeline = [
+        {"$match": {"user_id": user_id, "ts": {"$gte": start}}},
+        {"$project": {
+            "type": 1,
+            "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$ts"}},
+        }},
+        {"$group": {
+            "_id": "$date",
+            "b2c": {"$sum": {"$cond": [{"$eq": ["$type", "b2c"]}, 1, 0]}},
+            "b2b": {"$sum": {"$cond": [{"$eq": ["$type", "b2b"]}, 1, 0]}},
+        }},
+    ]
+    buckets: dict[str, dict[str, int]] = {}
+    async for row in db.ambassador_link_clicks.aggregate(pipeline):
+        buckets[row["_id"]] = {"b2c": int(row["b2c"]), "b2b": int(row["b2b"])}
+
+    series: list[DailyClicks] = []
+    for i in range(days):
+        d = (start + timedelta(days=i)).strftime("%Y-%m-%d")
+        bk = buckets.get(d, {"b2c": 0, "b2b": 0})
+        series.append(DailyClicks(date=d, b2c=bk["b2c"], b2b=bk["b2b"], total=bk["b2c"] + bk["b2b"]))
+    return series
+
+
 # ---------------------------------------------------------------------------
 # POST /api/ambassadors/join  —  signup
 # ---------------------------------------------------------------------------
