@@ -30,6 +30,8 @@ import {
   ContentSubmission,
   formatMoney,
   getMe,
+  getMyLinkMetrics,
+  LinkMetrics,
   listContent,
   listReferredSellers,
   listSales,
@@ -51,6 +53,7 @@ export default function AmbassadorDashboard() {
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [sellers, setSellers] = useState<ReferredSellerRow[]>([]);
   const [content, setContent] = useState<ContentSubmission[]>([]);
+  const [linkMetrics, setLinkMetrics] = useState<LinkMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<Tab>("sales");
@@ -62,16 +65,18 @@ export default function AmbassadorDashboard() {
     try {
       const m = await getMe();
       setMe(m);
-      const [s, sl, c] = await Promise.all([
+      const [s, sl, c, lm] = await Promise.all([
         listSales(20),
         m.program === "B2B" || m.program === "BOTH"
           ? listReferredSellers()
           : Promise.resolve<ReferredSellerRow[]>([]),
         listContent(),
+        getMyLinkMetrics().catch(() => null),
       ]);
       setSales(s);
       setSellers(sl);
       setContent(c);
+      setLinkMetrics(lm);
     } catch (e: any) {
       const msg = e?.message || "";
       if (msg.toLowerCase().includes("not enrolled")) {
@@ -272,6 +277,46 @@ export default function AmbassadorDashboard() {
             color={me.posts_this_month >= me.posts_required ? colors.success : colors.textMuted}
           />
         </View>
+
+        {/* Link Performance — clicks on /a/{code} smart links */}
+        {linkMetrics ? (
+          <View style={styles.linkPerfCard} testID="ambassadors-link-performance">
+            <View style={styles.linkPerfHeader}>
+              <Text style={styles.linkPerfTitle}>🔗 Link Performance</Text>
+              <Text style={styles.linkPerfHint}>
+                Anyone tapping your share link is counted here.
+              </Text>
+            </View>
+            <View style={styles.linkPerfGrid}>
+              <Kpi label="Clicks · 7d" value={String(linkMetrics.clicks_7d)} />
+              <Kpi label="Clicks · 30d" value={String(linkMetrics.clicks_30d)} />
+              {me.program === "B2B" || me.program === "BOTH" ? (
+                <Kpi
+                  label="Seller signups · 30d"
+                  value={String(linkMetrics.seller_signups_30d)}
+                  color={linkMetrics.seller_signups_30d > 0 ? colors.success : colors.textMuted}
+                />
+              ) : (
+                <Kpi
+                  label="Conversions · 30d"
+                  value={String(linkMetrics.conversions_30d)}
+                  color={linkMetrics.conversions_30d > 0 ? colors.success : colors.textMuted}
+                />
+              )}
+              <Kpi
+                label="Conv. rate · 30d"
+                value={`${linkMetrics.conversion_rate_30d}%`}
+                color={linkMetrics.conversion_rate_30d > 0 ? colors.primary : colors.textMuted}
+              />
+            </View>
+            <Text style={styles.linkPerfFootnote}>
+              {`Lifetime clicks: ${linkMetrics.clicks_total}`}
+              {me.code_b2b
+                ? ` · 🛒 ${linkMetrics.clicks_b2c} customer · 🏪 ${linkMetrics.clicks_b2b} seller`
+                : null}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Tier progress */}
         <View style={styles.tierBox}>
@@ -1026,6 +1071,19 @@ const styles = StyleSheet.create({
   codeShare: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: colors.primary },
   codeShareText: { color: "#fff", fontWeight: "800", fontSize: 12 },
   kpiGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  linkPerfCard: {
+    backgroundColor: "#fff",
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  linkPerfHeader: { gap: 2 },
+  linkPerfTitle: { fontSize: 14, fontWeight: "800", color: colors.text },
+  linkPerfHint: { fontSize: 11, color: colors.textMuted },
+  linkPerfGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  linkPerfFootnote: { fontSize: 11, color: colors.textFaint, paddingTop: 2 },
   kpi: {
     flexBasis: "48%",
     flexGrow: 1,

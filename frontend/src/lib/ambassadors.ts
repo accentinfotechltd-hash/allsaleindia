@@ -175,6 +175,20 @@ export const resolveCode = (code: string) =>
     { auth: false }
   );
 
+export type LinkMetrics = {
+  clicks_total: number;
+  clicks_b2c: number;
+  clicks_b2b: number;
+  clicks_7d: number;
+  clicks_30d: number;
+  conversions_30d: number;
+  seller_signups_30d: number;
+  conversion_rate_30d: number;
+};
+
+export const getMyLinkMetrics = () =>
+  api<LinkMetrics>("/ambassadors/me/link-metrics");
+
 export const joinProgram = (body: JoinPayload) =>
   api<JoinResponse>("/ambassadors/join", { method: "POST", body, auth: false });
 

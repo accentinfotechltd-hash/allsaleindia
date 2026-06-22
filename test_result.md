@@ -648,6 +648,50 @@ agent_communication:
         4. Backend applies Sarah's 5% off automatically → user sees the
            discount in cart without ever typing a code.
 
+
+  - agent: main
+    message: |
+      Visit-attribution analytics for /a/{code} smart-links — COMPLETE.
+
+      Backend (1 file changed, 1 test file added):
+        • /app/backend/routers/ambassadors.py:
+            - POST /api/ambassadors/track-visit/{code}: public beacon-style
+              endpoint. Stores a privacy-safe row in `ambassador_link_clicks`
+              (no raw IPs — SHA-256 hash truncated to 16 chars for unique
+              visitor estimation) and increments rolling lifetime counters
+              on the ambassador's profile (link_clicks_total / b2c / b2b).
+              Always returns 200 to avoid blocking the visitor's UX; ok=false
+              for unknown codes so analytics consumers can drop them.
+            - GET /api/ambassadors/me/link-metrics: auth-required KPIs for the
+              calling ambassador. Returns clicks_total, clicks_b2c/b2b,
+              clicks_7d, clicks_30d, conversions_30d (paid orders attributed),
+              seller_signups_30d (referred sellers), and conversion_rate_30d.
+
+      Frontend (3 files changed):
+        • /app/frontend/app/a/[code].tsx: fires the track-visit beacon on
+          mount (fire-and-forget) immediately after resolve.
+        • /app/frontend/src/lib/ambassadors.ts: added `getMyLinkMetrics()`
+          client and `LinkMetrics` type.
+        • /app/frontend/app/ambassadors/dashboard.tsx: added a "🔗 Link
+          Performance" card under the existing KPI tiles, showing
+          clicks-7d/30d, conversions/seller-signups, conversion rate, and
+          a lifetime-clicks footnote with B2C/B2B breakdown for BOTH-program
+          ambassadors.
+
+      New tests (`test_ambassador_link_metrics.py`, 5 tests, all PASS):
+        ✓ B2C code increments link_clicks_b2c + link_clicks_total
+        ✓ B2B (BIZ) code increments link_clicks_b2b
+        ✓ Unknown code returns 200 + ok:false (never raises)
+        ✓ Metrics endpoint returns correct 7d/30d buckets + conversion rate
+        ✓ Non-ambassador callers get 404
+
+      Regression check: all 15 smart-link / cart-swap / auto-apply / metrics
+      tests pass together — no regressions.
+
+      Live verification:
+        • Real screenshot session of /a/SARAHJENKINS5 incremented her
+          link_clicks_b2c counter from 2 → 3 in real time. 🎉
+
         • Refactored SellOnAllsaleBanner.tsx to use t() with the new keys.
         • Verified visually: French welcome shows "Vous possédez une entreprise
           en Inde ? Vendre sur Allsale". ✓

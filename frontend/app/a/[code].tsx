@@ -28,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTranslation } from "@/src/i18n";
 import { resolveCode, ResolveCodeResponse } from "@/src/lib/ambassadors";
+import { api } from "@/src/lib/api";
 import { captureRefFromResolved } from "@/src/lib/ref";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -53,6 +54,10 @@ export default function AmbassadorSmartLink() {
         const r = await resolveCode(code);
         if (!active) return;
         setResolved(r);
+        // Fire-and-forget impression beacon for ambassador-dashboard analytics.
+        api(`/ambassadors/track-visit/${encodeURIComponent(r.code)}`, {
+          method: "POST", auth: false,
+        }).catch(() => { /* analytics are best-effort */ });
         // Persist to the canonical `allsale_ref_v1` storage so the cart
         // auto-apply (CartContext.maybeAutoApplyRef) and seller-signup
         // pre-fill both pick it up. 90-day TTL.

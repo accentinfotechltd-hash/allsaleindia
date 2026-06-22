@@ -359,7 +359,7 @@ async def resolve_code(code: str):
             primary_platform=prof.get("primary_platform"),
             program=program,
         )
-    # Default: B2C audience
+    # Visitor arrived via B2C link — auto-fire impression beacon below
     counterpart = code_b2b if program in ("B2B", "BOTH") else None
     return AmbassadorCodeResolve(
         type="b2c",
@@ -368,6 +368,143 @@ async def resolve_code(code: str):
         name=name,
         primary_platform=prof.get("primary_platform"),
         program=program,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public — impression tracking for /a/{code} smart-link analytics
+# ---------------------------------------------------------------------------
+class TrackVisitResp(BaseModel):
+    ok: bool
+
+
+@router.post("/ambassadors/track-visit/{code}", response_model=TrackVisitResp)
+async def track_visit(code: str, request: Request):
+    """Beacon-style impression counter for the `/a/{code}` smart-link.
+
+    Fire-and-forget from the smart-link landing page on mount. Stores a
+    privacy-safe row in ``ambassador_link_clicks`` (no raw IPs, no PII)
+    plus rolling lifetime counter on the ambassador profile so the
+    dashboard can render KPIs without an aggregation pipeline.
+
+    Always returns 200 — never blocks the visitor's UX even when the code
+    is invalid or the database is briefly unavailable. Aggregations are
+    computed lazily in ``/ambassadors/me/link-metrics``.
+    """
+    code = (code or "").upper().strip()
+    if not code:
+        return TrackVisitResp(ok=False)
+    user = await db.users.find_one(
+        {"$or": [
+            {"ambassador_profile.code": code},
+            {"ambassador_profile.code_b2b": code},
+         ],
+         "ambassador_profile.status": "active"},
+        {"_id": 0, "id": 1, "ambassador_profile.code_b2b": 1,
+         "ambassador_profile.code": 1, "ambassador_profile.program": 1},
+    )
+    if not user:
+        return TrackVisitResp(ok=False)
+    prof = user.get("ambassador_profile") or {}
+    # Decide which audience this code targets so analytics can split.
+    is_b2b_match = bool(prof.get("code_b2b")) and code == prof["code_b2b"].upper()
+    legacy_b2b_only = (prof.get("program") == "B2B") and not prof.get("code_b2b")
+    click_type = "b2b" if (is_b2b_match or legacy_b2b_only) else "b2c"
+
+    # Privacy-safe IP hash for unique-visitor estimation (no raw IPs stored).
+    import hashlib
+    ip_raw = request.client.host if request.client else ""
+    ip_hash = hashlib.sha256(f"allsale:{ip_raw}".encode()).hexdigest()[:16] if ip_raw else None
+    ua = (request.headers.get("user-agent") or "")[:200]
+
+    now = datetime.now(timezone.utc)
+    try:
+        await db.ambassador_link_clicks.insert_one({
+            "user_id": user["id"],
+            "code": code,
+            "type": click_type,
+            "ts": now,
+            "ip_hash": ip_hash,
+            "user_agent": ua,
+        })
+        # Rolling lifetime counters on the profile for cheap dashboard reads.
+        inc_field = "link_clicks_b2b" if click_type == "b2b" else "link_clicks_b2c"
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$inc": {f"ambassador_profile.{inc_field}": 1,
+                      "ambassador_profile.link_clicks_total": 1}},
+        )
+    except Exception:
+        # Never fail the visitor's request — analytics are best-effort.
+        pass
+    return TrackVisitResp(ok=True)
+
+
+class LinkMetrics(BaseModel):
+    """Per-ambassador click → conversion KPIs surfaced on the dashboard."""
+    clicks_total: int
+    clicks_b2c: int
+    clicks_b2b: int
+    clicks_7d: int
+    clicks_30d: int
+    conversions_30d: int           # attributed paid orders (B2C) in last 30d
+    seller_signups_30d: int        # referred sellers in last 30d (B2B)
+    conversion_rate_30d: float     # conversions / clicks_30d × 100
+
+
+@router.get("/ambassadors/me/link-metrics", response_model=LinkMetrics)
+async def my_link_metrics(current=Depends(get_current_user)):
+    """Click → conversion KPIs for the calling ambassador's smart-link.
+
+    Used by the ambassador dashboard "Link Performance" card.
+    Returns 404 if the caller isn't an active ambassador.
+    """
+    prof = (current.get("ambassador_profile") or {}) if isinstance(current, dict) else {}
+    if not prof:
+        # Defensive — current is a Pydantic model on most routes; re-fetch.
+        u = await db.users.find_one({"id": current.id if hasattr(current, "id") else current["id"]},
+                                    {"_id": 0, "id": 1, "ambassador_profile": 1})
+        if not u or not u.get("ambassador_profile"):
+            raise HTTPException(status_code=404, detail="Not an ambassador")
+        prof = u["ambassador_profile"]
+        user_id = u["id"]
+    else:
+        user_id = current["id"] if isinstance(current, dict) else current.id
+
+    now = datetime.now(timezone.utc)
+    since_7d = now - timedelta(days=7)
+    since_30d = now - timedelta(days=30)
+
+    clicks_7d = await db.ambassador_link_clicks.count_documents(
+        {"user_id": user_id, "ts": {"$gte": since_7d}}
+    )
+    clicks_30d = await db.ambassador_link_clicks.count_documents(
+        {"user_id": user_id, "ts": {"$gte": since_30d}}
+    )
+
+    # Conversions = B2C attributed paid orders in last 30d
+    conversions_30d = await db.orders.count_documents({
+        "ambassador_user_id": user_id,
+        "payment_status": {"$in": ["paid", "succeeded", "captured"]},
+        "created_at": {"$gte": since_30d},
+    })
+    # Seller signups credited to this ambassador in last 30d
+    seller_signups_30d = await db.users.count_documents({
+        "referred_by_ambassador_id": user_id,
+        "is_seller": True,
+        "created_at": {"$gte": since_30d},
+    })
+
+    rate = round(conversions_30d / clicks_30d * 100, 1) if clicks_30d > 0 else 0.0
+    return LinkMetrics(
+        clicks_total=int(prof.get("link_clicks_total", 0)),
+        clicks_b2c=int(prof.get("link_clicks_b2c", 0)),
+        clicks_b2b=int(prof.get("link_clicks_b2b", 0)),
+        clicks_7d=clicks_7d,
+        clicks_30d=clicks_30d,
+        conversions_30d=conversions_30d,
+        seller_signups_30d=seller_signups_30d,
+        conversion_rate_30d=rate,
     )
 
 
