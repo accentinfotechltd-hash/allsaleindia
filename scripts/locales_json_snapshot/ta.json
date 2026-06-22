@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "வரிசை {{n}} · புதியது",
   "seller_bulk_upload.row_label_update": "வரிசை {{n}} · புதுப்பிப்பு",
   "seller_bulk_upload.row_name_missing_create": "(பெயர் விடுபட்டுள்ளது)",
-  "seller_bulk_upload.row_name_missing_update": "(பெயருக்கு எந்த மாற்றமும் இல்லை)"
+  "seller_bulk_upload.row_name_missing_update": "(பெயருக்கு எந்த மாற்றமும் இல்லை)",
+  "sell_banner.compact_prefix": "இந்தியாவில் ஒரு ব्यवसाय இருக்கிறதா? ",
+  "sell_banner.compact_link": "Allsale இல் விற்கவும்",
+  "sell_banner.card_title": "Allsale இல் விற்கவும்",
+  "sell_banner.card_subtitle": "NZ வாங்கியவர்களுக்கு உங்கள் பொருட்களைப் பட்டியலிடுங்கள். இந்தியா-பதிவுசெய்யப்பட்ட வணிகங்கள் மட்டுமே."
 }

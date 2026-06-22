@@ -1954,7 +1954,7 @@ const hi = {
     toast_your_code: "आपका कोड",
     toast_share_failed_title: "शेयर नहीं हो सका",
     toast_share_failed_body: "पुनः प्रयास करें।",
-    share_msg: "{{suffix}} के लिए Allsale पर मेरा कोड {{code}} इस्तेमाल करें! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "{{suffix}} के लिए Allsale पर मेरा कोड {{code}} इस्तेमाल करें! https://allsale.co.nz//a/{{code}}",
     err_post_url: "पूरा https:// लिंक पेस्ट करें",
     post_submitted_title: "पोस्ट सबमिट हुई ✓",
     post_submitted_body: "हम जल्द ही इसे सत्यापित करेंगे।",

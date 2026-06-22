@@ -1336,6 +1336,12 @@ const fr = {
     already_have_account: "Vous avez déjà un compte Allsale ? ",
     sign_in: "Se connecter",
   },
+  sell_banner: {
+    compact_prefix: "Vous possédez une entreprise en Inde ? ",
+    compact_link: "Vendre sur Allsale",
+    card_title: "Vendre sur Allsale",
+    card_subtitle: "Listez vos produits pour les acheteurs de NZ. Entreprises enregistrées en Inde uniquement.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Vendez plus, gardez plus.",
@@ -1962,7 +1968,7 @@ const fr = {
     toast_your_code: "Votre code",
     toast_share_failed_title: "Impossible de partager",
     toast_share_failed_body: "Réessayez.",
-    share_msg: "Utilisez mon code {{code}} sur Allsale pour {{suffix}} ! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Utilisez mon code {{code}} sur Allsale pour {{suffix}} ! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Collez un lien https:// complet",
     post_submitted_title: "Publication soumise ✓",
     post_submitted_body: "Nous la vérifierons sous peu.",

@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Zeile {{n}} · NEU",
   "seller_bulk_upload.row_label_update": "Zeile {{n}} · AKTUALISIERUNG",
   "seller_bulk_upload.row_name_missing_create": "(Name fehlt)",
-  "seller_bulk_upload.row_name_missing_update": "(keine Änderung des Namens)"
+  "seller_bulk_upload.row_name_missing_update": "(keine Änderung des Namens)",
+  "sell_banner.compact_prefix": "Besitzen Sie ein Unternehmen in Indien? ",
+  "sell_banner.compact_link": "Auf Allsale verkaufen",
+  "sell_banner.card_title": "Auf Allsale verkaufen",
+  "sell_banner.card_subtitle": "Listen Sie Ihre Produkte für NZ-Käufer auf. Nur in Indien registrierte Unternehmen."
 }

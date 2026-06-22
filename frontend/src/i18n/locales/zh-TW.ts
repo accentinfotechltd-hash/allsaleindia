@@ -1336,6 +1336,12 @@ const zhTW = {
     already_have_account: "已經有 Allsale 帳戶？",
     sign_in: "登入",
   },
+  sell_banner: {
+    compact_prefix: "在印度擁有業務？ ",
+    compact_link: "在 Allsale 上販售",
+    card_title: "在 Allsale 上販售",
+    card_subtitle: "將您的產品列表發佈給紐西蘭購物者。僅限印度註冊的企業。",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "銷售更多，保留更多。",
@@ -1962,7 +1968,7 @@ const zhTW = {
     toast_your_code: "您的代碼",
     toast_share_failed_title: "無法分享",
     toast_share_failed_body: "請重試。",
-    share_msg: "在 Allsale 上使用我的代碼 {{code}} 可享受 {{suffix}}！https://allsale.co.nz/?ref={{code}}",
+    share_msg: "在 Allsale 上使用我的代碼 {{code}} 可享受 {{suffix}}！https://allsale.co.nz//a/{{code}}",
     err_post_url: "粘貼完整的 https:// 鏈接",
     post_submitted_title: "帖子已提交 ✓",
     post_submitted_body: "我們會盡快驗證。",

@@ -1336,6 +1336,12 @@ const to = {
     already_have_account: "ʻOku ʻi hoʻo ʻakona Allsale? ",
     sign_in: "Tali atu",
   },
+  sell_banner: {
+    compact_prefix: "Oku fua ha bisinisi i India? ",
+    compact_link: "Fakatau i Allsale",
+    card_title: "Fakatau i Allsale",
+    card_subtitle: "Fakatonutonu ho ngaahi me'a ki he kakai makau i NZ. Ngaahi bisinisi kua fakarehisterea i India pe.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Tuku mai lahi ange, keep more.",
@@ -1962,7 +1968,7 @@ const to = {
     toast_your_code: "Hoʻo code",
     toast_share_failed_title: "ʻOka ʻikai faʻa ke fakamahani",
     toast_share_failed_body: "Tokua ʻoe.",
-    share_msg: "Use my code {{code}} on Allsale for {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Use my code {{code}} on Allsale for {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Fakatanu ʻae full https:// link",
     post_submitted_title: "Post submitted ✓",
     post_submitted_body: "Te mā fakaʻofa ia ʻo mooni.",

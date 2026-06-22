@@ -1965,7 +1965,7 @@ const tpi = {
     toast_your_code: "Kod bilong yu",
     toast_share_failed_title: "I no inap sehia",
     toast_share_failed_body: "Traim gen.",
-    share_msg: "Yusim kod bilong mi {{code}} long Allsale long {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Yusim kod bilong mi {{code}} long Allsale long {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Pestim wanpela ful https:// link",
     post_submitted_title: "I salim pos ✓",
     post_submitted_body: "Bai mipela veripaim em kwiktaim.",

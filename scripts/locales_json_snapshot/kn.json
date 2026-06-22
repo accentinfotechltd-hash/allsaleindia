@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "ಸಾಲು {{n}} · ಹೊಸ",
   "seller_bulk_upload.row_label_update": "ಸಾಲು {{n}} · ನವೀಕರಣ",
   "seller_bulk_upload.row_name_missing_create": "(ಹೆಸರು ಕಾಣೆಯಾಗಿದೆ)",
-  "seller_bulk_upload.row_name_missing_update": "(ಹೆಸರಿಗೆ ಯಾವುದೇ ಪರಿವರ್ತನೆ ಇಲ್ಲ)"
+  "seller_bulk_upload.row_name_missing_update": "(ಹೆಸರಿಗೆ ಯಾವುದೇ ಪರಿವರ್ತನೆ ಇಲ್ಲ)",
+  "sell_banner.compact_prefix": "ಭಾರತದಲ್ಲಿ ವ್ಯವಸಾಯ ನಿರ್ವಹಿಸುತ್ತಿದ್ದೀರಾ? ",
+  "sell_banner.compact_link": "Allsale ನಲ್ಲಿ ಮಾರಾಟ ಮಾಡಿ",
+  "sell_banner.card_title": "Allsale ನಲ್ಲಿ ಮಾರಾಟ ಮಾಡಿ",
+  "sell_banner.card_subtitle": "ನಿಮ್ಮ ಉತ್ಪನ್ನಗಳನ್ನು NZ ಖರೀದಿದಾರರಿಗೆ ನಿಮಿಷ. ಭಾರತದಲ್ಲಿ ನೋಂದಾಯಿತ ವ್ಯವಸೆಗಳು ಮಾತ್ರ."
 }

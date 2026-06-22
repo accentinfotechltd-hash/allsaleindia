@@ -160,6 +160,21 @@ export const lookupCode = (code: string) =>
     { auth: false }
   );
 
+export type ResolveCodeResponse = {
+  type: "b2c" | "b2b";
+  code: string;
+  counterpart_code: string | null;
+  name: string;
+  primary_platform: string | null;
+  program: AmbassadorProgram;
+};
+
+export const resolveCode = (code: string) =>
+  api<ResolveCodeResponse>(
+    `/ambassadors/resolve/${encodeURIComponent(code)}`,
+    { auth: false }
+  );
+
 export const joinProgram = (body: JoinPayload) =>
   api<JoinResponse>("/ambassadors/join", { method: "POST", body, auth: false });
 

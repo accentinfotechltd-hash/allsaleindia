@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "第 {{n}} 行 · 新建",
   "seller_bulk_upload.row_label_update": "第 {{n}} 行 · 更新",
   "seller_bulk_upload.row_name_missing_create": "（缺少名称）",
-  "seller_bulk_upload.row_name_missing_update": "（名称无更改）"
+  "seller_bulk_upload.row_name_missing_update": "（名称无更改）",
+  "sell_banner.compact_prefix": "在印度拥有企业？",
+  "sell_banner.compact_link": "在 Allsale 上销售",
+  "sell_banner.card_title": "在 Allsale 上销售",
+  "sell_banner.card_subtitle": "向新西兰购物者列出您的产品。仅限印度注册企业。"
 }

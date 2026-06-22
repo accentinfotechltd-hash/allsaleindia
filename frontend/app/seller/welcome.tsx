@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronLeft, FileCheck, Globe2, ShieldCheck, Store } from "lucide-react-native";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,6 +11,9 @@ export default function SellerWelcome() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuth();
+  // Forward `?ref=XYZ` referrer code through to the signup screen so an
+  // ambassador-attributed visitor keeps their attribution end-to-end.
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
 
   const continueLabel = user
     ? user.is_seller
@@ -19,9 +22,14 @@ export default function SellerWelcome() {
     : t("seller_welcome.cta_create_account");
 
   const onContinue = () => {
-    if (!user) router.push("/seller/signup");
-    else if (user.is_seller) router.push("/seller/dashboard");
-    else router.push("/seller/upgrade");
+    if (!user) {
+      const refStr = typeof ref === "string" ? ref : "";
+      router.push(refStr ? `/seller/signup?ref=${encodeURIComponent(refStr)}` : "/seller/signup");
+    } else if (user.is_seller) {
+      router.push("/seller/dashboard");
+    } else {
+      router.push("/seller/upgrade");
+    }
   };
 
   return (

@@ -1336,6 +1336,12 @@ const ar = {
     already_have_account: "هل لديك حساب Allsale بالفعل؟ ",
     sign_in: "تسجيل الدخول",
   },
+  sell_banner: {
+    compact_prefix: "هل تمتلك عملاً تجارياً في الهند؟ ",
+    compact_link: "البيع على Allsale",
+    card_title: "البيع على Allsale",
+    card_subtitle: "اعرض منتجاتك أمام متسوقي نيوزيلندا. الشركات المسجلة في الهند فقط.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "بع أكثر، احتفظ بأكثر.",
@@ -1962,7 +1968,7 @@ const ar = {
     toast_your_code: "كودك",
     toast_share_failed_title: "تعذر المشاركة",
     toast_share_failed_body: "حاول مرة أخرى.",
-    share_msg: "استخدم الكود {{code}} على Allsale للحصول على {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "استخدم الكود {{code}} على Allsale للحصول على {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "ألصق رابط https:// كاملاً",
     post_submitted_title: "تم إرسال المنشور ✓",
     post_submitted_body: "سنتحقق منه قريباً.",

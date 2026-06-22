@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "ਰੋ {{n}} · ਨਵਾਂ",
   "seller_bulk_upload.row_label_update": "ਰੋ {{n}} · ਅਪਡੇਟ",
   "seller_bulk_upload.row_name_missing_create": "(ਨਾਮ ਗਾਇਬ)",
-  "seller_bulk_upload.row_name_missing_update": "(ਨਾਮ ਵਿੱਚ ਕੋਈ ਤਬਦੀਲੀ ਨਹੀਂ)"
+  "seller_bulk_upload.row_name_missing_update": "(ਨਾਮ ਵਿੱਚ ਕੋਈ ਤਬਦੀਲੀ ਨਹੀਂ)",
+  "sell_banner.compact_prefix": "ਕੀ ਤੁਹਾਡਾ ਭਾਰਤ ਵਿੱਚ ਕੋਈ ਕਾਰੋਬਾਰ ਹੈ? ",
+  "sell_banner.compact_link": "Allsale ਉੱਤੇ ਵੇਚੋ",
+  "sell_banner.card_title": "Allsale ਉੱਤੇ ਵੇਚੋ",
+  "sell_banner.card_subtitle": "ਆਪਣੇ ਉਤਪਾਦਾਂ ਨੂੰ NZ ਖਰੀਦਦਾਰਾਂ ਕੋਲ ਸੂਚੀਬੱਧ ਕਰੋ। ਸਿਰਫ ਭਾਰਤ ਵਿੱਚ ਰਜਿਸਟਰਡ ਕਾਰੋਬਾਰ।"
 }

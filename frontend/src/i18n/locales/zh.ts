@@ -1336,6 +1336,12 @@ const zh = {
     already_have_account: "已经有 Allsale 账户？",
     sign_in: "登录",
   },
+  sell_banner: {
+    compact_prefix: "在印度拥有企业？",
+    compact_link: "在 Allsale 上销售",
+    card_title: "在 Allsale 上销售",
+    card_subtitle: "向新西兰购物者列出您的产品。仅限印度注册企业。",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "销售更多，保留更多。",
@@ -1962,7 +1968,7 @@ const zh = {
     toast_your_code: "您的代码",
     toast_share_failed_title: "无法分享",
     toast_share_failed_body: "请重试。",
-    share_msg: "在 Allsale 上使用我的代码 {{code}} 获得 {{suffix}}！https://allsale.co.nz/?ref={{code}}",
+    share_msg: "在 Allsale 上使用我的代码 {{code}} 获得 {{suffix}}！https://allsale.co.nz//a/{{code}}",
     err_post_url: "粘贴完整的 https:// 链接",
     post_submitted_title: "帖子已提交 ✓",
     post_submitted_body: "我们很快会验证它。",

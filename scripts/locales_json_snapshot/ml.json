@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "വരി {{n}} · പുതിയത്",
   "seller_bulk_upload.row_label_update": "വരി {{n}} · അപ്ഡേറ്റ്",
   "seller_bulk_upload.row_name_missing_create": "(പേര് അത്യാവശ്യമാണ്)",
-  "seller_bulk_upload.row_name_missing_update": "(പേരിൽ മാറ്റം ഇല്ല)"
+  "seller_bulk_upload.row_name_missing_update": "(പേരിൽ മാറ്റം ഇല്ല)",
+  "sell_banner.compact_prefix": "ഇന്ത്യയിൽ ഒരു ബിസിനസ് നടത്തുന്നുണ്ടോ? ",
+  "sell_banner.compact_link": "Allsale-ൽ വിൽക്കുക",
+  "sell_banner.card_title": "Allsale-ൽ വിൽക്കുക",
+  "sell_banner.card_subtitle": "നിങ്ങളുടെ ഉൽപ്പന്നങ്ങൾ NZ കിനാവിക്കാർക്കായി പട്ടികപ്പെടുത്തുക. India-ൽ രജിസ്റ്റർ ചെയ്ത ബിസിനസ് മാത്രം."
 }

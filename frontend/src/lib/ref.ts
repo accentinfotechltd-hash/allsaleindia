@@ -101,6 +101,34 @@ export async function captureRef(rawCode: string): Promise<StoredRef | null> {
   }
 }
 
+/** Capture a ref from a pre-resolved `/api/ambassadors/resolve/{code}` payload.
+ *
+ * Used by the `/a/{code}` smart-link landing page which already has the
+ * resolved object (no need to round-trip a second `lookupCode` call).
+ * Writes to the same `allsale_ref_v1` storage so the cart auto-apply and
+ * seller signup pre-fill both keep working.
+ */
+export async function captureRefFromResolved(
+  resolved: { code: string; name: string; program: "B2C" | "B2B" | "BOTH"; primary_platform: string | null },
+): Promise<StoredRef | null> {
+  try {
+    const now = new Date();
+    const expires = new Date(now.getTime() + TTL_DAYS * 24 * 60 * 60 * 1000);
+    const payload: StoredRef = {
+      code: resolved.code,
+      name: resolved.name,
+      program: resolved.program,
+      primary_platform: resolved.primary_platform,
+      captured_at: now.toISOString(),
+      expires_at: expires.toISOString(),
+    };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 /** Convenience wrapper used by the top-level _layout deeplink listener. */
 export async function captureRefFromUrl(url: string | null | undefined): Promise<StoredRef | null> {
   const code = extractRefFromUrl(url);

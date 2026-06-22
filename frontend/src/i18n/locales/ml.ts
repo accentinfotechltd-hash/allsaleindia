@@ -1336,6 +1336,12 @@ const ml = {
     already_have_account: "ഇതിനകം Allsale അക്കൗണ്ട് ഉണ്ടോ? ",
     sign_in: "സൈൻ ഇൻ ചെയ്യുക",
   },
+  sell_banner: {
+    compact_prefix: "ഇന്ത്യയിൽ ഒരു ബിസിനസ് നടത്തുന്നുണ്ടോ? ",
+    compact_link: "Allsale-ൽ വിൽക്കുക",
+    card_title: "Allsale-ൽ വിൽക്കുക",
+    card_subtitle: "നിങ്ങളുടെ ഉൽപ്പന്നങ്ങൾ NZ കിനാവിക്കാർക്കായി പട്ടികപ്പെടുത്തുക. India-ൽ രജിസ്റ്റർ ചെയ്ത ബിസിനസ് മാത്രം.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "കൂടുതൽ വിൽക്കുക, കൂടുതൽ സൂക്ഷിക്കുക.",
@@ -1962,7 +1968,7 @@ const ml = {
     toast_your_code: "നിങ്ങളുടെ കോഡ്",
     toast_share_failed_title: "പങ്കിടാൻ കഴിഞ്ഞില്ല",
     toast_share_failed_body: "വീണ്ടും ശ്രമിക്കുക.",
-    share_msg: "Allsale-ൽ എന്റെ കോഡ് {{code}} ഉപയോഗിക്കുക {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale-ൽ എന്റെ കോഡ് {{code}} ഉപയോഗിക്കുക {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "പൂർണ്ണ https:// ലിങ്ക് പേസ്റ്റ് ചെയ്യുക",
     post_submitted_title: "പോസ്റ്റ് സമർപ്പിച്ചു ✓",
     post_submitted_body: "ഞങ്ങൾ ഉടൻ സത്യാപിക്കും.",

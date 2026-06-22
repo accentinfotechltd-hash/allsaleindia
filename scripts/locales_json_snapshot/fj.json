@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Row {{n}} · VOU",
   "seller_bulk_upload.row_label_update": "Row {{n}} · UPDATE",
   "seller_bulk_upload.row_name_missing_create": "(sega na vakamareqeti)",
-  "seller_bulk_upload.row_name_missing_update": "(sega na bose ki na vakamareqeti)"
+  "seller_bulk_upload.row_name_missing_update": "(sega na bose ki na vakamareqeti)",
+  "sell_banner.compact_prefix": "E na nomu na bisinisi vei India? ",
+  "sell_banner.compact_link": "Vakadinadina o Allsale",
+  "sell_banner.card_title": "Vakadinadina o Allsale",
+  "sell_banner.card_subtitle": "Veiliutaki ni nomu na yaliyali kina na Allsale kena vakadidiraki na taucoko mai NZ. Bisinisi vakarehisteri i India niuqoqo."
 }

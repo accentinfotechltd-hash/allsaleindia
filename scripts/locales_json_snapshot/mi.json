@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Rarangi {{n}} · HOU",
   "seller_bulk_upload.row_label_update": "Rarangi {{n}} · WHAKAHŌU",
   "seller_bulk_upload.row_name_missing_create": "(ingoa kua whakaponotia)",
-  "seller_bulk_upload.row_name_missing_update": "(kaore he whakarereke ki te ingoa)"
+  "seller_bulk_upload.row_name_missing_update": "(kaore he whakarereke ki te ingoa)",
+  "sell_banner.compact_prefix": "He pakihi a koe i India? ",
+  "sell_banner.compact_link": "Hokona i runga i Allsale",
+  "sell_banner.card_title": "Hokona i runga i Allsale",
+  "sell_banner.card_subtitle": "Whakaranga i ō hua ki ngā kaihoko o Aotearoa. Anake ngā pakihi i rehitia i India."
 }

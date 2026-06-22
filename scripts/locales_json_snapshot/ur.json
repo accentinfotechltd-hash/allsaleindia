@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "قطار {{n}} · نیا",
   "seller_bulk_upload.row_label_update": "قطار {{n}} · اپ ڈیٹ",
   "seller_bulk_upload.row_name_missing_create": "(نام غائب)",
-  "seller_bulk_upload.row_name_missing_update": "(نام میں کوئی تبدیلی نہیں)"
+  "seller_bulk_upload.row_name_missing_update": "(نام میں کوئی تبدیلی نہیں)",
+  "sell_banner.compact_prefix": "کیا آپ کو بھارت میں کوئی کاروبار ہے؟ ",
+  "sell_banner.compact_link": "Allsale پر فروخت کریں",
+  "sell_banner.card_title": "Allsale پر فروخت کریں",
+  "sell_banner.card_subtitle": "اپنی مصنوعات NZ کے خریداروں کو درج کریں۔ صرف بھارت میں رجسٹرڈ کاروبار۔"
 }

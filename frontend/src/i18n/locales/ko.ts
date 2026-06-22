@@ -1336,6 +1336,12 @@ const ko = {
     already_have_account: "이미 Allsale 계정이 있으신가요? ",
     sign_in: "로그인",
   },
+  sell_banner: {
+    compact_prefix: "인도에서 사업을 운영하고 계신가요? ",
+    compact_link: "Allsale에서 판매",
+    card_title: "Allsale에서 판매",
+    card_subtitle: "NZ 쇼퍼들에게 상품을 판매하세요. 인도 등록 사업체만 해당합니다.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "더 많이 판매하고, 더 많이 챙기세요.",
@@ -1962,7 +1968,7 @@ const ko = {
     toast_your_code: "당신의 코드",
     toast_share_failed_title: "공유할 수 없음",
     toast_share_failed_body: "다시 시도하세요.",
-    share_msg: "Allsale에서 내 코드 {{code}}를 사용하세요 {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale에서 내 코드 {{code}}를 사용하세요 {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "전체 https:// 링크를 붙여넣으세요",
     post_submitted_title: "게시물 제출됨 ✓",
     post_submitted_body: "곧 확인하겠습니다.",

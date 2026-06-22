@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "పంక్తి {{n}} · కొత్తది",
   "seller_bulk_upload.row_label_update": "పంక్తి {{n}} · నవీకరణ",
   "seller_bulk_upload.row_name_missing_create": "(పేరు లేదు)",
-  "seller_bulk_upload.row_name_missing_update": "(పేరుకు ఎటువంటి మార్పు లేదు)"
+  "seller_bulk_upload.row_name_missing_update": "(పేరుకు ఎటువంటి మార్పు లేదు)",
+  "sell_banner.compact_prefix": "భారతదేశంలో ఒక వ్యాపారాన్ని కలిగి ఉన్నారా? ",
+  "sell_banner.compact_link": "Allsale పై విక్రయించండి",
+  "sell_banner.card_title": "Allsale పై విక్రయించండి",
+  "sell_banner.card_subtitle": "మీ ఉత్పత్తులను NZ కొbuyers కు జాబితా చేయండి. భారతదేశ-నమోదు చేసిన వ్యాపారాలు మాత్రమే."
 }

@@ -1336,6 +1336,12 @@ const te = {
     already_have_account: "ఇప్పటికే Allsale ఖాతా ఉందా? ",
     sign_in: "సైన్ ఇన్ చేయండి",
   },
+  sell_banner: {
+    compact_prefix: "భారతదేశంలో ఒక వ్యాపారాన్ని కలిగి ఉన్నారా? ",
+    compact_link: "Allsale పై విక్రయించండి",
+    card_title: "Allsale పై విక్రయించండి",
+    card_subtitle: "మీ ఉత్పత్తులను NZ కొbuyers కు జాబితా చేయండి. భారతదేశ-నమోదు చేసిన వ్యాపారాలు మాత్రమే.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "ఎక్కువ విక్రయం చేయండి, ఎక్కువ ఉంచండి.",
@@ -1962,7 +1968,7 @@ const te = {
     toast_your_code: "మీ కోడ్",
     toast_share_failed_title: "షేర్ చేయలేకపోయాను",
     toast_share_failed_body: "మళ్లీ ప్రయత్నించండి.",
-    share_msg: "Allsaleలో నా కోడ్ {{code}}ను ఉపయోగించండి {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsaleలో నా కోడ్ {{code}}ను ఉపయోగించండి {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "పూర్తి https:// లింక్‌ను పేస్ట్ చేయండి",
     post_submitted_title: "పోస్ట్ సమర్పించబడింది ✓",
     post_submitted_body: "మేము దీన్ని కొద్దిసేపట్లో ధృవీకరిస్తాము.",

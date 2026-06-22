@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "第 {{n}} 列 · 新增",
   "seller_bulk_upload.row_label_update": "第 {{n}} 列 · 更新",
   "seller_bulk_upload.row_name_missing_create": "（缺少名稱）",
-  "seller_bulk_upload.row_name_missing_update": "（名稱無更改）"
+  "seller_bulk_upload.row_name_missing_update": "（名稱無更改）",
+  "sell_banner.compact_prefix": "在印度擁有業務？ ",
+  "sell_banner.compact_link": "在 Allsale 上販售",
+  "sell_banner.card_title": "在 Allsale 上販售",
+  "sell_banner.card_subtitle": "將您的產品列表發佈給紐西蘭購物者。僅限印度註冊的企業。"
 }

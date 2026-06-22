@@ -1336,6 +1336,12 @@ const ja = {
     already_have_account: "既に Allsale アカウントをお持ちですか？ ",
     sign_in: "サインイン",
   },
+  sell_banner: {
+    compact_prefix: "インドでビジネスを経営していますか？ ",
+    compact_link: "Allsaleで販売する",
+    card_title: "Allsaleで販売する",
+    card_subtitle: "NZの買い物客に商品をリストアップしてください。インド登録企業のみ。",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "より多く売却し、より多く保持します。",
@@ -1962,7 +1968,7 @@ const ja = {
     toast_your_code: "あなたのコード",
     toast_share_failed_title: "共有できませんでした",
     toast_share_failed_body: "もう一度試してください。",
-    share_msg: "Allsaleで私のコード {{code}} を使用して {{suffix}} を入手してください！ https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsaleで私のコード {{code}} を使用して {{suffix}} を入手してください！ https://allsale.co.nz//a/{{code}}",
     err_post_url: "https:// で始まる完全なリンクを貼り付けてください",
     post_submitted_title: "投稿が送信されました ✓",
     post_submitted_body: "間もなく確認いたします。",

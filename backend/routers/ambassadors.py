@@ -98,6 +98,21 @@ class AmbassadorPublic(BaseModel):
     code_b2b: Optional[str] = None  # set only when program == "BOTH"
 
 
+class AmbassadorCodeResolve(BaseModel):
+    """Public landing page payload for `/a/{code}` smart link.
+
+    Lets the frontend show two CTAs ("Shop now" / "Sell on Allsale") and
+    auto-apply the right code to the right surface even if the visitor
+    arrived through the wrong-audience link.
+    """
+    type: Literal["b2c", "b2b"]
+    code: str
+    counterpart_code: Optional[str] = None
+    name: str
+    primary_platform: Optional[str] = None
+    program: Literal["B2C", "B2B", "BOTH"]
+
+
 class AmbassadorJoinResponse(BaseModel):
     """Returned by POST /ambassadors/join — includes an access token so the
     web/mobile UI can route straight to the dashboard without a separate
@@ -289,6 +304,70 @@ async def lookup_code(code: str):
         code_b2b=prof.get("code_b2b"),
         primary_platform=prof.get("primary_platform"),
         program=prof["program"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public — smart-link resolver for /a/{code} landing page
+# ---------------------------------------------------------------------------
+@router.get("/ambassadors/resolve/{code}", response_model=AmbassadorCodeResolve)
+async def resolve_code(code: str):
+    """Resolve an ambassador code (either B2C or B2B) to its full context.
+
+    Returns ``type`` (b2c | b2b), the matched code, the counterpart (if any),
+    and ambassador info — so the unified `/a/{code}` smart-link landing page
+    can show the right CTA for each audience without confusing the visitor.
+
+    404 if the code isn't an active ambassador code.
+    """
+    code = (code or "").upper().strip()
+    user = await db.users.find_one(
+        {"$or": [
+            {"ambassador_profile.code": code},
+            {"ambassador_profile.code_b2b": code},
+         ],
+         "ambassador_profile.status": "active"},
+        {"_id": 0, "full_name": 1, "ambassador_profile": 1},
+    )
+    if not user or not user.get("ambassador_profile"):
+        raise HTTPException(status_code=404, detail="Ambassador code not found")
+    prof = user["ambassador_profile"]
+    name = user.get("full_name") or "Ambassador"
+    program = prof["program"]
+    code_b2c = prof.get("code")
+    code_b2b = prof.get("code_b2b")
+
+    # ---- Decide which audience this code targets --------------------------
+    # Precedence:
+    #   1. Explicit match on `code_b2b` field → B2B
+    #   2. Program is "B2B" only (legacy India ambassadors stored their
+    #      single BIZ code under `code` not `code_b2b`) → B2B
+    #   3. Otherwise → B2C
+    is_b2b_match = bool(code_b2b) and code == (code_b2b or "").upper()
+    legacy_b2b_only = (program == "B2B") and not code_b2b
+    if is_b2b_match or legacy_b2b_only:
+        # Counterpart B2C only meaningful for BOTH-program ambassadors who have
+        # both a live customer code AND a recruit code.
+        counterpart = code_b2c if (program == "BOTH" and code_b2c and code_b2c != code) else None
+        # Resolved code is whichever field actually stores the BIZ code.
+        resolved_code = code_b2b or code_b2c
+        return AmbassadorCodeResolve(
+            type="b2b",
+            code=resolved_code,
+            counterpart_code=counterpart,
+            name=name,
+            primary_platform=prof.get("primary_platform"),
+            program=program,
+        )
+    # Default: B2C audience
+    counterpart = code_b2b if program in ("B2B", "BOTH") else None
+    return AmbassadorCodeResolve(
+        type="b2c",
+        code=code_b2c,
+        counterpart_code=counterpart,
+        name=name,
+        primary_platform=prof.get("primary_platform"),
+        program=program,
     )
 
 

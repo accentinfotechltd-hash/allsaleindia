@@ -1336,6 +1336,12 @@ const fj = {
     already_have_account: "Tiko na koya tu na Allsale account? ",
     sign_in: "Tukuni",
   },
+  sell_banner: {
+    compact_prefix: "E na nomu na bisinisi vei India? ",
+    compact_link: "Vakadinadina o Allsale",
+    card_title: "Vakadinadina o Allsale",
+    card_subtitle: "Veiliutaki ni nomu na yaliyali kina na Allsale kena vakadidiraki na taucoko mai NZ. Bisinisi vakarehisteri i India niuqoqo.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Malolo na vakamalolo, vakabauta na noda.",
@@ -1962,7 +1968,7 @@ const fj = {
     toast_your_code: "Your code",
     toast_share_failed_title: "Couldn't share",
     toast_share_failed_body: "Try again.",
-    share_msg: "Use my code {{code}} on Allsale for {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Use my code {{code}} on Allsale for {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Paste a full https:// link",
     post_submitted_title: "Post submitted ✓",
     post_submitted_body: "We'll verify it shortly.",

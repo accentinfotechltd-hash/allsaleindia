@@ -1336,6 +1336,12 @@ const pa = {
     already_have_account: "ਕੀ ਤੁਹਾਡੇ ਕੋਲ ਪਹਿਲਾਂ ਹੀ Allsale ਖਾਤਾ ਹੈ? ",
     sign_in: "ਸਾਈਨ ਇਨ ਕਰੋ",
   },
+  sell_banner: {
+    compact_prefix: "ਕੀ ਤੁਹਾਡਾ ਭਾਰਤ ਵਿੱਚ ਕੋਈ ਕਾਰੋਬਾਰ ਹੈ? ",
+    compact_link: "Allsale ਉੱਤੇ ਵੇਚੋ",
+    card_title: "Allsale ਉੱਤੇ ਵੇਚੋ",
+    card_subtitle: "ਆਪਣੇ ਉਤਪਾਦਾਂ ਨੂੰ NZ ਖਰੀਦਦਾਰਾਂ ਕੋਲ ਸੂਚੀਬੱਧ ਕਰੋ। ਸਿਰਫ ਭਾਰਤ ਵਿੱਚ ਰਜਿਸਟਰਡ ਕਾਰੋਬਾਰ।",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "ਵੱਧ ਵੇਚੋ, ਹੋਰ ਰੱਖੋ।",
@@ -1962,7 +1968,7 @@ const pa = {
     toast_your_code: "ਤੁਹਾਡਾ ਕੋਡ",
     toast_share_failed_title: "ਸਾਝਾ ਨਹੀਂ ਕੀ ਸਕਿਆ",
     toast_share_failed_body: "ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।",
-    share_msg: "Allsale ਤੇ ਮੇਰਾ ਕੋਡ {{code}} ਵਰਤੋ {{suffix}} ਲਈ! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale ਤੇ ਮੇਰਾ ਕੋਡ {{code}} ਵਰਤੋ {{suffix}} ਲਈ! https://allsale.co.nz//a/{{code}}",
     err_post_url: "ਪੂਰਾ https:// ਲਿੰਕ ਪੇਸਟ ਕਰੋ",
     post_submitted_title: "ਪੋਸਟ ਜਮ੍ਹਾ ਕਰ ਦਿੱਤੀ ਗਈ ✓",
     post_submitted_body: "ਅਸੀਂ ਜਲਦੀ ਇਸ ਦੀ ਪੁਸ਼ਟੀ ਕਰਾਂਗੇ।",

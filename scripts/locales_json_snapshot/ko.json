@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "행 {{n}} · 신규",
   "seller_bulk_upload.row_label_update": "행 {{n}} · 업데이트",
   "seller_bulk_upload.row_name_missing_create": "(이름 누락)",
-  "seller_bulk_upload.row_name_missing_update": "(이름 변경 없음)"
+  "seller_bulk_upload.row_name_missing_update": "(이름 변경 없음)",
+  "sell_banner.compact_prefix": "인도에서 사업을 운영하고 계신가요? ",
+  "sell_banner.compact_link": "Allsale에서 판매",
+  "sell_banner.card_title": "Allsale에서 판매",
+  "sell_banner.card_subtitle": "NZ 쇼퍼들에게 상품을 판매하세요. 인도 등록 사업체만 해당합니다."
 }

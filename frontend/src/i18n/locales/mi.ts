@@ -1336,6 +1336,12 @@ const mi = {
     already_have_account: "Kei a koe anō he pūkete Allsale? ",
     sign_in: "Whakatomo",
   },
+  sell_banner: {
+    compact_prefix: "He pakihi a koe i India? ",
+    compact_link: "Hokona i runga i Allsale",
+    card_title: "Hokona i runga i Allsale",
+    card_subtitle: "Whakaranga i ō hua ki ngā kaihoko o Aotearoa. Anake ngā pakihi i rehitia i India.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Hoko nui, whakatipuranga nui.",
@@ -1962,7 +1968,7 @@ const mi = {
     toast_your_code: "Tō waehere",
     toast_share_failed_title: "I faoa te tiri",
     toast_share_failed_body: "Ngana anō.",
-    share_msg: "Whakamahi taku waehere {{code}} i Allsale mō {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Whakamahi taku waehere {{code}} i Allsale mō {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Whakatakoto i te hononga kōmaka https://",
     post_submitted_title: "Kua tukuna te paukutunga ✓",
     post_submitted_body: "Ka whakatīhei mātou i tēnei wa.",

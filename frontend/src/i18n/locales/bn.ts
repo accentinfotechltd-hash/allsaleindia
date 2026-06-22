@@ -1336,6 +1336,12 @@ const bn = {
     already_have_account: "ইতিমধ্যে Allsale অ্যাকাউন্ট আছে? ",
     sign_in: "সাইন ইন করুন",
   },
+  sell_banner: {
+    compact_prefix: "ভারতে ব্যবসা আছে? ",
+    compact_link: "Allsale তে বিক্রয় করুন",
+    card_title: "Allsale তে বিক্রয় করুন",
+    card_subtitle: "NZ ক্রেতাদের কাছে আপনার পণ্য তালিকাভুক্ত করুন। শুধুমাত্র ভারত-নিবন্ধিত ব্যবসা।",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "আরও বিক্রয় করুন, আরও রাখুন।",
@@ -1962,7 +1968,7 @@ const bn = {
     toast_your_code: "আপনার কোড",
     toast_share_failed_title: "শেয়ার করা যায়নি",
     toast_share_failed_body: "আবার চেষ্টা করুন।",
-    share_msg: "Allsale-এ আমার কোড {{code}} ব্যবহার করুন {{suffix}} এর জন্য! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale-এ আমার কোড {{code}} ব্যবহার করুন {{suffix}} এর জন্য! https://allsale.co.nz//a/{{code}}",
     err_post_url: "সম্পূর্ণ https:// লিঙ্ক পেস্ট করুন",
     post_submitted_title: "পোস্ট জমা দেওয়া হয়েছে ✓",
     post_submitted_body: "আমরা শীঘ্রই এটি যাচাই করব।",

@@ -89,14 +89,21 @@ async def apply_coupon_to_cart(
     if not result.get("ok"):
         # Defensive: surface a clear message if the buyer pasted a B2B
         # seller-recruit code (which never has a coupon doc).
-        from services.coupons import is_ambassador_b2b_code
-        if await is_ambassador_b2b_code(code):
+        from services.coupons import get_b2c_counterpart_for_b2b_code
+        counterpart = await get_b2c_counterpart_for_b2b_code(code)
+        if counterpart is not None:
+            # B2B code detected — give the frontend everything it needs to
+            # offer a one-tap "use the right code instead" swap.
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "That's a seller-recruit code, not a customer-discount "
-                    "code. Ask your ambassador for their B2C code."
-                ),
+                detail={
+                    "error_code": "wrong_audience_b2b",
+                    "message": (
+                        "That's a seller-recruit code, not a customer-discount code."
+                    ),
+                    "ambassador_name": counterpart["name"],
+                    "suggested_b2c_code": counterpart["b2c_code"],
+                },
             )
         raise HTTPException(status_code=400, detail=result.get("error") or "Invalid coupon")
 

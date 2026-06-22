@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "પંક્તિ {{n}} · નવું",
   "seller_bulk_upload.row_label_update": "પંક્તિ {{n}} · અપડેટ",
   "seller_bulk_upload.row_name_missing_create": "(નામ ખૂટ્યું)",
-  "seller_bulk_upload.row_name_missing_update": "(નામમાં કોઈ ફેરફાર નથી)"
+  "seller_bulk_upload.row_name_missing_update": "(નામમાં કોઈ ફેરફાર નથી)",
+  "sell_banner.compact_prefix": "ભારતમાં વ્યવસાય છે? ",
+  "sell_banner.compact_link": "Allsale પર વેચો",
+  "sell_banner.card_title": "Allsale પર વેચો",
+  "sell_banner.card_subtitle": "તમારા પ્રોડક્ટ્સ NZ શોપર્સને આપો. ફક્ત ભારત-નોંધાયેલ વ્યવસાયો માટે."
 }

@@ -90,14 +90,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   /** Best-effort apply of a stored ambassador ref code at most ONCE per
    * user session. Mirrors the web team's `applyCoupon()` auto-fire on cart
    * read. Silently no-ops if the cart is empty, already has a coupon, the
-   * ref is invalid, or the user manually pasted a different code earlier. */
+   * ref is invalid, the code is B2B-only (seller-recruit, can't be applied
+   * at customer checkout), or the user manually pasted a different code
+   * earlier. */
   const maybeAutoApplyRef = useCallback(async (currentCart: Cart, userId: string) => {
     if (autoRefAttemptedFor.current === userId) return currentCart;
-    autoRefAttemptedFor.current = userId; // mark immediately to avoid races
-    if (currentCart.items.length === 0) return currentCart;
-    if (currentCart.coupon_code) return currentCart; // already has a coupon
+    if (currentCart.items.length === 0) return currentCart; // try again on next refresh once cart has items
+    if (currentCart.coupon_code) {
+      // User already has a coupon — don't override it but mark attempted
+      // so we don't keep checking on every refresh.
+      autoRefAttemptedFor.current = userId;
+      return currentCart;
+    }
     const stored = await getStoredRef();
-    if (!stored) return currentCart;
+    if (!stored) {
+      autoRefAttemptedFor.current = userId;
+      return currentCart;
+    }
+    // B2B (seller-recruit) codes have no customer-side coupon doc — applying
+    // them at checkout always returns 400 wrong_audience_b2b. Skip the
+    // round-trip; the user can still sell-on-Allsale via the seller signup
+    // flow which reads the same stored ref.
+    if (stored.program === "B2B") {
+      autoRefAttemptedFor.current = userId;
+      return currentCart;
+    }
+    autoRefAttemptedFor.current = userId; // mark before the call to avoid double-fires
     try {
       const next = await api<Cart>("/cart/coupon", {
         method: "POST",
@@ -146,7 +164,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     api(`/products/${productId}/track-cart-add`, { method: "POST", auth: false }).catch(
       () => {},
     );
-  }, []);
+    // If the visitor arrived via /a/{code} BEFORE adding anything to the
+    // cart, the first refresh saw an empty cart and bailed out without
+    // attempting attribution. Retry now that the cart has items.
+    if (user?.id && c.items.length > 0 && !c.coupon_code) {
+      void maybeAutoApplyRef(c, user.id);
+    }
+  }, [user?.id, maybeAutoApplyRef]);
 
   const update = useCallback(async (productId: string, qty: number) => {
     const c = await api<Cart>(`/cart/${productId}`, { method: "PUT", body: { quantity: qty } });

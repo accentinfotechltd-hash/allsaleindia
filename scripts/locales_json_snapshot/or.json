@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "ଧାଡି {{n}} · ନୂତନ",
   "seller_bulk_upload.row_label_update": "ଧାଡି {{n}} · ଅପଡେଟ",
   "seller_bulk_upload.row_name_missing_create": "(ନାମ ହଳଦିଆ)",
-  "seller_bulk_upload.row_name_missing_update": "(ନାମରେ କୌଣସି ପରିବର୍ତ୍ତନ ନାହିଁ)"
+  "seller_bulk_upload.row_name_missing_update": "(ନାମରେ କୌଣସି ପରିବର୍ତ୍ତନ ନାହିଁ)",
+  "sell_banner.compact_prefix": "ଭାରତରେ ଏକ ବ୍ୟବସାୟ ମାଲିକ? ",
+  "sell_banner.compact_link": "Allsale ରେ ବିକ୍ରୟ କରନ୍ତୁ",
+  "sell_banner.card_title": "Allsale ରେ ବିକ୍ରୟ କରନ୍ତୁ",
+  "sell_banner.card_subtitle": "ଆପଣାର ଦ୍ରବ୍ୟ NZ କ୍ରେତାଙ୍କ ତାଲିକାରେ ରଖନ୍ତୁ। କେବଳ ଭାରତ-ପଞ୍ଜୀକୃତ ବ୍ୟବସାୟ।"
 }

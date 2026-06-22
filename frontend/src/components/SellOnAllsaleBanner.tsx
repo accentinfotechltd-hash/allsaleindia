@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import { Store } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { useTranslation } from "@/src/i18n";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 /** Compact pitch row pointing buyers/visitors to the seller signup flow. */
@@ -13,6 +14,7 @@ export function SellOnAllsaleBanner({
   testID?: string;
 }) {
   const router = useRouter();
+  const { t } = useTranslation();
   if (variant === "compact") {
     return (
       <Pressable
@@ -22,7 +24,8 @@ export function SellOnAllsaleBanner({
       >
         <Store size={14} color={colors.primary} />
         <Text style={styles.compactText}>
-          Own a business in India? <Text style={styles.compactLink}>Sell on Allsale</Text>
+          {t("sell_banner.compact_prefix")}
+          <Text style={styles.compactLink}>{t("sell_banner.compact_link")}</Text>
         </Text>
       </Pressable>
     );
@@ -37,8 +40,8 @@ export function SellOnAllsaleBanner({
         <Store size={20} color={colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.cardTitle}>Sell on Allsale</Text>
-        <Text style={styles.cardSubtitle}>List your products to NZ shoppers. India-registered businesses only.</Text>
+        <Text style={styles.cardTitle}>{t("sell_banner.card_title")}</Text>
+        <Text style={styles.cardSubtitle}>{t("sell_banner.card_subtitle")}</Text>
       </View>
       <Text style={styles.cardArrow}>→</Text>
     </Pressable>

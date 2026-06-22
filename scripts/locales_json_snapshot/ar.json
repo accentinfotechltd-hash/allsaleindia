@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "الصف {{n}} · جديد",
   "seller_bulk_upload.row_label_update": "الصف {{n}} · تحديث",
   "seller_bulk_upload.row_name_missing_create": "(الاسم مفقود)",
-  "seller_bulk_upload.row_name_missing_update": "(لا يوجد تغيير في الاسم)"
+  "seller_bulk_upload.row_name_missing_update": "(لا يوجد تغيير في الاسم)",
+  "sell_banner.compact_prefix": "هل تمتلك عملاً تجارياً في الهند؟ ",
+  "sell_banner.compact_link": "البيع على Allsale",
+  "sell_banner.card_title": "البيع على Allsale",
+  "sell_banner.card_subtitle": "اعرض منتجاتك أمام متسوقي نيوزيلندا. الشركات المسجلة في الهند فقط."
 }

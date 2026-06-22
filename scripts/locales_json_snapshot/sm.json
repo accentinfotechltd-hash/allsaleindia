@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Laina {{n}} · FOU",
   "seller_bulk_upload.row_label_update": "Laina {{n}} · FAAFOUGA",
   "seller_bulk_upload.row_name_missing_create": "(leai se igoa)",
-  "seller_bulk_upload.row_name_missing_update": "(leai se suiga i le igoa)"
+  "seller_bulk_upload.row_name_missing_update": "(leai se suiga i le igoa)",
+  "sell_banner.compact_prefix": "E iai se bisinesa i India? ",
+  "sell_banner.compact_link": "Faatau i Allsale",
+  "sell_banner.card_title": "Faatau i Allsale",
+  "sell_banner.card_subtitle": "Tuʻu ou oloa i NZ tagata fai siosio. Na resisiteri i India na le bisinesa e naʻo."
 }

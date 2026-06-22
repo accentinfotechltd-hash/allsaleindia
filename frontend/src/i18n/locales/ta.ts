@@ -1336,6 +1336,12 @@ const ta = {
     already_have_account: "ஏற்கனவே Allsale கணக்கு உள்ளதா? ",
     sign_in: "உள்நுழையவும்",
   },
+  sell_banner: {
+    compact_prefix: "இந்தியாவில் ஒரு ব्यवसाय இருக்கிறதா? ",
+    compact_link: "Allsale இல் விற்கவும்",
+    card_title: "Allsale இல் விற்கவும்",
+    card_subtitle: "NZ வாங்கியவர்களுக்கு உங்கள் பொருட்களைப் பட்டியலிடுங்கள். இந்தியா-பதிவுசெய்யப்பட்ட வணிகங்கள் மட்டுமே.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "அதிகமாக விற்பனை செய়ுங்கள், அதிகம் வைத்துக் கொள்ளுங்கள்.",
@@ -1962,7 +1968,7 @@ const ta = {
     toast_your_code: "உங்கள் குறியீடு",
     toast_share_failed_title: "பகிர முடியவில்லை",
     toast_share_failed_body: "மீண்டும் முயற்சி செய்யுங்கள்।",
-    share_msg: "Allsale இல் என் குறியீடு {{code}} அ பயன்படுத்தவும் {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale இல் என் குறியீடு {{code}} அ பயன்படுத்தவும் {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "முழு https:// இணைப்பு ஒட்டவும்",
     post_submitted_title: "இடுப்பு சமர்ப்பிக்கப்பட்டது ✓",
     post_submitted_body: "நாங்கள் இதை விரைவில் சரிபார்ப்போம்।",

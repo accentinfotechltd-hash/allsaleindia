@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Lalani {{n}} · FOʻOU",
   "seller_bulk_upload.row_label_update": "Lalani {{n}} · FAKAHOU",
   "seller_bulk_upload.row_name_missing_create": "(kuohala ʻa e hingoa)",
-  "seller_bulk_upload.row_name_missing_update": "(naʻe ʻikai ha ʻilo ki he hingoa)"
+  "seller_bulk_upload.row_name_missing_update": "(naʻe ʻikai ha ʻilo ki he hingoa)",
+  "sell_banner.compact_prefix": "Oku fua ha bisinisi i India? ",
+  "sell_banner.compact_link": "Fakatau i Allsale",
+  "sell_banner.card_title": "Fakatau i Allsale",
+  "sell_banner.card_subtitle": "Fakatonutonu ho ngaahi me'a ki he kakai makau i NZ. Ngaahi bisinisi kua fakarehisterea i India pe."
 }

@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Строка {{n}} · НОВАЯ",
   "seller_bulk_upload.row_label_update": "Строка {{n}} · ОБНОВЛЕНИЕ",
   "seller_bulk_upload.row_name_missing_create": "(название отсутствует)",
-  "seller_bulk_upload.row_name_missing_update": "(название без изменений)"
+  "seller_bulk_upload.row_name_missing_update": "(название без изменений)",
+  "sell_banner.compact_prefix": "У вас есть бизнес в Индии? ",
+  "sell_banner.compact_link": "Продавайте на Allsale",
+  "sell_banner.card_title": "Продавайте на Allsale",
+  "sell_banner.card_subtitle": "Выставляйте свои товары для покупателей из Новой Зеландии. Только для зарегистрированных в Индии предприятий."
 }

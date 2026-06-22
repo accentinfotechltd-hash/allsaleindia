@@ -10,9 +10,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { CheckCircle2, Tag, X, XCircle, Copy } from "lucide-react-native";
+import { AlertTriangle, CheckCircle2, Tag, X, XCircle } from "lucide-react-native";
 
-import { api } from "@/src/lib/api";
+import { api, ApiError } from "@/src/lib/api";
 import { useCart } from "@/src/contexts/CartContext";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
@@ -28,6 +28,11 @@ type ActiveCoupon = {
   valid_to?: string | null;
 };
 
+type WrongAudience = {
+  name: string;
+  suggestedCode: string | null;
+};
+
 export default function CouponInput() {
   const toast = useToast();
   const { cart, applyCoupon, removeCoupon } = useCart();
@@ -36,6 +41,7 @@ export default function CouponInput() {
   const [browseOpen, setBrowseOpen] = useState(false);
   const [active, setActive] = useState<ActiveCoupon[]>([]);
   const [loadingActive, setLoadingActive] = useState(false);
+  const [wrongAudience, setWrongAudience] = useState<WrongAudience | null>(null);
 
   const applied = !!cart.coupon_code;
 
@@ -59,12 +65,24 @@ export default function CouponInput() {
     const clean = raw.trim().toUpperCase();
     if (!clean) return;
     setBusy(true);
+    setWrongAudience(null);
     try {
       await applyCoupon(clean);
       setCode("");
       setBrowseOpen(false);
     } catch (e: any) {
-      toast.show({ title: "Coupon not applied", body: e?.message || "Try a different code.", kind: "error" });
+      // Backend returns a structured error when a buyer pastes a B2B
+      // (seller-recruit) code at customer checkout. Surface a smart
+      // one-tap swap rather than a dead-end toast.
+      const errDetail = (e instanceof ApiError ? (e.detail as any)?.detail : null);
+      if (errDetail && errDetail.error_code === "wrong_audience_b2b") {
+        setWrongAudience({
+          name: errDetail.ambassador_name || "Ambassador",
+          suggestedCode: errDetail.suggested_b2c_code || null,
+        });
+      } else {
+        toast.show({ title: "Coupon not applied", body: e?.message || "Try a different code.", kind: "error" });
+      }
     } finally {
       setBusy(false);
     }
@@ -77,6 +95,13 @@ export default function CouponInput() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onUseSuggested = async () => {
+    const suggested = wrongAudience?.suggestedCode;
+    if (!suggested) return;
+    setCode(suggested);
+    await onApply(suggested);
   };
 
   return (
@@ -134,6 +159,53 @@ export default function CouponInput() {
           </Pressable>
         </View>
       )}
+
+      {!applied && wrongAudience ? (
+        <View style={styles.wrongAudienceBox} testID="coupon-wrong-audience">
+          <View style={styles.wrongAudienceHeader}>
+            <AlertTriangle size={16} color="#B45309" />
+            <Text style={styles.wrongAudienceTitle}>
+              {`That’s ${wrongAudience.name}’s seller-recruit code`}
+            </Text>
+          </View>
+          {wrongAudience.suggestedCode ? (
+            <>
+              <Text style={styles.wrongAudienceBody}>
+                {`Use ${wrongAudience.name}’s customer code instead and save 5%.`}
+              </Text>
+              <Pressable
+                testID="coupon-use-suggested-btn"
+                onPress={onUseSuggested}
+                disabled={busy}
+                style={({ pressed }) => [
+                  styles.wrongAudienceCta,
+                  busy && { opacity: 0.6 },
+                  pressed && { transform: [{ scale: 0.97 }] },
+                ]}
+              >
+                <Tag size={14} color="#fff" />
+                <Text style={styles.wrongAudienceCtaText}>
+                  Use {wrongAudience.suggestedCode} instead
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <Text style={styles.wrongAudienceBody}>
+              This code is for inviting Indian businesses to sell on Allsale —
+              not for customer discounts. Ask {wrongAudience.name} for their
+              customer code.
+            </Text>
+          )}
+          <Pressable
+            testID="coupon-dismiss-wrong-audience"
+            onPress={() => setWrongAudience(null)}
+            style={styles.wrongAudienceDismiss}
+            hitSlop={8}
+          >
+            <X size={14} color={colors.textMuted} />
+          </Pressable>
+        </View>
+      ) : null}
 
       {!applied ? (
         <Pressable
@@ -355,4 +427,48 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   cardApplyText: { color: "#fff", fontWeight: "800", fontSize: 12 },
+  wrongAudienceBox: {
+    position: "relative",
+    backgroundColor: "#FEF3C7",
+    borderColor: "#FCD34D",
+    borderWidth: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 8,
+    marginTop: 6,
+  },
+  wrongAudienceHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingRight: 24,
+  },
+  wrongAudienceTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#92400E",
+    flex: 1,
+  },
+  wrongAudienceBody: {
+    color: "#78350F",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  wrongAudienceCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    borderRadius: 999,
+    marginTop: 4,
+  },
+  wrongAudienceCtaText: { color: "#fff", fontWeight: "800", fontSize: 13, letterSpacing: 0.4 },
+  wrongAudienceDismiss: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    padding: 4,
+  },
 });

@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "Baris {{n}} · BARU",
   "seller_bulk_upload.row_label_update": "Baris {{n}} · PERBARUI",
   "seller_bulk_upload.row_name_missing_create": "(nama tidak ada)",
-  "seller_bulk_upload.row_name_missing_update": "(tidak ada perubahan pada nama)"
+  "seller_bulk_upload.row_name_missing_update": "(tidak ada perubahan pada nama)",
+  "sell_banner.compact_prefix": "Memiliki bisnis di India? ",
+  "sell_banner.compact_link": "Berjualan di Allsale",
+  "sell_banner.card_title": "Berjualan di Allsale",
+  "sell_banner.card_subtitle": "Daftarkan produk Anda kepada pembeli NZ. Hanya untuk bisnis terdaftar di India."
 }

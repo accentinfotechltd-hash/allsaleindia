@@ -519,6 +519,139 @@ agent_communication:
 
       Known minor item (NOT in scope, pre-existing): SellOnAllsaleBanner.tsx
       ("Own a business in India? Sell on Allsale") still has hardcoded English
+
+  - agent: main
+    message: |
+      Smart Ambassador Code UX + SellOnAllsaleBanner i18n — COMPLETE.
+
+      Task 1 — Smart Ambassador Code UX (kept dual codes + smart routing):
+
+      Backend (3 files changed, 1 file added test):
+        • /app/backend/services/coupons.py — added `get_b2c_counterpart_for_b2b_code()`
+          and `get_b2b_counterpart_for_b2c_code()` helpers.
+        • /app/backend/routers/ambassadors.py — added `GET /api/ambassadors/resolve/{code}`
+          public endpoint that returns `{type, code, counterpart_code, name,
+          primary_platform, program}`. Handles legacy B2B-only India ambassadors
+          who store their BIZ code under `code` not `code_b2b`.
+        • /app/backend/routers/cart.py — when a buyer pastes a B2B (seller-recruit)
+          code at customer checkout, the 400 response is now a structured
+          {error_code: "wrong_audience_b2b", ambassador_name, suggested_b2c_code}
+          payload so the mobile app can offer a one-tap swap.
+
+      Frontend (3 files changed, 1 file added):
+        • /app/frontend/app/a/[code].tsx — NEW unified smart-link landing page.
+          Resolves the code, shows ambassador info + audience-appropriate primary
+          CTA ("Shop now" for B2C / "Sell on Allsale" for B2B). Surfaces a
+          secondary card for BOTH-program ambassadors so wrong-audience visitors
+          can still take the right path.
+        • /app/frontend/src/components/CouponInput.tsx — added wrong-audience
+          warning box with one-tap "Use XXXX instead" CTA when backend signals
+          a B2B-at-customer-checkout error.
+        • /app/frontend/src/lib/ambassadors.ts — added `resolveCode()` API client
+          and `ResolveCodeResponse` type.
+        • /app/frontend/src/i18n/locales/*.ts — updated share_msg to use the
+          unified `/a/{code}` URL (replaced `?ref=` across all 28 locales).
+
+      Backend tests:
+        • test_ambassador_smart_link.py (6 tests): resolve B2C-only, legacy B2B-only,
+          BOTH-program via B2B link, 404 on unknown code, B2C-counterpart helper
+          edge cases.
+        • test_cart_b2b_swap.py (2 tests): structured 400 with suggested_b2c_code,
+          B2B-only-without-counterpart graceful fallback.
+        All 14 new tests PASS; no regressions in existing smart-link / b2b tests.
+
+      Visual verification:
+        • /a/SARAHJENKINS5 (B2C ambassador) → orange "Shop now" CTA ✓
+        • /a/RAJESHPATELBIZ (legacy B2B ambassador) → blue "Sell on Allsale" CTA ✓
+
+      Task 2 — i18n SellOnAllsaleBanner:
+        • Added `sell_banner.compact_prefix/compact_link/card_title/card_subtitle`
+          keys to en.ts.
+        • Wrote /app/scripts/translate_specific_keys.py for targeted re-translation.
+        • Translated all 4 keys × 26 locales (~$0.10 of Universal Key, ~30 seconds).
+
+  - agent: main
+    message: |
+      End-to-end ambassador attribution for seller signup — COMPLETE.
+
+      Files changed:
+        • /app/frontend/app/a/[code].tsx — switched referrer cache from
+          SecureStore (unsupported on web) to AsyncStorage (works on web +
+          native). Stores resolved ambassador info on mount.
+        • /app/frontend/app/seller/welcome.tsx — forwards `?ref=` to signup.
+        • /app/frontend/app/seller/signup.tsx — on mount, reads cached
+          ambassador ref from AsyncStorage (with `?ref=` query as priority
+          source), resolves it via `/api/ambassadors/resolve/{code}`, and:
+            - Pre-fills the referral-code input
+            - Shows a green "🎉 You were invited by {name}" banner
+            - For B2B codes → uses code directly
+            - For B2C codes with a B2B counterpart → auto-swaps to the B2B code
+              so the seller attribution credit goes to the right ambassador
+              even if the visitor entered via a customer-facing link.
+
+      Backend: NO changes needed. Existing `/seller/register` already
+      supports `referral_code` and validates it server-side.
+
+      Visual verification: walked the flow `/a/RAJESHPATELBIZ` →
+      "Sell on Allsale" → "Create seller account":
+        ✅ AsyncStorage cached the ambassador resolution
+        ✅ Banner "🎉 You were invited by Rajesh Patel" rendered
+        ✅ Referral input value: RAJESHPATELBIZ (pre-filled, editable)
+
+      All 14 existing smart-link + b2b-swap tests still pass; no regressions.
+
+
+  - agent: main
+    message: |
+      Cart auto-apply for `/a/{code}` smart-link visitors — COMPLETE.
+
+      Unified the ambassador-attribution storage. Previously, /a/[code].tsx
+      wrote to its own AsyncStorage key (`allsale.ambassador_ref`) while the
+      pre-existing `CartContext.maybeAutoApplyRef()` and `/seller/signup`
+      flow read from the canonical `allsale_ref_v1` storage. They were two
+      ships passing in the night.
+
+      Files changed:
+        • /app/frontend/src/lib/ref.ts — added `captureRefFromResolved()`
+          helper that writes a pre-resolved ambassador payload directly to
+          `allsale_ref_v1` (with the same 90-day TTL as `captureRef`),
+          avoiding a redundant `lookupCode` round-trip.
+        • /app/frontend/app/a/[code].tsx — now calls
+          `captureRefFromResolved()` so cart auto-apply + seller-signup
+          pre-fill both read from the canonical store.
+        • /app/frontend/app/seller/signup.tsx — switched from a custom
+          AsyncStorage key to `getStoredRef()`.
+        • /app/frontend/src/contexts/CartContext.tsx — three fixes:
+            1. Skip the round-trip when stored ref is B2B-only (would always
+               return 400 wrong_audience_b2b).
+            2. Don't burn the "already-tried" flag when the cart is still
+               empty — retry on the next refresh once items are added.
+            3. Trigger `maybeAutoApplyRef` from `add()` so first-add visitors
+               (who only had an empty cart on initial mount) still get
+               attribution.
+
+      Backend: NO changes — `/api/cart/coupon` already handles both happy
+      path (200 + discount) and B2B-at-customer error (structured 400).
+
+      New tests (`test_cart_auto_apply_ref.py`):
+        • test_b2c_ambassador_code_applies_at_cart — 200 + $5 discount on
+          a $100 cart.
+        • test_b2b_program_skip_auto_apply_is_safe — even if frontend
+          skip-guard fails, backend gives a clean structured 400.
+
+      All 10 smart-link/swap/auto-apply tests PASS together; no regressions.
+
+      End-to-end flow now:
+        1. User clicks `https://allsale.co.nz/a/SARAHJENKINS5`
+        2. /a/[code] resolves + persists to `allsale_ref_v1` (90-day TTL)
+        3. User adds a product to cart → `add()` calls `maybeAutoApplyRef`
+        4. Backend applies Sarah's 5% off automatically → user sees the
+           discount in cart without ever typing a code.
+
+        • Refactored SellOnAllsaleBanner.tsx to use t() with the new keys.
+        • Verified visually: French welcome shows "Vous possédez une entreprise
+          en Inde ? Vendre sur Allsale". ✓
+
       strings — falls back to English in all locales as before.
 
       Budget used: ~$15–18 of Universal Key (auto-recharge active).

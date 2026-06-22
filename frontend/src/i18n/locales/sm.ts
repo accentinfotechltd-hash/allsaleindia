@@ -1336,6 +1336,12 @@ const sm = {
     already_have_account: "Ua ia te oe se konta Allsale? ",
     sign_in: "Saini i",
   },
+  sell_banner: {
+    compact_prefix: "E iai se bisinesa i India? ",
+    compact_link: "Faatau i Allsale",
+    card_title: "Faatau i Allsale",
+    card_subtitle: "Tuʻu ou oloa i NZ tagata fai siosio. Na resisiteri i India na le bisinesa e naʻo.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Faʻatau atili, taofia atili.",
@@ -1962,7 +1968,7 @@ const sm = {
     toast_your_code: "Lau kupone",
     toast_share_failed_title: "Le mafai ona faʻasalalau",
     toast_share_failed_body: "Faʻameamea fai.",
-    share_msg: "Faʻaogaina lo'u kupone {{code}} i Allsale mo {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Faʻaogaina lo'u kupone {{code}} i Allsale mo {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Liua se tafaʻilafi https:// atoatoa",
     post_submitted_title: "Faʻasalalaua se tuʻuga ✓",
     post_submitted_body: "Matou te fiafia e fiaʻia e vave.",

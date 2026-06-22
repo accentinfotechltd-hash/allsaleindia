@@ -1,6 +1,6 @@
-import { useRouter } from "expo-router";
-import { ChevronLeft, Sparkles } from "lucide-react-native";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ChevronLeft, Sparkles, Trophy } from "lucide-react-native";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,18 +18,61 @@ import { BusinessFields, useBusinessForm } from "@/src/components/BusinessFields
 import { useAuth } from "@/src/contexts/AuthContext";
 import { useTranslation } from "@/src/i18n";
 import { api, setToken } from "@/src/lib/api";
+import { resolveCode } from "@/src/lib/ambassadors";
+import { getStoredRef } from "@/src/lib/ref";
 import { colors, radius, spacing } from "@/src/lib/theme";
 
 export default function SellerSignup() {
   const router = useRouter();
   const { refresh } = useAuth();
   const { t } = useTranslation();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
   const { form, set, setType } = useBusinessForm();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [referralCode, setReferralCode] = useState("");
+  const [referredBy, setReferredBy] = useState<string | null>(null); // ambassador name
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  // Pre-fill referral code from /a/{code} attribution.
+  // Priority: query `?ref=` > SecureStore cache. Validates against backend
+  // to surface ambassador name in a green "invited by…" banner.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      let candidate = (typeof ref === "string" ? ref : "").toUpperCase().trim();
+      if (!candidate) {
+        try {
+          const stored = await getStoredRef();
+          if (stored?.code) candidate = stored.code.toUpperCase().trim();
+        } catch {
+          /* storage may be unavailable — non-fatal */
+        }
+      }
+      if (!candidate || !active) return;
+      try {
+        const r = await resolveCode(candidate);
+        if (!active) return;
+        // Only auto-fill for B2B-eligible codes so customer B2C codes don't
+        // mistakenly attribute a seller signup to a non-recruiting ambassador.
+        if (r.type === "b2b") {
+          setReferralCode(r.code);
+          setReferredBy(r.name);
+        } else if (r.counterpart_code) {
+          // Visitor arrived via a B2C link but is now signing up as a seller.
+          // Auto-swap to the matching B2B code if the ambassador has one.
+          setReferralCode(r.counterpart_code);
+          setReferredBy(r.name);
+        }
+      } catch {
+        /* code may be stale or invalid — fail silent, user can still type one */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [ref]);
 
   const submit = async () => {
     setErr("");
@@ -116,6 +159,16 @@ export default function SellerSignup() {
               <Sparkles size={16} color={colors.primary} />
               <Text style={styles.referralTitle}>{t("seller_signup.referral_title")}</Text>
             </View>
+            {referredBy ? (
+              <View style={styles.invitedByBox} testID="seller-signup-invited-by">
+                <Trophy size={14} color="#15803D" />
+                <Text style={styles.invitedByText}>
+                  {`🎉 You were invited by `}
+                  <Text style={styles.invitedByName}>{referredBy}</Text>
+                  {`. Their code is pre-filled below.`}
+                </Text>
+              </View>
+            ) : null}
             <Text style={styles.referralSub}>
               {t("seller_signup.referral_sub_pre")}
               <Text style={styles.referralHighlight}>{t("seller_signup.referral_highlight")}</Text>
@@ -225,5 +278,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   referralHint: { color: "#9A3412", fontSize: 11, fontStyle: "italic" },
+  invitedByBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    backgroundColor: "#DCFCE7",
+    borderColor: "#86EFAC",
+    borderWidth: 1,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    marginBottom: 4,
+  },
+  invitedByText: { flex: 1, fontSize: 12, color: "#14532D", lineHeight: 17 },
+  invitedByName: { fontWeight: "800" },
   terms: { color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: spacing.md, lineHeight: 18 },
 });

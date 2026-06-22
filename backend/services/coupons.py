@@ -66,6 +66,59 @@ async def is_ambassador_b2b_code(code: str) -> bool:
     return hit is not None
 
 
+async def get_b2c_counterpart_for_b2b_code(code: str) -> Optional[dict]:
+    """Given a seller-recruit (B2B) code, return the matching ambassador's
+    customer-discount (B2C) code if one exists and is active.
+
+    Returns ``{"name": str, "b2c_code": str | None}`` or ``None`` if the
+    code isn't a B2B code at all. The B2C code may be ``None`` for India-only
+    ambassadors (B2B-only program) where no live customer code exists.
+    """
+    code = (code or "").strip().upper()
+    if not code:
+        return None
+    user = await db.users.find_one(
+        {"ambassador_profile.code_b2b": code,
+         "ambassador_profile.status": "active"},
+        {"_id": 0, "full_name": 1, "ambassador_profile.code": 1,
+         "ambassador_profile.program": 1},
+    )
+    if not user:
+        return None
+    prof = user.get("ambassador_profile") or {}
+    program = prof.get("program")
+    b2c_code = prof.get("code") if program in ("B2C", "BOTH") else None
+    # Verify there's a live coupon doc for the B2C code before recommending it.
+    if b2c_code:
+        cpn = await db.coupons.find_one({"code": b2c_code, "active": True}, {"_id": 0, "code": 1})
+        if not cpn:
+            b2c_code = None
+    return {"name": user.get("full_name") or "Ambassador", "b2c_code": b2c_code}
+
+
+async def get_b2b_counterpart_for_b2c_code(code: str) -> Optional[dict]:
+    """Given a customer-discount (B2C) code, return the matching ambassador's
+    seller-recruit (B2B) code if one exists.
+
+    Returns ``{"name": str, "b2b_code": str | None}`` or ``None`` if the
+    code isn't a B2C ambassador code at all.
+    """
+    code = (code or "").strip().upper()
+    if not code:
+        return None
+    user = await db.users.find_one(
+        {"ambassador_profile.code": code,
+         "ambassador_profile.status": "active"},
+        {"_id": 0, "full_name": 1, "ambassador_profile.code_b2b": 1,
+         "ambassador_profile.program": 1},
+    )
+    if not user:
+        return None
+    prof = user.get("ambassador_profile") or {}
+    return {"name": user.get("full_name") or "Ambassador",
+            "b2b_code": prof.get("code_b2b")}
+
+
 async def validate_for_cart(
     code: str,
     items: list[dict],

@@ -1336,6 +1336,12 @@ const ur = {
     already_have_account: "پہلے سے Allsale اکاؤنٹ ہے؟",
     sign_in: "سائن ان کریں",
   },
+  sell_banner: {
+    compact_prefix: "کیا آپ کو بھارت میں کوئی کاروبار ہے؟ ",
+    compact_link: "Allsale پر فروخت کریں",
+    card_title: "Allsale پر فروخت کریں",
+    card_subtitle: "اپنی مصنوعات NZ کے خریداروں کو درج کریں۔ صرف بھارت میں رجسٹرڈ کاروبار۔",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "زیادہ بیچیں، زیادہ رکھیں۔",
@@ -1962,7 +1968,7 @@ const ur = {
     toast_your_code: "آپ کا کوڈ",
     toast_share_failed_title: "شیئر نہیں کر سکے",
     toast_share_failed_body: "دوبارہ کوشش کریں۔",
-    share_msg: "Allsale پر میرا کوڈ {{code}} استعمال کریں {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale پر میرا کوڈ {{code}} استعمال کریں {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "مکمل https:// لنک پیسٹ کریں",
     post_submitted_title: "پوسٹ جمع ہو گئی ✓",
     post_submitted_body: "ہم اسے جلد تصدیق کریں گے۔",

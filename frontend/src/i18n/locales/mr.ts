@@ -1336,6 +1336,12 @@ const mr = {
     already_have_account: "आपल्याकडे आधीच Allsale खाते आहे? ",
     sign_in: "साइन इन करा",
   },
+  sell_banner: {
+    compact_prefix: "भारतात व्यवसाय असलेला आहात? ",
+    compact_link: "Allsale वर विक्रय करा",
+    card_title: "Allsale वर विक्रय करा",
+    card_subtitle: "आपल्या उत्पादनांची NZ खरेदीदारांना यादी द्या. केवळ भारत-नोंदणीकृत व्यवसाय.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "अधिक विक्रय करा, अधिक ठेवा.",
@@ -1962,7 +1968,7 @@ const mr = {
     toast_your_code: "आपला कोड",
     toast_share_failed_title: "शेयर करू शकले नाही",
     toast_share_failed_body: "पुन्हा प्रयत्न करा.",
-    share_msg: "Allsale वर माझा कोड {{code}} वापरा {{suffix}} साठी! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Allsale वर माझा कोड {{code}} वापरा {{suffix}} साठी! https://allsale.co.nz//a/{{code}}",
     err_post_url: "संपूर्ण https:// लिंक पेस्ट करा",
     post_submitted_title: "पोस्ट सबमिट केली ✓",
     post_submitted_body: "आम्ही लवकरच सत्यापित करू.",

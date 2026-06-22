@@ -1336,6 +1336,12 @@ const id = {
     already_have_account: "Sudah memiliki akun Allsale? ",
     sign_in: "Masuk",
   },
+  sell_banner: {
+    compact_prefix: "Memiliki bisnis di India? ",
+    compact_link: "Berjualan di Allsale",
+    card_title: "Berjualan di Allsale",
+    card_subtitle: "Daftarkan produk Anda kepada pembeli NZ. Hanya untuk bisnis terdaftar di India.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Jual lebih banyak, simpan lebih banyak.",
@@ -1962,7 +1968,7 @@ const id = {
     toast_your_code: "Kode Anda",
     toast_share_failed_title: "Tidak bisa dibagikan",
     toast_share_failed_body: "Coba lagi.",
-    share_msg: "Gunakan kode saya {{code}} di Allsale untuk {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Gunakan kode saya {{code}} di Allsale untuk {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Tempel tautan https:// lengkap",
     post_submitted_title: "Posting terkirim ✓",
     post_submitted_body: "Kami akan memverifikasinya segera.",

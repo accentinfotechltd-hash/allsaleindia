@@ -1948,5 +1948,9 @@
   "seller_bulk_upload.row_label_new": "সারি {{n}} · নতুন",
   "seller_bulk_upload.row_label_update": "সারি {{n}} · আপডেট",
   "seller_bulk_upload.row_name_missing_create": "(নাম অনুপস্থিত)",
-  "seller_bulk_upload.row_name_missing_update": "(নামে কোনও পরিবর্তন নেই)"
+  "seller_bulk_upload.row_name_missing_update": "(নামে কোনও পরিবর্তন নেই)",
+  "sell_banner.compact_prefix": "ভারতে ব্যবসা আছে? ",
+  "sell_banner.compact_link": "Allsale তে বিক্রয় করুন",
+  "sell_banner.card_title": "Allsale তে বিক্রয় করুন",
+  "sell_banner.card_subtitle": "NZ ক্রেতাদের কাছে আপনার পণ্য তালিকাভুক্ত করুন। শুধুমাত্র ভারত-নিবন্ধিত ব্যবসা।"
 }

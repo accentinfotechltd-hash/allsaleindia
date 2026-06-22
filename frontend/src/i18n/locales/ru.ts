@@ -1336,6 +1336,12 @@ const ru = {
     already_have_account: "Уже есть аккаунт Allsale? ",
     sign_in: "Войти",
   },
+  sell_banner: {
+    compact_prefix: "У вас есть бизнес в Индии? ",
+    compact_link: "Продавайте на Allsale",
+    card_title: "Продавайте на Allsale",
+    card_subtitle: "Выставляйте свои товары для покупателей из Новой Зеландии. Только для зарегистрированных в Индии предприятий.",
+  },
   seller_pro: {
     title: "Allsale Pro",
     hero_title: "Продавайте больше, оставляйте больше.",
@@ -1962,7 +1968,7 @@ const ru = {
     toast_your_code: "Ваш код",
     toast_share_failed_title: "Не удалось поделиться",
     toast_share_failed_body: "Попробуйте ещё раз.",
-    share_msg: "Используйте мой код {{code}} на Allsale для {{suffix}}! https://allsale.co.nz/?ref={{code}}",
+    share_msg: "Используйте мой код {{code}} на Allsale для {{suffix}}! https://allsale.co.nz//a/{{code}}",
     err_post_url: "Вставьте полную ссылку https://",
     post_submitted_title: "Пост отправлен ✓",
     post_submitted_body: "Мы проверим его в ближайшее время.",
