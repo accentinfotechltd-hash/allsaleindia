@@ -48,6 +48,7 @@ export default function NewListing() {
   const [err, setErr] = useState("");
   const [picking, setPicking] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
+  const [screenshotBusy, setScreenshotBusy] = useState(false);
 
   // New: colors, sizes, stock
   const [colorsList, setColorsList] = useState<string[]>([]);
@@ -182,6 +183,87 @@ export default function NewListing() {
   const removePhoto = (idx: number) => {
     setPhotos(photos.filter((_, i) => i !== idx));
     setPhotoUris((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  /**
+   * Pick a screenshot of an existing marketplace listing (Amazon / Flipkart
+   * / Myntra / Meesho / Etsy / Shopify) and run the AI extractor in
+   * SCREENSHOT mode — it reads the on-page text (title, description,
+   * bullets, price, category, HS code) and pre-fills the form. Does NOT
+   * add the screenshot itself to the listing photos.
+   */
+  const pickScreenshotAndFill = async () => {
+    setScreenshotBusy(true);
+    setErr("");
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        show({
+          title: "Photos access needed",
+          body: "Allow Photos access in your phone Settings to pick a screenshot.",
+          kind: "error",
+        });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.85,
+        base64: true,
+      });
+      if (result.canceled) return;
+      const asset = result.assets?.[0];
+      if (!asset) return;
+      const { uri: localUri, base64: localBase64, mime } = await compressForUpload(asset);
+      const screenshotPayload = localBase64 ? `data:${mime};base64,${localBase64}` : localUri;
+      const res = await api<{
+        draft: {
+          name: string; description: string; category: string;
+          subcategory: string | null; bullets: string[];
+          colors: string[]; sizes: string[]; materials: string[];
+          suggested_price_inr: number | null;
+          suggested_hs_code: string | null;
+          confidence: string; notes_for_seller: string;
+        };
+        model: string; took_ms: number;
+      }>("/seller/products/ai-draft", {
+        method: "POST",
+        body: { images: [screenshotPayload], mode: "screenshot", seller_hint: name || undefined },
+      });
+      const d = res.draft;
+      if (!name && d.name) setName(d.name);
+      if (!description && d.description) setDescription(d.description);
+      if (d.category && categories.includes(d.category)) setCategory(d.category);
+      if (!priceNzd && d.suggested_price_inr) {
+        setPriceNzd(String(Math.max(1, Math.round(d.suggested_price_inr / 51))));
+      }
+      if (colorsList.length === 0 && d.colors?.length) setColorsList(d.colors.slice(0, 10));
+      if (sizesList.length === 0 && d.sizes?.length) setSizesList(d.sizes.slice(0, 12));
+      const filled: string[] = [];
+      if (d.name) filled.push("name");
+      if (d.description) filled.push("description");
+      if (d.category) filled.push("category");
+      if (d.suggested_price_inr) filled.push("price");
+      if (d.colors?.length) filled.push("colors");
+      if (d.sizes?.length) filled.push("sizes");
+      const hsBit = d.suggested_hs_code ? `  ·  HS code: ${d.suggested_hs_code}` : "";
+      show({
+        title: "Screenshot read",
+        body: `Filled: ${filled.join(", ") || "nothing visible"}${hsBit}  ·  ${(res.took_ms / 1000).toFixed(1)}s`,
+        kind: "success",
+        duration: 6000,
+      });
+    } catch (e: any) {
+      const status = e?.status as number | undefined;
+      const detail = e?.message || e?.detail || "Unknown error";
+      if (status === 401) {
+        show({ title: "Session expired", body: "Please sign out and sign back in, then try again.", kind: "error", duration: 8000 });
+      } else {
+        show({ title: "Couldn't read screenshot", body: status ? `${detail} (HTTP ${status})` : detail, kind: "error", duration: 7000 });
+      }
+    } finally {
+      setScreenshotBusy(false);
+    }
   };
 
   /**
@@ -438,11 +520,11 @@ export default function NewListing() {
             <Pressable
               testID="new-listing-ai-fill"
               onPress={runAiFill}
-              disabled={aiBusy || busy}
+              disabled={aiBusy || busy || screenshotBusy}
               style={({ pressed }) => [
                 styles.aiFillBtn,
                 pressed && { opacity: 0.85 },
-                (aiBusy || busy) && { opacity: 0.7 },
+                (aiBusy || busy || screenshotBusy) && { opacity: 0.7 },
               ]}
             >
               {aiBusy ? (
@@ -459,6 +541,31 @@ export default function NewListing() {
               )}
             </Pressable>
           ) : null}
+
+          {/* Screenshot import — paste a screenshot of an existing listing
+              from Amazon/Flipkart/Myntra/Meesho/Etsy/Shopify; AI reads the
+              page text and auto-fills name/description/category/price. */}
+          <Pressable
+            testID="new-listing-screenshot-fill"
+            onPress={pickScreenshotAndFill}
+            disabled={screenshotBusy || busy || aiBusy}
+            style={({ pressed }) => [
+              styles.screenshotBtn,
+              pressed && { opacity: 0.85 },
+              (screenshotBusy || busy || aiBusy) && { opacity: 0.7 },
+            ]}
+          >
+            {screenshotBusy ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <>
+                <ImageIcon size={18} color={colors.primary} />
+                <Text style={styles.screenshotBtnText}>
+                  Already listed elsewhere? Paste a screenshot
+                </Text>
+              </>
+            )}
+          </Pressable>
 
           <Field label={t("seller_new_listing.field_name")} testID="new-listing-name" value={name} onChangeText={setName} placeholder={t("seller_new_listing.name_placeholder")} />
 
@@ -745,6 +852,19 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   aiFillBtnText: { color: "#fff", fontSize: 14, fontWeight: "700" },
+  screenshotBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    height: 46,
+    borderRadius: radius.pill,
+    marginBottom: spacing.sm,
+  },
+  screenshotBtnText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   photoRemove: {
     position: "absolute",
     top: 4,

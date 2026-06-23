@@ -28,7 +28,8 @@ MAX_TOTAL_BYTES = 15 * 1024 * 1024
 
 
 class AIDraftRequest(BaseModel):
-    images: List[str] = Field(..., min_length=1, max_length=3, description="Base64-encoded JPEG/PNG/WEBP images")
+    images: List[str] = Field(..., min_length=1, max_length=3, description="Base64-encoded JPEG/PNG/WEBP images OR public https:// URLs")
+    mode: str = Field(default="photo", pattern="^(photo|screenshot)$", description="'photo' for product photos · 'screenshot' for screenshots of an existing marketplace listing")
     seller_hint: Optional[str] = Field(default=None, max_length=200, description="Optional one-line context like 'banarasi silk saree, my own SKU 1234'")
     sku: Optional[str] = Field(default=None, max_length=64)
 
@@ -73,6 +74,7 @@ async def ai_draft_from_photos(
     try:
         draft = await extract_product_draft(
             body.images,
+            mode=body.mode,
             seller_hint=body.seller_hint,
             session_id=f"draft_{seller['id']}",
         )

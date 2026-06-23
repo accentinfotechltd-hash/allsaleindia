@@ -34,7 +34,7 @@ JPEG_QUALITY = 82
 DEFAULT_MODEL = ("anthropic", "claude-sonnet-4-5-20250929")
 
 
-SYSTEM_PROMPT = """You are an Indian e-commerce listing-copy expert who writes for the Allsale
+SYSTEM_PROMPT_PHOTO = """You are an Indian e-commerce listing-copy expert who writes for the Allsale
 marketplace selling India-made goods to shoppers in New Zealand, Australia,
 the UK and the US. You will be shown 1-3 photos of a single product.
 
@@ -58,8 +58,46 @@ Schema:
   "sizes": [str] (visible size labels; empty if none — e.g. ["S","M","L","XL"]),
   "materials": [str] (visible/likely materials — e.g. ["Cotton", "Silk"]),
   "suggested_price_inr": int (your best wholesale-friendly INR retail price),
+  "suggested_hs_code": str | null (Indian customs HS code — 6 digits, e.g. "5407.20" for synthetic sarees, "6204.40" for women's dresses, "7117.19" for imitation jewellery, "0904.21" for chillies. Null if uncertain.),
   "confidence": "high" | "medium" | "low",
   "notes_for_seller": str (1-2 sentences for the seller about any fields they should review)
+}"""
+
+
+SYSTEM_PROMPT_SCREENSHOT = """You are reading a SCREENSHOT of an existing product listing the seller has
+on another marketplace (Amazon, Flipkart, Myntra, Meesho, Etsy, Shopify,
+their own website, etc.). The seller wants to re-list the same item on
+Allsale, an Indian-export marketplace serving shoppers in New Zealand,
+Australia, the UK and the US.
+
+Treat this as OCR + understanding: read the title, price, bullet points,
+description, specifications, colour/size options, and category breadcrumb
+that are VISIBLE on the page in the screenshot. Pull the prices the seller
+is charging on the original marketplace (any currency — convert to INR if
+the source currency is INR or display the INR equivalent if you can infer
+it).
+
+Critical: pretend the screenshot is the ground truth — do NOT invent fields
+that aren't on the page. If you can't see something, return null / empty.
+
+Return exactly ONE JSON object, no markdown, no commentary, no code fence.
+
+Schema is the SAME as the photo extraction mode:
+{
+  "name": str (use the exact product title from the page, lightly cleaned),
+  "description": str (combine the on-page description + bullet points into 120-260 words),
+  "category": str (one of: "Ethnic Fashion", "Women's Clothing", "Men's Clothing",
+                  "Beauty & Health", "Jewellery", "Accessories", "Home & Kitchen",
+                  "Food & Groceries", "Electronics", "Shoes", "Toys & Kids", "Other"),
+  "subcategory": str | null,
+  "bullets": [str] (use the on-page bullets if present; otherwise generate 3-5),
+  "colors": [str],
+  "sizes": [str],
+  "materials": [str] (extract from product specifications panel),
+  "suggested_price_inr": int (page price converted to INR — use ~83 INR/USD, ~51 INR/NZD, ~110 INR/GBP, ~55 INR/AUD as approximations),
+  "suggested_hs_code": str | null,
+  "confidence": "high" | "medium" | "low",
+  "notes_for_seller": str (1-2 sentences flagging any fields you couldn't read clearly)
 }"""
 
 
@@ -168,6 +206,7 @@ def _normalize_draft(d: Dict[str, Any]) -> Dict[str, Any]:
         "sizes": lst(d.get("sizes"), 12),
         "materials": lst(d.get("materials"), 40),
         "suggested_price_inr": int(d["suggested_price_inr"]) if str(d.get("suggested_price_inr") or "").strip().isdigit() else None,
+        "suggested_hs_code": s(d.get("suggested_hs_code"), 20) or None,
         "confidence": (s(d.get("confidence"), 12).lower() or "medium"),
         "notes_for_seller": s(d.get("notes_for_seller"), 400),
     }
@@ -176,6 +215,7 @@ def _normalize_draft(d: Dict[str, Any]) -> Dict[str, Any]:
 async def extract_product_draft(
     images: List[str],
     *,
+    mode: str = "photo",
     seller_hint: Optional[str] = None,
     session_id: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -217,13 +257,20 @@ async def extract_product_draft(
     chat = LlmChat(
         api_key=api_key,
         session_id=session_id or f"draft_{uuid.uuid4().hex[:10]}",
-        system_message=SYSTEM_PROMPT,
+        system_message=SYSTEM_PROMPT_SCREENSHOT if mode == "screenshot" else SYSTEM_PROMPT_PHOTO,
     ).with_model(*DEFAULT_MODEL)
 
-    user_text = (
-        "Extract the listing JSON now. "
-        "Remember: STRICT JSON, no markdown."
-    )
+    if mode == "screenshot":
+        user_text = (
+            "Extract the listing JSON from this marketplace screenshot. "
+            "Use the on-page title, description, price (convert to INR), and bullet points. "
+            "STRICT JSON, no markdown."
+        )
+    else:
+        user_text = (
+            "Extract the listing JSON now. "
+            "Remember: STRICT JSON, no markdown."
+        )
     if seller_hint:
         user_text = f"Seller hint: '{seller_hint.strip()[:200]}'. " + user_text
 
