@@ -5,6 +5,7 @@ import { Camera, ChevronLeft, Image as ImageIcon, Plus, Sparkles, X } from "luci
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -325,6 +326,32 @@ export default function NewListing() {
           kind: "warning",
           duration: 9000,
         });
+      } else {
+        // Even when the AI didn't flag it, ask the seller — some screenshots
+        // (clean product shots on coloured backgrounds) slip past the LLM
+        // detector. Better to ask once than ship a screenshot publicly.
+        Alert.alert(
+          "Were those real product photos?",
+          "Listing photos appear publicly. If those were screenshots from another marketplace (Amazon / Flipkart / Myntra / Meesho), remove them now and add your own product photos before publishing.",
+          [
+            { text: "Real photos — keep", style: "default" },
+            {
+              text: "Screenshots — remove",
+              style: "destructive",
+              onPress: () => {
+                setPhotos([]);
+                setPhotoUris([]);
+                show({
+                  title: "Photos cleared",
+                  body: "Add 1-3 real product photos before publishing.",
+                  kind: "info",
+                  duration: 6000,
+                });
+              },
+            },
+          ],
+          { cancelable: true },
+        );
       }
 
       // Only overwrite fields the seller hasn't already typed into.
