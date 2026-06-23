@@ -59,6 +59,7 @@ Schema:
   "materials": [str] (visible/likely materials — e.g. ["Cotton", "Silk"]),
   "suggested_price_inr": int (your best wholesale-friendly INR retail price),
   "suggested_hs_code": str | null (Indian customs HS code — 6 digits, e.g. "5407.20" for synthetic sarees, "6204.40" for women's dresses, "7117.19" for imitation jewellery, "0904.21" for chillies. Null if uncertain.),
+  "is_screenshot": bool (TRUE if the photo is OBVIOUSLY a screenshot/screen-capture of another marketplace listing — e.g. you see Amazon/Flipkart/Myntra/Meesho UI elements, browser chrome, ratings stars, "Add to Cart" button, price tag overlays. FALSE for clean product shots even if shot on mannequin or with watermark. When in doubt, FALSE.),
   "confidence": "high" | "medium" | "low",
   "notes_for_seller": str (1-2 sentences for the seller about any fields they should review)
 }"""
@@ -207,6 +208,7 @@ def _normalize_draft(d: Dict[str, Any]) -> Dict[str, Any]:
         "materials": lst(d.get("materials"), 40),
         "suggested_price_inr": int(d["suggested_price_inr"]) if str(d.get("suggested_price_inr") or "").strip().isdigit() else None,
         "suggested_hs_code": s(d.get("suggested_hs_code"), 20) or None,
+        "is_screenshot": bool(d.get("is_screenshot")),
         "confidence": (s(d.get("confidence"), 12).lower() or "medium"),
         "notes_for_seller": s(d.get("notes_for_seller"), 400),
     }

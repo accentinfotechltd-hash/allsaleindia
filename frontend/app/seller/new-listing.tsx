@@ -311,6 +311,22 @@ export default function NewListing() {
         body: { images: sources, seller_hint: name || undefined },
       });
       const d = res.draft;
+
+      // Critical UX: if the AI detected the photo is actually a SCREENSHOT
+      // of another marketplace listing, immediately drop it from the listing
+      // photos. The data has already been extracted — we just don't want
+      // the screenshot to appear publicly as a product photo.
+      if ((d as any).is_screenshot) {
+        setPhotos([]);
+        setPhotoUris([]);
+        show({
+          title: "Screenshot detected — text extracted, photo removed",
+          body: "Listing photos must be your own product shots. Please add real photos before publishing.",
+          kind: "warning",
+          duration: 9000,
+        });
+      }
+
       // Only overwrite fields the seller hasn't already typed into.
       if (!name && d.name) setName(d.name);
       if (!description && d.description) setDescription(d.description);
